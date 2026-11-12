@@ -31,13 +31,21 @@ from dotenv import find_dotenv, load_dotenv  # noqa: E402
 
 load_dotenv(find_dotenv())
 
-from app.evaluation.routing_metrics import RoutingResult, summarize  # noqa: E402
+from app.evaluation.routing_metrics import (  # noqa: E402
+    ChapterRoutingResult,
+    RoutingResult,
+    SubtopicRoutingResult,
+    summarize,
+    summarize_chapter,
+    summarize_subtopic,
+)
 from app.graph import build_graph  # noqa: E402
 from app.observability.graph_visualizer import render_graph_diagram  # noqa: E402
 from app.observability.mlflow_tracing import (  # noqa: E402
     DEFAULT_TRACKING_URI,
     enable_mlflow_tracing_if_available,
 )
+from app.state import initial_state  # noqa: E402
 from scripts.run_evaluations import load_ground_truth  # noqa: E402
 
 st.set_page_config(page_title="LangGraph Routing Accuracy Lab", layout="wide")
@@ -78,23 +86,25 @@ with st.expander("🗺️ Graph visualization"):
 
 st.divider()
 
-ask_tab, eval_tab = st.tabs(["🔍 Ask a question", "📊 Level 1 evaluation"])
+ask_tab, eval_tab = st.tabs(["🔍 Ask a question", "📊 Evaluation"])
 
 with ask_tab:
     question = st.text_input("Question", placeholder="e.g. What is a Python decorator?")
     if st.button("Run", type="primary") and question:
         with st.spinner("Routing..."):
-            result = get_graph().invoke(
-                {
-                    "question": question,
-                    "agent_responses": {},
-                    "subtopic_decisions": {},
-                    "selected_subtopics": {},
-                    "execution_log": [],
-                }
-            )
+            result = get_graph().invoke(initial_state(question))
         st.subheader("Selected topic(s)")
         st.write(result["selected_topics"])
+        st.subheader("Selected subtopic(s) / chapter(s)")
+        st.write(
+            {
+                topic: {
+                    "subtopic": result["selected_subtopics"].get(topic),
+                    "chapter": result["selected_chapters"].get(topic),
+                }
+                for topic in result["selected_topics"]
+            }
+        )
         st.subheader("Final answer")
         st.write(result["final_answer"])
         st.subheader("Execution trace")
@@ -113,53 +123,90 @@ with ask_tab:
                 {
                     "complexity_decision": result.get("complexity_decision"),
                     "topic_decision": result.get("topic_decision"),
+                    "subtopic_decisions": result.get("subtopic_decisions"),
+                    "chapter_decisions": result.get("chapter_decisions"),
                 }
             )
 
 with eval_tab:
-    st.caption(
-        "Runs every Level 1 (simple topic routing) question from "
-        "datasets/routing_ground_truth.jsonl through the graph and scores the "
-        "Topic Router's output against the expected topic - deterministic "
-        "set-equality, not an LLM judge."
+    level = st.selectbox(
+        "Level",
+        [1, 2, 3],
+        format_func=lambda lv: {
+            1: "Level 1 - topic routing",
+            2: "Level 2 - subtopic routing",
+            3: "Level 3 - chapter routing",
+        }[lv],
     )
-    if st.button("Run Level 1 evaluation"):
-        cases = load_ground_truth(level=1)
+    st.caption(
+        "Runs every question for the selected level from "
+        "datasets/routing_ground_truth.jsonl through the graph and scores the router's "
+        "output against the expected topic/subtopic/chapter - deterministic equality, "
+        "not an LLM judge."
+    )
+    if st.button("Run evaluation"):
+        cases = load_ground_truth(level=level)
         graph = get_graph()
         progress = st.progress(0, text="Running...")
         rows = []
         results = []
         for i, case in enumerate(cases):
-            output = graph.invoke(
-                {
-                    "question": case["question"],
-                    "agent_responses": {},
-                    "subtopic_decisions": {},
-                    "selected_subtopics": {},
-                    "execution_log": [],
-                }
-            )
-            result = RoutingResult(
-                question_id=case["id"],
-                expected_topics=case["expected_topics"],
-                actual_topics=output["selected_topics"],
-            )
+            output = graph.invoke(initial_state(case["question"]))
+            expected_topic = case["expected_topics"][0]
+            actual_subtopic = output["selected_subtopics"].get(expected_topic)
+            actual_chapter = output["selected_chapters"].get(expected_topic)
+
+            if level == 1:
+                result = RoutingResult(
+                    question_id=case["id"],
+                    expected_topics=case["expected_topics"],
+                    actual_topics=output["selected_topics"],
+                )
+            elif level == 2:
+                result = SubtopicRoutingResult(
+                    question_id=case["id"],
+                    expected_topic=expected_topic,
+                    expected_subtopic=case["expected_subtopic"],
+                    actual_topics=output["selected_topics"],
+                    actual_subtopics=output["selected_subtopics"],
+                )
+            else:
+                result = ChapterRoutingResult(
+                    question_id=case["id"],
+                    expected_topic=expected_topic,
+                    expected_subtopic=case["expected_subtopic"],
+                    expected_chapter=case["expected_chapter"],
+                    actual_topics=output["selected_topics"],
+                    actual_subtopics=output["selected_subtopics"],
+                    actual_chapters=output["selected_chapters"],
+                )
             results.append(result)
             rows.append(
                 {
                     "id": case["id"],
                     "question": case["question"],
-                    "expected": case["expected_topics"],
-                    "actual": output["selected_topics"],
+                    "expected": f"{expected_topic} / {case.get('expected_subtopic', '')} / {case.get('expected_chapter', '')}",
+                    "actual": f"{output['selected_topics']} / {actual_subtopic} / {actual_chapter}",
                     "correct": "✅" if result.is_correct else "❌",
                 }
             )
             progress.progress((i + 1) / len(cases), text=f"{i + 1}/{len(cases)}")
 
-        summary = summarize(results)
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Topic accuracy", f"{summary['topic_accuracy']:.0%}")
-        m2.metric("Precision", f"{summary['precision']:.0%}")
-        m3.metric("Recall", f"{summary['recall']:.0%}")
-        m4.metric("Correct / Total", f"{summary['correct']}/{summary['total']}")
+        if level == 1:
+            summary = summarize(results)
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Topic accuracy", f"{summary['topic_accuracy']:.0%}")
+            m2.metric("Precision", f"{summary['precision']:.0%}")
+            m3.metric("Recall", f"{summary['recall']:.0%}")
+            m4.metric("Correct / Total", f"{summary['correct']}/{summary['total']}")
+        elif level == 2:
+            summary = summarize_subtopic(results)
+            m1, m2 = st.columns(2)
+            m1.metric("Subtopic accuracy", f"{summary['subtopic_accuracy']:.0%}")
+            m2.metric("Correct / Total", f"{summary['correct']}/{summary['total']}")
+        else:
+            summary = summarize_chapter(results)
+            m1, m2 = st.columns(2)
+            m1.metric("Chapter accuracy", f"{summary['chapter_accuracy']:.0%}")
+            m2.metric("Correct / Total", f"{summary['correct']}/{summary['total']}")
         st.dataframe(rows, use_container_width=True)

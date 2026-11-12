@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 from app.evaluation.routing_metrics import RoutingResult, summarize
+from app.state import initial_state
 from tests.conftest import load_ground_truth
 
 LEVEL_1_CASES = load_ground_truth(level=1)
@@ -31,15 +32,7 @@ MIN_TOPIC_ACCURACY = 0.9
 def test_single_question_routes_to_expected_topic(compiled_graph, case):
     """Each individual question's actual topic set must match its expected
     topic set exactly."""
-    result = compiled_graph.invoke(
-        {
-            "question": case["question"],
-            "agent_responses": {},
-            "subtopic_decisions": {},
-            "selected_subtopics": {},
-            "execution_log": [],
-        }
-    )
+    result = compiled_graph.invoke(initial_state(case["question"]))
     actual_topics = result["selected_topics"]
     assert set(actual_topics) == set(case["expected_topics"]), (
         f"{case['id']}: expected {case['expected_topics']}, got {actual_topics} "
@@ -52,15 +45,7 @@ def test_level_1_overall_topic_accuracy(compiled_graph):
     the way the Streamlit dashboard will later summarize it per level."""
     results = []
     for case in LEVEL_1_CASES:
-        output = compiled_graph.invoke(
-            {
-                "question": case["question"],
-                "agent_responses": {},
-                "subtopic_decisions": {},
-                "selected_subtopics": {},
-                "execution_log": [],
-            }
-        )
+        output = compiled_graph.invoke(initial_state(case["question"]))
         results.append(
             RoutingResult(
                 question_id=case["id"],

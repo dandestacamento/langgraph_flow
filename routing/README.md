@@ -7,7 +7,7 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 2 complete ✅
+## Status: Level 3 complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
@@ -26,21 +26,38 @@ section 9), levels are built and verified one at a time.
   topic (100% subtopic accuracy)**, across all 19 subtopics (one question
   per subtopic).
 - Verified with `pytest tests/test_subtopic_routing.py` (20 tests, all passing).
-- Full regression (Levels 1+2 together, 45 tests) re-verified after wiring
-  `subtopic_router` into the graph.
 
-Levels 3-10 (chapter routing, RAG retrieval, ambiguous questions,
-multi-chapter evidence, multi-topic parallel routing, tool selection,
-multi-hop reasoning, error recovery) are **scaffolded but not yet
-implemented** - see the `NotImplementedError` stubs in `app/rag/`,
-`app/tools/`, and `app/routers/tool_router.py`, each pointing at the level
-that builds it.
+**Level 3 (chapter routing):**
+- **38/38 Level 3 questions select the correct chapter_id within the
+  correct topic and subtopic (100% chapter accuracy)**, two questions per
+  subtopic chosen to require distinguishing between chapters, not just
+  picking the only plausible one.
+- Verified with `pytest tests/test_chapter_routing.py` (39 tests, all passing).
+- **Real finding, fixed**: the first pass had 3 failures (92% accuracy) -
+  chapter titles alone weren't enough signal (e.g. "which refrigerator has
+  a water dispenser" was misrouted to the "Features" chapter by title,
+  when the fact actually lives in "Overview"). Fixed by adding a short
+  content preview per chapter to the Chapter Selector's prompt
+  (`app/rag/ingestion.py`), not just the title - all 3 then passed. One
+  question (`L3-033`) also had a genuine content-placement ambiguity
+  between `orders` and `delivery` subtopics and was reworded, the same way
+  `L1-024` was in Level 1.
+- Full regression (Levels 1+2+3 together, 84 tests) re-verified after
+  wiring `chapter_selector` into the graph.
+
+Levels 4-10 (RAG retrieval, ambiguous questions, multi-chapter evidence,
+multi-topic parallel routing, tool selection, multi-hop reasoning, error
+recovery) are **scaffolded but not yet implemented** - see the
+`NotImplementedError` stubs in `app/rag/` (except the chapter-metadata
+parsing in `ingestion.py`, now implemented), `app/tools/`, and
+`app/routers/tool_router.py`, each pointing at the level that builds it.
 
 ## Architecture (current)
 
 ```
 START -> complexity_router -> topic_router -> subtopic_router ->
-{one agent per selected topic, via Send fan-out} -> synthesis_agent -> END
+chapter_selector -> {one agent per selected topic, via Send fan-out}
+-> synthesis_agent -> END
 ```
 
 - **`complexity_router`**: classifies simple/intermediate/complex (recorded,
@@ -49,10 +66,14 @@ START -> complexity_router -> topic_router -> subtopic_router ->
   `appliances | azure_cloud | data_engineering | python | finance | customer_support`.
 - **`subtopic_router`**: narrows each selected topic down to one of its own
   subtopics (e.g. `appliances` -> `washing_machines`), via a dynamically
-  constrained structured-output call per topic - not yet consumed by the
-  topic agents themselves (Level 3's chapter selector and Level 4's RAG
-  retrieval are where the subtopic choice starts narrowing what evidence
-  an agent sees).
+  constrained structured-output call per topic.
+- **`chapter_selector`**: narrows each (topic, subtopic) pair down to a
+  specific `chapter_id`, using real chapter titles *and* a short content
+  preview parsed from `knowledge_base/` by `app/rag/ingestion.py` - titles
+  alone were not enough signal (see the Level 3 finding above). Neither
+  the subtopic nor the chapter choice is yet consumed by the topic agents
+  themselves - Level 4's RAG retrieval is where that choice starts
+  narrowing what evidence an agent actually sees.
 - **Topic agents**: one per topic, answer directly from the LLM's own
   knowledge plus a topic-scoped system prompt (no retrieval yet - that's
   Level 4).
@@ -67,16 +88,16 @@ Streamlit dashboard for a rendered graph diagram.
 ```
 routing/
 ├── app/                   # LangGraph application code
-│   ├── routers/           # complexity_router, topic_router, subtopic_router (done); tool_router (stub)
+│   ├── routers/           # complexity, topic, subtopic, chapter_selector (done); tool_router (stub)
 │   ├── agents/             # one agent per topic + synthesis_agent
-│   ├── rag/                # ingestion/chunking/embeddings/retrieval/reranking (Level 4 stubs)
+│   ├── rag/                # ingestion.py (chapter metadata - done); chunking/embeddings/retrieval/reranking (Level 4 stubs)
 │   ├── tools/              # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
 │   ├── evaluation/          # routing_metrics (done); retrieval_metrics, answer_metrics (stubs)
 │   └── observability/      # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/         # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                # routing_ground_truth.jsonl (Level 1: 24 questions, Level 2: 19 questions)
-├── tests/                   # pytest suite: test_basic_routing.py (L1), test_subtopic_routing.py (L2)
-├── dashboard/                # Streamlit app
+├── datasets/                # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38 questions)
+├── tests/                   # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3)
+├── dashboard/                # Streamlit app (level selector covers L1-L3)
 ├── scripts/                  # generate_knowledge_base.py (done), build_index.py / run_evaluations.py
 └── requirements.txt
 ```
@@ -101,14 +122,15 @@ routing/
 # Ask a single question through the graph
 ..\.venv\Scripts\python.exe -m app.main "What is a Python decorator?"
 
-# Run the Level 1 + Level 2 pytest suites (takes several minutes - real LLM calls)
+# Run the Level 1 + Level 2 + Level 3 pytest suites (takes 15-20 minutes - real LLM calls)
 ..\.venv\Scripts\python.exe -m pytest tests\ -v
 
 # Run the same evaluation without pytest, with per-question pass/fail output
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 1
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 2
+..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 3
 
-# Launch the dashboard
+# Launch the dashboard (Evaluation tab has a Level 1/2/3 selector)
 ..\.venv\Scripts\python.exe -m streamlit run dashboard\streamlit_app.py
 ```
 
@@ -119,11 +141,13 @@ when done. Nothing here starts MLflow automatically; the dashboard and
 
 ## Next step
 
-Implement Level 3 (chapter routing): add a Chapter Selector that narrows
-each (topic, subtopic) pair down to a specific chapter_id using the
-front-matter metadata already present in every `knowledge_base/` chapter,
-wire it into `app/graph.py` after `subtopic_router`, extend
-`datasets/routing_ground_truth.jsonl` with Level 3 cases scored against
-`expected_chapter` (already present on every existing row, unused until
-now), and add `tests/test_chapter_routing.py` before moving on to Level 4
-(RAG retrieval).
+Implement Level 4 (RAG retrieval): implement `app/rag/chunking.py`,
+`embeddings.py`, and `retrieval.py`, build a Chroma index over every
+chapter via `scripts/build_index.py`, wire actual retrieved passages into
+the topic agents (replacing their current "answer from the LLM's own
+knowledge" behavior with grounded, cited answers), extend
+`datasets/retrieval_ground_truth.jsonl` and `answer_ground_truth.jsonl`
+with Level 4 cases, implement `app/evaluation/retrieval_metrics.py` and
+`answer_metrics.py` (Retrieval Recall@K, answer correctness,
+groundedness), and add `tests/test_rag_retrieval.py` before moving on to
+Level 5 (ambiguous questions).

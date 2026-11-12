@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from app.evaluation.routing_metrics import SubtopicRoutingResult, summarize_subtopic
+from app.state import initial_state
 from tests.conftest import load_ground_truth
 
 LEVEL_2_CASES = load_ground_truth(level=2)
@@ -21,15 +22,7 @@ MIN_SUBTOPIC_ACCURACY = 0.9
 
 
 def _invoke(compiled_graph, question: str) -> dict:
-    return compiled_graph.invoke(
-        {
-            "question": question,
-            "agent_responses": {},
-            "subtopic_decisions": {},
-            "selected_subtopics": {},
-            "execution_log": [],
-        }
-    )
+    return compiled_graph.invoke(initial_state(question))
 
 
 @pytest.mark.parametrize("case", LEVEL_2_CASES, ids=[c["id"] for c in LEVEL_2_CASES])

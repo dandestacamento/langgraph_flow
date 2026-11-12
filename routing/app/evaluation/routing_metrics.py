@@ -112,3 +112,50 @@ def summarize_subtopic(results: list[SubtopicRoutingResult]) -> dict[str, float 
         "correct": sum(1 for r in results if r.is_correct),
         "subtopic_accuracy": round(subtopic_accuracy(results), 4),
     }
+
+
+@dataclass
+class ChapterRoutingResult:
+    """One scored Level 3 test case: expected vs. actual (topic, subtopic,
+    chapter_id) for a single question.
+
+    Correctness requires the topic, subtopic, and chapter to all match - a
+    wrong topic or subtopic selection always counts as wrong here too,
+    same reasoning as SubtopicRoutingResult one level up (Level 3: "Correct
+    chapter identification", per
+    instructions/Langgraph_routing/2_routing_scenarios.md)."""
+
+    question_id: str
+    expected_topic: str
+    expected_subtopic: str
+    expected_chapter: str
+    actual_topics: list[str]
+    actual_subtopics: dict[str, str]
+    actual_chapters: dict[str, str]
+    is_correct: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        actual_subtopic = self.actual_subtopics.get(self.expected_topic)
+        actual_chapter = self.actual_chapters.get(self.expected_topic)
+        self.is_correct = (
+            self.expected_topic in self.actual_topics
+            and actual_subtopic == self.expected_subtopic
+            and actual_chapter == self.expected_chapter
+        )
+
+
+def chapter_accuracy(results: list[ChapterRoutingResult]) -> float:
+    """Fraction of test cases where topic, subtopic, and chapter were all
+    selected correctly. Returns 0.0 for an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_correct) / len(results)
+
+
+def summarize_chapter(results: list[ChapterRoutingResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 3 test reports."""
+    return {
+        "total": len(results),
+        "correct": sum(1 for r in results if r.is_correct),
+        "chapter_accuracy": round(chapter_accuracy(results), 4),
+    }

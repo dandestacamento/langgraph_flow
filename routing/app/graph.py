@@ -1,9 +1,10 @@
 """Builds the LangGraph `StateGraph` for the Routing Accuracy Lab.
 
-Current (Level 2) graph shape:
+Current (Level 3) graph shape:
 
     START -> complexity_router -> topic_router -> subtopic_router ->
-    {one agent per selected topic, via Send fan-out} -> synthesis_agent -> END
+    chapter_selector -> {one agent per selected topic, via Send fan-out}
+    -> synthesis_agent -> END
 
 Level 1 only ever selects a single topic, so exactly one agent node runs
 per question - but using `Send` for the fan-out (rather than a single
@@ -12,10 +13,11 @@ more than one topic later without changing this wiring, only the topic
 router's output.
 
 `subtopic_router` (Level 2) classifies each selected topic's question into
-one of that topic's subtopics, recording the decision in
-`selected_subtopics` - not yet consumed by the topic agents themselves
-(Level 3's chapter selector and Level 4's RAG retrieval are where the
-subtopic choice starts narrowing what evidence an agent sees).
+one of that topic's subtopics. `chapter_selector` (Level 3) then narrows
+that (topic, subtopic) pair down to a specific chapter_id, using the real
+chapter metadata parsed from `knowledge_base/` - neither decision is yet
+consumed by the topic agents themselves; Level 4's RAG retrieval is where
+the chapter choice starts narrowing what evidence an agent actually sees.
 
 `complexity_decision` is recorded but doesn't yet change the path taken;
 the branch it will drive (RAG for intermediate, multi-agent planning for
@@ -36,6 +38,7 @@ from app.agents import (
     python_agent,
 )
 from app.agents.synthesis_agent import synthesize
+from app.routers.chapter_selector import select_chapter
 from app.routers.complexity_router import classify_complexity
 from app.routers.subtopic_router import classify_subtopic
 from app.routers.topic_router import classify_topic
@@ -61,7 +64,7 @@ _TOPIC_AGENT_FUNCS = {
 
 
 def route_to_agents(state: RoutingState) -> list[Send]:
-    """Conditional edge from subtopic_router: fan out to one Send per
+    """Conditional edge from chapter_selector: fan out to one Send per
     selected topic. A single-topic question (Level 1-6) produces exactly
     one Send; a multi-topic question (Level 7+) produces several, which
     LangGraph executes in parallel."""
@@ -74,6 +77,7 @@ def build_graph():
     graph.add_node("complexity_router", classify_complexity)
     graph.add_node("topic_router", classify_topic)
     graph.add_node("subtopic_router", classify_subtopic)
+    graph.add_node("chapter_selector", select_chapter)
     for topic, node_name in _TOPIC_AGENT_NODES.items():
         graph.add_node(node_name, _TOPIC_AGENT_FUNCS[topic])
     graph.add_node("synthesis_agent", synthesize)
@@ -81,7 +85,8 @@ def build_graph():
     graph.add_edge(START, "complexity_router")
     graph.add_edge("complexity_router", "topic_router")
     graph.add_edge("topic_router", "subtopic_router")
-    graph.add_conditional_edges("subtopic_router", route_to_agents, list(_TOPIC_AGENT_NODES.values()))
+    graph.add_edge("subtopic_router", "chapter_selector")
+    graph.add_conditional_edges("chapter_selector", route_to_agents, list(_TOPIC_AGENT_NODES.values()))
     for node_name in _TOPIC_AGENT_NODES.values():
         graph.add_edge(node_name, "synthesis_agent")
     graph.add_edge("synthesis_agent", END)

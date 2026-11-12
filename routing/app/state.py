@@ -15,6 +15,10 @@ Level 7 (multi-topic parallel routing) without a rewrite.
 Level 2 adds subtopic routing: one subtopic decision per selected topic,
 keyed by topic in `subtopic_decisions`/`selected_subtopics` for the same
 multi-topic-ready reason `agent_responses` is keyed by topic.
+
+Level 3 adds chapter routing: one chapter decision per selected topic,
+keyed by topic in `chapter_decisions`/`selected_chapters`, following the
+same pattern.
 """
 
 from __future__ import annotations
@@ -58,6 +62,12 @@ class SubtopicDecision(TypedDict):
     reasoning: str
 
 
+class ChapterDecision(TypedDict):
+    chapter_id: str
+    confidence: float
+    reasoning: str
+
+
 class RoutingState(TypedDict):
     # Input
     question: str
@@ -73,6 +83,10 @@ class RoutingState(TypedDict):
     subtopic_decisions: Annotated[dict[str, SubtopicDecision], merge_dicts]
     selected_subtopics: Annotated[dict[str, str], merge_dicts]
 
+    # Stage 2c (chapter_selector): one chapter decision per selected topic.
+    chapter_decisions: Annotated[dict[str, ChapterDecision], merge_dicts]
+    selected_chapters: Annotated[dict[str, str], merge_dicts]
+
     # One entry per topic agent that ran, merged via reducer so multiple
     # agents can run in parallel (Level 7+) without overwriting each other.
     agent_responses: Annotated[dict[str, str], merge_dicts]
@@ -84,3 +98,22 @@ class RoutingState(TypedDict):
     # Execution trace: list of {"node", "action", "output", "duration_ms"}
     # dicts, used by evaluation/routing_metrics.py and the dashboard.
     execution_log: Annotated[list[dict], operator.add]
+
+
+def initial_state(question: str) -> dict:
+    """Base state dict for a fresh `graph.invoke()` call. Every
+    reducer-backed field (the `Annotated[..., merge_dicts/operator.add]`
+    ones above) needs an explicit empty value up front - LangGraph applies
+    the reducer to combine a channel's current value with each update, so
+    a channel that was never initialized has nothing to combine against.
+    Centralizing this here means callers don't need to repeat every
+    reducer field whenever a new one is added."""
+    return {
+        "question": question,
+        "agent_responses": {},
+        "subtopic_decisions": {},
+        "selected_subtopics": {},
+        "chapter_decisions": {},
+        "selected_chapters": {},
+        "execution_log": [],
+    }

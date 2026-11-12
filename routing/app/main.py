@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from app.graph import build_graph
 from app.observability.mlflow_tracing import enable_mlflow_tracing_if_available
+from app.state import initial_state
 
 
 def main() -> None:
@@ -27,15 +28,7 @@ def main() -> None:
         print("(MLflow tracing active - see http://127.0.0.1:5000)")
 
     graph = build_graph()
-    result = graph.invoke(
-        {
-            "question": question,
-            "agent_responses": {},
-            "subtopic_decisions": {},
-            "selected_subtopics": {},
-            "execution_log": [],
-        }
-    )
+    result = graph.invoke(initial_state(question))
 
     print(f"\nQuestion: {question}")
     print(f"Selected topic(s): {result['selected_topics']}")
