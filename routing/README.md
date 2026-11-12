@@ -7,7 +7,7 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 3 complete ✅
+## Status: Level 4 complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
@@ -42,22 +42,56 @@ section 9), levels are built and verified one at a time.
   question (`L3-033`) also had a genuine content-placement ambiguity
   between `orders` and `delivery` subtopics and was reworded, the same way
   `L1-024` was in Level 1.
-- Full regression (Levels 1+2+3 together, 84 tests) re-verified after
-  wiring `chapter_selector` into the graph.
 
-Levels 4-10 (RAG retrieval, ambiguous questions, multi-chapter evidence,
-multi-topic parallel routing, tool selection, multi-hop reasoning, error
-recovery) are **scaffolded but not yet implemented** - see the
-`NotImplementedError` stubs in `app/rag/` (except the chapter-metadata
-parsing in `ingestion.py`, now implemented), `app/tools/`, and
+**Level 4 (RAG retrieval):**
+- **19/19 answerable Level 4 questions recall the expected chapter (100%
+  Retrieval Recall@K, k=3) and produce a correctly grounded, cited
+  answer; all 3 deliberately unanswerable questions correctly report
+  insufficient information instead of fabricating an answer.**
+- Verified with `pytest tests/test_rag_retrieval.py` (43 tests, all passing).
+- Real document ingestion (YAML front matter + body), paragraph-level
+  chunking (57 chapters -> 68 chunks), OpenAI `text-embedding-3-small`
+  embeddings, and a local Chroma vector store
+  (`scripts/build_index.py` -> `routing/.chroma/`) - no stubs left in
+  `app/rag/` except `reranking.py`.
+- Topic agents no longer answer from the LLM's own general knowledge -
+  they answer *only* from passages retrieved for their (topic, subtopic),
+  citing every retrieved `chapter_id` (appended by code, never
+  self-reported by the LLM, so a citation can never be hallucinated), and
+  explicitly report insufficient information when nothing retrieved
+  actually addresses the question.
+- **Two real findings, fixed**:
+  1. A subtopic-routing gap: "What's the key difference between APR and
+     APY?" was misclassified into `investments` instead of `loans`
+     (both subtopics discuss "returns"-adjacent ideas, but only `loans`
+     actually defines APR/APY) - fixed by naming APR/APY explicitly in
+     the `loans` subtopic description (`app/config.py`), the same
+     specificity pattern already used for appliance fault codes.
+  2. Genuine LLM-level non-determinism in free-text generation (not a
+     routing/retrieval bug): the exact same question, with the exact same
+     correct passage retrieved, answered correctly 3/5 times and declined
+     2/5 times even at `temperature=0`. Reworded the agent's system
+     prompt to be explicit that it should answer confidently whenever
+     *any* retrieved excerpt addresses the question, rather than
+     declining because *other* excerpts don't apply - this is expected to
+     reduce but not eliminate occasional non-determinism, which is
+     inherent to generation (unlike the deterministic classification
+     tasks in Levels 1-3).
+- Full regression (Levels 1-4 together) re-verified after wiring
+  `rag_retriever` into the graph.
+
+Levels 5-10 (ambiguous questions, multi-chapter evidence, multi-topic
+parallel routing, tool selection, multi-hop reasoning, error recovery)
+are **scaffolded but not yet implemented** - see the `NotImplementedError`
+stubs in `app/rag/reranking.py`, `app/tools/`, and
 `app/routers/tool_router.py`, each pointing at the level that builds it.
 
 ## Architecture (current)
 
 ```
 START -> complexity_router -> topic_router -> subtopic_router ->
-chapter_selector -> {one agent per selected topic, via Send fan-out}
--> synthesis_agent -> END
+chapter_selector -> rag_retriever -> {one agent per selected topic, via
+Send fan-out} -> synthesis_agent -> END
 ```
 
 - **`complexity_router`**: classifies simple/intermediate/complex (recorded,
@@ -69,14 +103,17 @@ chapter_selector -> {one agent per selected topic, via Send fan-out}
   constrained structured-output call per topic.
 - **`chapter_selector`**: narrows each (topic, subtopic) pair down to a
   specific `chapter_id`, using real chapter titles *and* a short content
-  preview parsed from `knowledge_base/` by `app/rag/ingestion.py` - titles
-  alone were not enough signal (see the Level 3 finding above). Neither
-  the subtopic nor the chapter choice is yet consumed by the topic agents
-  themselves - Level 4's RAG retrieval is where that choice starts
-  narrowing what evidence an agent actually sees.
-- **Topic agents**: one per topic, answer directly from the LLM's own
-  knowledge plus a topic-scoped system prompt (no retrieval yet - that's
-  Level 4).
+  preview - used for evaluation/the dashboard, not to scope retrieval
+  (see `app/rag/retrieval.py` for why).
+- **`rag_retriever`**: retrieves the top-k (`app.config.RETRIEVAL_TOP_K`,
+  default 3) most similar chunks per selected topic, scoped to that
+  topic's *subtopic* (all 3-4 chapters in it), from the Chroma index -
+  keeping Retrieval Recall@K an independent measurement of vector search
+  quality rather than one that's trivially 100% whenever the Chapter
+  Selector happens to already be right.
+- **Topic agents**: one per topic, answer *only* from the passages
+  `rag_retriever` found for that topic, with appended source citations,
+  or explicitly report insufficient information.
 - **`synthesis_agent`**: pass-through for the single-topic case; will do
   real multi-topic merging once Level 7 exists to test it.
 
@@ -90,15 +127,15 @@ routing/
 ├── app/                   # LangGraph application code
 │   ├── routers/           # complexity, topic, subtopic, chapter_selector (done); tool_router (stub)
 │   ├── agents/             # one agent per topic + synthesis_agent
-│   ├── rag/                # ingestion.py (chapter metadata - done); chunking/embeddings/retrieval/reranking (Level 4 stubs)
+│   ├── rag/                # ingestion.py (chapter metadata - done); chunking/embeddings/retrieval (done); reranking (stub)
 │   ├── tools/              # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
-│   ├── evaluation/          # routing_metrics (done); retrieval_metrics, answer_metrics (stubs)
+│   ├── evaluation/          # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/      # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/         # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38 questions)
-├── tests/                   # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3)
-├── dashboard/                # Streamlit app (level selector covers L1-L3)
-├── scripts/                  # generate_knowledge_base.py (done), build_index.py / run_evaluations.py
+├── datasets/                # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22 questions)
+├── tests/                   # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4)
+├── dashboard/                # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
+├── scripts/                  # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
 ```
 
@@ -119,10 +156,15 @@ routing/
 # scripts/generate_knowledge_base.py)
 ..\.venv\Scripts\python.exe scripts\generate_knowledge_base.py
 
+# Build/rebuild the Chroma vector index (needed after regenerating the
+# knowledge base - tests auto-build it on a fresh checkout if missing,
+# but won't auto-rebuild a stale one)
+..\.venv\Scripts\python.exe scripts\build_index.py
+
 # Ask a single question through the graph
 ..\.venv\Scripts\python.exe -m app.main "What is a Python decorator?"
 
-# Run the Level 1 + Level 2 + Level 3 pytest suites (takes 15-20 minutes - real LLM calls)
+# Run all pytest suites (takes 25-35 minutes - real LLM + embedding calls)
 ..\.venv\Scripts\python.exe -m pytest tests\ -v
 
 # Run the same evaluation without pytest, with per-question pass/fail output
@@ -130,7 +172,8 @@ routing/
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 2
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 3
 
-# Launch the dashboard (Evaluation tab has a Level 1/2/3 selector)
+# Launch the dashboard (Evaluation tab has a Level 1/2/3 selector; Ask
+# tab shows retrieved chapters, citations, and insufficient-info behavior)
 ..\.venv\Scripts\python.exe -m streamlit run dashboard\streamlit_app.py
 ```
 
@@ -141,13 +184,10 @@ when done. Nothing here starts MLflow automatically; the dashboard and
 
 ## Next step
 
-Implement Level 4 (RAG retrieval): implement `app/rag/chunking.py`,
-`embeddings.py`, and `retrieval.py`, build a Chroma index over every
-chapter via `scripts/build_index.py`, wire actual retrieved passages into
-the topic agents (replacing their current "answer from the LLM's own
-knowledge" behavior with grounded, cited answers), extend
-`datasets/retrieval_ground_truth.jsonl` and `answer_ground_truth.jsonl`
-with Level 4 cases, implement `app/evaluation/retrieval_metrics.py` and
-`answer_metrics.py` (Retrieval Recall@K, answer correctness,
-groundedness), and add `tests/test_rag_retrieval.py` before moving on to
-Level 5 (ambiguous questions).
+Implement Level 5 (ambiguous questions): add clarification/confidence
+handling for questions that are genuinely ambiguous between topics or
+subtopics (distinct from Levels 1-4's deliberately unambiguous test
+questions) - likely branching on `complexity_decision` for the first time
+(an `intermediate`/low-confidence path that asks a clarifying question
+instead of guessing), extending `datasets/routing_ground_truth.jsonl`
+with Level 5 cases, and adding `tests/test_ambiguous_questions.py`.

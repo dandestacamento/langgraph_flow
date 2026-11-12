@@ -11,10 +11,9 @@ was misrouted to the "Features" chapter by title alone, when the fact
 actually lives in "Overview" - so a short preview is included to give the
 Chapter Selector real content signal, not just a title to pattern-match.)
 
-Level 4 (RAG retrieval) extends this with full document body loading and
-the chunking/embedding/indexing pipeline (`chunking.py`, `embeddings.py`,
-`retrieval.py`), not yet implemented - `load_knowledge_base_documents`
-below is still a Level 4 stub.
+Level 4 (RAG retrieval) extends this with full document body loading via
+`load_knowledge_base_documents`, feeding `chunking.py` -> `embeddings.py`
+-> the Chroma index built by `scripts/build_index.py`.
 """
 
 from __future__ import annotations
@@ -33,10 +32,10 @@ _PREVIEW_CHARS = 400
 
 
 def parse_chapter_file(path: Path) -> dict:
-    """Parse one chapter Markdown file's YAML front matter, H1 title, and
-    a short preview of the body text (post-heading). Raises ValueError if
-    the file is missing the expected front matter block (every chapter
-    written by generate_knowledge_base.py has one)."""
+    """Parse one chapter Markdown file's YAML front matter, H1 title, full
+    body text (post-heading), and a short preview of that body. Raises
+    ValueError if the file is missing the expected front matter block
+    (every chapter written by generate_knowledge_base.py has one)."""
     text = path.read_text(encoding="utf-8")
     match = _FRONT_MATTER_RE.match(text)
     if not match:
@@ -48,20 +47,27 @@ def parse_chapter_file(path: Path) -> dict:
     title = title_match.group(1).strip() if title_match else path.stem
 
     body_after_heading = body[title_match.end():] if title_match else body
+    body_after_heading = body_after_heading.strip()
     preview_text = " ".join(body_after_heading.split())
     preview = preview_text[:_PREVIEW_CHARS].rstrip()
     if len(preview_text) > _PREVIEW_CHARS:
         preview += "..."
 
-    return {**front_matter, "title": title, "preview": preview, "path": str(path)}
+    return {
+        **front_matter,
+        "title": title,
+        "body": body_after_heading,
+        "preview": preview,
+        "path": str(path),
+    }
 
 
 @lru_cache(maxsize=1)
 def _all_chapter_metadata() -> tuple[dict, ...]:
-    """Every chapter's metadata across the whole knowledge base, cached for
-    the process lifetime - the knowledge base is static at runtime; re-run
-    scripts/generate_knowledge_base.py and restart the process to pick up
-    content changes."""
+    """Every chapter's metadata (including full body) across the whole
+    knowledge base, cached for the process lifetime - the knowledge base
+    is static at runtime; re-run scripts/generate_knowledge_base.py and
+    restart the process to pick up content changes."""
     chapters: list[dict] = []
     for topic, subtopics in TOPIC_SUBTOPICS.items():
         for subtopic in subtopics:
@@ -77,9 +83,7 @@ def list_chapter_metadata(topic: str, subtopic: str) -> list[dict]:
     return [c for c in _all_chapter_metadata() if c["topic"] == topic and c["subtopic"] == subtopic]
 
 
-def load_knowledge_base_documents():
-    raise NotImplementedError(
-        "Full document body loading for RAG is implemented starting at Level 4 (see "
-        "instructions/Langgraph_routing/2_routing_scenarios.md). Level 3 only needs "
-        "chapter metadata - see list_chapter_metadata() above."
-    )
+def load_knowledge_base_documents() -> list[dict]:
+    """Every chapter's full metadata + body text across the whole
+    knowledge base, ready to be split into chunks by `chunking.py`."""
+    return list(_all_chapter_metadata())

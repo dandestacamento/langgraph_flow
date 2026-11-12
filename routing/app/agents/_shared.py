@@ -1,12 +1,15 @@
 """Shared helper for the six topic agents (appliance, azure, data
 engineering, python, finance, customer_support).
 
-Level 1 agents answer directly from the LLM's own knowledge plus a
-topic-scoped system prompt - they do not yet retrieve from the knowledge
-base (that's Level 4, via `app/rag`). Factoring the actual LLM call out
-into one function here keeps each per-topic agent file to "what topic am
-I, and what's my prompt", which is what later levels (RAG context
-injection, tool calls) will need to extend independently per topic.
+Level 4 (RAG retrieval) grounds every agent in the passages retrieved by
+`app.rag.retrieval.retrieve_evidence` for that topic (`retrieved_passages`
+in state) instead of answering from the LLM's own general knowledge -
+per instructions/Langgraph_routing/7_to_8_routing_configuration.md section
+3 ("Do not generate unsupported answers. If evidence is insufficient,
+request clarification or explicitly report insufficient information.").
+Citations are appended by this code (listing every retrieved chapter_id),
+not self-reported by the LLM, so a citation is never hallucinated - it
+always reflects what was actually retrieved.
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ from langchain_openai import ChatOpenAI
 
 from app.config import AGENT_MODEL, TOPIC_SUBTOPICS
 from app.state import RoutingState
+
+INSUFFICIENT_INFO_MARKER = "Insufficient information in the knowledge base to answer this question."
 
 _AGENT_SYSTEM_PROMPTS = {
     "appliances": (
@@ -49,15 +54,31 @@ _AGENT_SYSTEM_PROMPTS = {
 }
 
 
+def _build_context_block(passages: list[dict]) -> str:
+    if not passages:
+        return "(no passages retrieved)"
+    return "\n\n".join(f"[{p['chapter_id']}] {p['text']}" for p in passages)
+
+
 def run_topic_agent(topic: str, state: RoutingState) -> dict:
-    """Shared node body for every topic agent: answer the question using a
-    topic-scoped system prompt, and record the result under
+    """Shared node body for every topic agent: answer the question using
+    ONLY the passages retrieved for this topic, falling back to
+    INSUFFICIENT_INFO_MARKER when they don't actually support an answer,
+    and record the result (with appended source citations) under
     `agent_responses[topic]`."""
     start = time.perf_counter()
+    passages = state.get("retrieved_passages", {}).get(topic, [])
+
     llm = ChatOpenAI(model=AGENT_MODEL, temperature=0)
-    system_prompt = _AGENT_SYSTEM_PROMPTS[topic] + (
-        f" Relevant subtopics: {', '.join(TOPIC_SUBTOPICS[topic])}. "
-        "If the question is outside your topic, say so briefly instead of guessing."
+    system_prompt = (
+        f"{_AGENT_SYSTEM_PROMPTS[topic]} Relevant subtopics: {', '.join(TOPIC_SUBTOPICS[topic])}.\n\n"
+        "Answer using ONLY the knowledge base excerpts below - do not use any outside knowledge, "
+        "even general knowledge you already have about this subject. Each excerpt is labeled with "
+        "its chapter_id. If ANY excerpt directly addresses the question, answer confidently from "
+        "it, even if other excerpts are irrelevant - do not decline just because some excerpts "
+        "don't apply. Only respond with the exact sentence below, and nothing else, if NONE of "
+        f'the excerpts address the question at all: "{INSUFFICIENT_INFO_MARKER}"\n\n'
+        f"Knowledge base excerpts:\n{_build_context_block(passages)}"
     )
     response = llm.invoke(
         [
@@ -65,8 +86,14 @@ def run_topic_agent(topic: str, state: RoutingState) -> dict:
             ("human", state["question"]),
         ]
     )
+    answer = response.content.strip()
+
+    is_insufficient = INSUFFICIENT_INFO_MARKER.lower() in answer.lower()
+    if not is_insufficient and passages:
+        cited_chapters = sorted({p["chapter_id"] for p in passages})
+        answer = f"{answer}\n\nSources: {', '.join(cited_chapters)}"
+
     duration_ms = (time.perf_counter() - start) * 1000
-    answer = response.content
 
     return {
         "agent_responses": {topic: answer},
@@ -74,7 +101,11 @@ def run_topic_agent(topic: str, state: RoutingState) -> dict:
             {
                 "node": f"{topic}_agent",
                 "action": "answer",
-                "output": {"answer_preview": answer[:200]},
+                "output": {
+                    "answer_preview": answer[:200],
+                    "insufficient_info": is_insufficient,
+                    "retrieved_chapters": [p["chapter_id"] for p in passages],
+                },
                 "duration_ms": round(duration_ms, 1),
             }
         ],

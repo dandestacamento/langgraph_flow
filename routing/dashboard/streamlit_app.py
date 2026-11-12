@@ -107,6 +107,12 @@ with ask_tab:
         )
         st.subheader("Final answer")
         st.write(result["final_answer"])
+        with st.expander("Retrieved passages", expanded=False):
+            for topic in result["selected_topics"]:
+                st.caption(f"Topic: {topic}")
+                for p in result["retrieved_passages"].get(topic, []):
+                    st.markdown(f"**[{p['chapter_id']}]** (score {p['score']:.3f})")
+                    st.caption(p["text"])
         st.subheader("Execution trace")
         st.table(
             [

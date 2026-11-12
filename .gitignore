@@ -4,6 +4,11 @@ mlflow.db
 *.stderr.log
 *.stdout.log
 
+# Routing Accuracy Lab: local Chroma vector store (rebuild with
+# routing/scripts/build_index.py; not committed since it's regenerable
+# and would otherwise commit raw OpenAI embedding vectors).
+routing/.chroma/
+
 # Python
 __pycache__/
 *.py[cod]

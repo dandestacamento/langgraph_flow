@@ -1,14 +1,19 @@
-"""Embeddings: Level 4 (RAG retrieval). Not yet wired in.
+"""Embeddings.
 
-Will embed chunks with OpenAI's `text-embedding-3-small`
-(see `app.config.EMBEDDING_MODEL`) for indexing into Chroma.
+Wraps `langchain_openai.OpenAIEmbeddings` with `app.config.EMBEDDING_MODEL`
+(`text-embedding-3-small`) so `retrieval.py` and `scripts/build_index.py`
+share one embeddings client configuration.
 """
 
 from __future__ import annotations
 
+from functools import lru_cache
 
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    raise NotImplementedError(
-        "Embeddings are implemented starting at Level 4 (see "
-        "instructions/Langgraph_routing/2_routing_scenarios.md)."
-    )
+from langchain_openai import OpenAIEmbeddings
+
+from app.config import EMBEDDING_MODEL
+
+
+@lru_cache(maxsize=1)
+def get_embeddings_client() -> OpenAIEmbeddings:
+    return OpenAIEmbeddings(model=EMBEDDING_MODEL)

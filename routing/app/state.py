@@ -19,6 +19,12 @@ multi-topic-ready reason `agent_responses` is keyed by topic.
 Level 3 adds chapter routing: one chapter decision per selected topic,
 keyed by topic in `chapter_decisions`/`selected_chapters`, following the
 same pattern.
+
+Level 4 adds RAG retrieval: one list of retrieved passages per selected
+topic, keyed by topic in `retrieved_passages`, scoped to that topic's
+subtopic (not narrowed to the single chapter_selector guess - see
+`app/rag/retrieval.py` for why) and consumed by the topic agents to
+ground their answers instead of answering from the LLM's own knowledge.
 """
 
 from __future__ import annotations
@@ -87,6 +93,10 @@ class RoutingState(TypedDict):
     chapter_decisions: Annotated[dict[str, ChapterDecision], merge_dicts]
     selected_chapters: Annotated[dict[str, str], merge_dicts]
 
+    # Stage 3 (rag_retriever): one list of retrieved passages per selected
+    # topic, each a dict with text/chapter_id/document_id/subtopic/score.
+    retrieved_passages: Annotated[dict[str, list[dict]], merge_dicts]
+
     # One entry per topic agent that ran, merged via reducer so multiple
     # agents can run in parallel (Level 7+) without overwriting each other.
     agent_responses: Annotated[dict[str, str], merge_dicts]
@@ -115,5 +125,6 @@ def initial_state(question: str) -> dict:
         "selected_subtopics": {},
         "chapter_decisions": {},
         "selected_chapters": {},
+        "retrieved_passages": {},
         "execution_log": [],
     }

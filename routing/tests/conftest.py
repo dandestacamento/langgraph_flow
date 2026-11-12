@@ -21,6 +21,7 @@ from dotenv import find_dotenv, load_dotenv  # noqa: E402
 # .env (routing/ has no .env of its own) regardless of the pytest cwd.
 load_dotenv(find_dotenv())
 
+from app.config import CHROMA_PERSIST_DIR  # noqa: E402
 from app.graph import build_graph  # noqa: E402
 
 GROUND_TRUTH_PATH = _PROJECT_ROOT / "datasets" / "routing_ground_truth.jsonl"
@@ -37,6 +38,20 @@ def load_ground_truth(level: int | None = None) -> list[dict]:
             if level is None or row["level"] == level:
                 rows.append(row)
     return rows
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_chroma_index_exists():
+    """Level 4+ tests need the Chroma vector index built (see
+    scripts/build_index.py). Build it automatically on a fresh checkout
+    so `pytest` works without a manual step - but don't rebuild it every
+    run; it's deterministic from `knowledge_base/`, so an existing index
+    is left alone (re-run scripts/build_index.py by hand after editing
+    the knowledge base generation script)."""
+    if not CHROMA_PERSIST_DIR.exists():
+        from scripts.build_index import main as build_index
+
+        build_index()
 
 
 @pytest.fixture(scope="session")
