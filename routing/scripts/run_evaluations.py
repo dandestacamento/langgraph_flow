@@ -52,7 +52,15 @@ def run_level(level: int, graph) -> dict:
 
     results = []
     for case in cases:
-        output = graph.invoke({"question": case["question"], "agent_responses": {}, "execution_log": []})
+        output = graph.invoke(
+            {
+                "question": case["question"],
+                "agent_responses": {},
+                "subtopic_decisions": {},
+                "selected_subtopics": {},
+                "execution_log": [],
+            }
+        )
         results.append(
             RoutingResult(
                 question_id=case["id"],

@@ -11,6 +11,10 @@ Level 1 only ever selects a single topic (`selected_topics` has length 1)
 and runs a single agent. `agent_responses` is still a dict keyed by topic
 and `selected_topics` is still a list so the same graph shape extends to
 Level 7 (multi-topic parallel routing) without a rewrite.
+
+Level 2 adds subtopic routing: one subtopic decision per selected topic,
+keyed by topic in `subtopic_decisions`/`selected_subtopics` for the same
+multi-topic-ready reason `agent_responses` is keyed by topic.
 """
 
 from __future__ import annotations
@@ -48,6 +52,12 @@ class TopicDecision(TypedDict):
     reasoning: str
 
 
+class SubtopicDecision(TypedDict):
+    subtopic: str
+    confidence: float
+    reasoning: str
+
+
 class RoutingState(TypedDict):
     # Input
     question: str
@@ -58,6 +68,10 @@ class RoutingState(TypedDict):
     # Stage 2 (topic_router): one or more topics the question belongs to.
     topic_decision: TopicDecision | None
     selected_topics: list[Topic]
+
+    # Stage 2b (subtopic_router): one subtopic decision per selected topic.
+    subtopic_decisions: Annotated[dict[str, SubtopicDecision], merge_dicts]
+    selected_subtopics: Annotated[dict[str, str], merge_dicts]
 
     # One entry per topic agent that ran, merged via reducer so multiple
     # agents can run in parallel (Level 7+) without overwriting each other.

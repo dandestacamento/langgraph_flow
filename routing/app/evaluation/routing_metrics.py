@@ -69,3 +69,46 @@ def summarize(results: list[RoutingResult]) -> dict[str, float | int]:
         "recall": round(metrics["recall"], 4),
         "f1": round(metrics["f1"], 4),
     }
+
+
+@dataclass
+class SubtopicRoutingResult:
+    """One scored Level 2 test case: expected vs. actual (topic, subtopic)
+    for a single question.
+
+    Correctness requires both the topic and the subtopic to match. A
+    wrong topic selection always counts as wrong here too - subtopic
+    routing is defined as narrowing an already-correct topic down
+    further, per instructions/Langgraph_routing/2_routing_scenarios.md
+    (Level 2: "Correct subtopic selection")."""
+
+    question_id: str
+    expected_topic: str
+    expected_subtopic: str
+    actual_topics: list[str]
+    actual_subtopics: dict[str, str]
+    is_correct: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        actual_subtopic = self.actual_subtopics.get(self.expected_topic)
+        self.is_correct = (
+            self.expected_topic in self.actual_topics
+            and actual_subtopic == self.expected_subtopic
+        )
+
+
+def subtopic_accuracy(results: list[SubtopicRoutingResult]) -> float:
+    """Fraction of test cases where both topic and subtopic were selected
+    correctly. Returns 0.0 for an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_correct) / len(results)
+
+
+def summarize_subtopic(results: list[SubtopicRoutingResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 2 test reports."""
+    return {
+        "total": len(results),
+        "correct": sum(1 for r in results if r.is_correct),
+        "subtopic_accuracy": round(subtopic_accuracy(results), 4),
+    }

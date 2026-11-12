@@ -27,7 +27,15 @@ def main() -> None:
         print("(MLflow tracing active - see http://127.0.0.1:5000)")
 
     graph = build_graph()
-    result = graph.invoke({"question": question, "agent_responses": {}, "execution_log": []})
+    result = graph.invoke(
+        {
+            "question": question,
+            "agent_responses": {},
+            "subtopic_decisions": {},
+            "selected_subtopics": {},
+            "execution_log": [],
+        }
+    )
 
     print(f"\nQuestion: {question}")
     print(f"Selected topic(s): {result['selected_topics']}")

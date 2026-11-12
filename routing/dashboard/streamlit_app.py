@@ -85,7 +85,13 @@ with ask_tab:
     if st.button("Run", type="primary") and question:
         with st.spinner("Routing..."):
             result = get_graph().invoke(
-                {"question": question, "agent_responses": {}, "execution_log": []}
+                {
+                    "question": question,
+                    "agent_responses": {},
+                    "subtopic_decisions": {},
+                    "selected_subtopics": {},
+                    "execution_log": [],
+                }
             )
         st.subheader("Selected topic(s)")
         st.write(result["selected_topics"])
@@ -125,7 +131,13 @@ with eval_tab:
         results = []
         for i, case in enumerate(cases):
             output = graph.invoke(
-                {"question": case["question"], "agent_responses": {}, "execution_log": []}
+                {
+                    "question": case["question"],
+                    "agent_responses": {},
+                    "subtopic_decisions": {},
+                    "selected_subtopics": {},
+                    "execution_log": [],
+                }
             )
             result = RoutingResult(
                 question_id=case["id"],

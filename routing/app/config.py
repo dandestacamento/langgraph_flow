@@ -35,3 +35,29 @@ TOPIC_SUBTOPICS: dict[str, list[str]] = {
 }
 
 TOPICS: list[str] = list(TOPIC_SUBTOPICS.keys())
+
+# Short descriptions used by app/routers/subtopic_router.py to give the LLM
+# enough context to disambiguate subtopics within a topic. Keyed by
+# (topic, subtopic); kept here rather than in the router module so they
+# stay next to the subtopic list they describe.
+SUBTOPIC_DESCRIPTIONS: dict[tuple[str, str], str] = {
+    ("appliances", "refrigerators"): "Refrigerator models, features, and fault codes (E01/E05/E09).",
+    ("appliances", "washing_machines"): "Washing machine models, cycles, and fault codes (E10/E21/E42).",
+    ("appliances", "dishwashers"): "Dishwasher models, cycles, and fault codes (E3/E4/E7).",
+    ("azure_cloud", "networking"): "VNets, subnets, and Network Security Groups.",
+    ("azure_cloud", "compute"): "VMs, VM sizes, Scale Sets, and App Service.",
+    ("azure_cloud", "security"): "RBAC, managed identity, and Key Vault.",
+    ("azure_cloud", "storage"): "Blob Storage tiers, Table Storage partitions, and redundancy options.",
+    ("data_engineering", "spark"): "Spark overview, partitions/shuffles, and performance optimization.",
+    ("data_engineering", "databricks"): "Databricks clusters, Delta Lake, and jobs.",
+    ("data_engineering", "adf"): "Azure Data Factory pipelines, triggers, and mapping data flows.",
+    ("python", "fundamentals"): "Functions, decorators, and built-in data types.",
+    ("python", "oop"): "Classes, inheritance/MRO, and dunder methods.",
+    ("python", "concurrency"): "Threading, asyncio, and multiprocessing.",
+    ("finance", "budgeting"): "Budgeting basics, expense tracking, and emergency funds.",
+    ("finance", "loans"): "Interest basics, amortization, and loan types.",
+    ("finance", "investments"): "Investment returns, risk/volatility, and diversification.",
+    ("customer_support", "orders"): "Placing, tracking, and cancelling orders.",
+    ("customer_support", "refunds"): "Refund policy, process, and exceptions.",
+    ("customer_support", "delivery"): "Shipping methods, delivery delays, and warehouse operations.",
+}

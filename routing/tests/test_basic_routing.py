@@ -32,7 +32,13 @@ def test_single_question_routes_to_expected_topic(compiled_graph, case):
     """Each individual question's actual topic set must match its expected
     topic set exactly."""
     result = compiled_graph.invoke(
-        {"question": case["question"], "agent_responses": {}, "execution_log": []}
+        {
+            "question": case["question"],
+            "agent_responses": {},
+            "subtopic_decisions": {},
+            "selected_subtopics": {},
+            "execution_log": [],
+        }
     )
     actual_topics = result["selected_topics"]
     assert set(actual_topics) == set(case["expected_topics"]), (
@@ -47,7 +53,13 @@ def test_level_1_overall_topic_accuracy(compiled_graph):
     results = []
     for case in LEVEL_1_CASES:
         output = compiled_graph.invoke(
-            {"question": case["question"], "agent_responses": {}, "execution_log": []}
+            {
+                "question": case["question"],
+                "agent_responses": {},
+                "subtopic_decisions": {},
+                "selected_subtopics": {},
+                "execution_log": [],
+            }
         )
         results.append(
             RoutingResult(
