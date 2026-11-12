@@ -5,8 +5,11 @@ Run with: streamlit run app.py
 
 from __future__ import annotations
 
+import uuid
+
 import streamlit as st
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import InMemorySaver
 
 from graph.workflow import build_graph
 
@@ -17,19 +20,10 @@ st.set_page_config(page_title="SmartHome Appliances - CSR Dashboard", layout="wi
 
 @st.cache_resource
 def get_graph():
-    return build_graph()
-
-
-def new_state(message: str) -> dict:
-    return {
-        "customer_message": message,
-        "order_id": None,
-        "router_decision": None,
-        "selected_agents": [],
-        "agent_responses": {},
-        "final_response": "",
-        "execution_log": [],
-    }
+    # InMemorySaver persists conversation state (order_id, troubleshooting
+    # history, ...) for the lifetime of this process, keyed by thread_id -
+    # see graph/workflow.py's `extract_context` and `conversation_history`.
+    return build_graph(checkpointer=InMemorySaver())
 
 
 st.title("SmartHome Appliances — CSR Dashboard")
@@ -37,6 +31,9 @@ st.caption("Mock customer support application, built on LangGraph")
 
 if "history" not in st.session_state:
     st.session_state.history = []
+if "thread_id" not in st.session_state:
+    # One thread_id per browser session = one persisted conversation.
+    st.session_state.thread_id = str(uuid.uuid4())
 
 chat_col, inspector_col = st.columns([2, 1])
 
@@ -46,7 +43,8 @@ with chat_col:
 
     if message:
         graph = get_graph()
-        result = graph.invoke(new_state(message))
+        config = {"configurable": {"thread_id": st.session_state.thread_id}}
+        result = graph.invoke({"customer_message": message}, config=config)
         st.session_state.history.append((message, result))
 
     for customer_message, result in st.session_state.history:
@@ -54,6 +52,7 @@ with chat_col:
             st.write(customer_message)
         with st.chat_message("assistant"):
             st.write(result["final_response"])
+
 
 with inspector_col:
     st.subheader("Graph Execution Inspector")

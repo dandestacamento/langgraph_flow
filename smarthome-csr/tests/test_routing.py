@@ -29,8 +29,9 @@ def test_route_to_agents_single_implemented_agent():
 
 
 def test_route_to_agents_filters_unimplemented_agents():
-    # orders/returns aren't wired into the Phase 1 graph yet.
-    assert route_to_agents(_state(["warranty", "orders"])) == ["warranty"]
+    # `returns` isn't wired into the graph until Phase 3 (needs the human
+    # approval gate), so it should be filtered out of the routing decision.
+    assert route_to_agents(_state(["warranty", "returns"])) == ["warranty"]
 
 
 def test_route_to_agents_multiple_agents_preserved():

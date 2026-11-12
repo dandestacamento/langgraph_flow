@@ -1,9 +1,9 @@
 """Human-in-the-loop interrupt/resume tests.
 
-Out of scope for Phase 1 ("Basic routing"). These will be implemented in
-Phase 3 ("Advanced orchestration") once the Approval Gate node and
-LangGraph checkpointing are added to the graph (see
-instructions/SmartHome_Appliances/9_dev_phase.md).
+Still out of scope: Phase 2 added LangGraph checkpointing for conversation
+memory, but the Approval Gate node (which pauses the graph with `interrupt`
+and resumes via a CSR decision) is Phase 3 ("Advanced orchestration") work -
+see instructions/SmartHome_Appliances/9_dev_phase.md.
 """
 
 from __future__ import annotations

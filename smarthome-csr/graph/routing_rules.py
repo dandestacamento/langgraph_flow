@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from graph.state import CSRState
 
-# Only these agents are wired into the graph in Phase 1. `orders` and
-# `returns` are added in later phases (see agents/orders_agent.py and
-# agents/returns_agent.py).
-IMPLEMENTED_AGENTS = {"product", "technical", "warranty"}
+# Agents wired into the graph so far (Phase 1: product/technical/warranty,
+# Phase 2 adds orders). `returns` is added in Phase 3, alongside the human
+# approval gate it needs (see agents/returns_agent.py).
+IMPLEMENTED_AGENTS = {"product", "technical", "warranty", "orders"}
 
 
 def route_to_agents(state: CSRState) -> list[str]:
