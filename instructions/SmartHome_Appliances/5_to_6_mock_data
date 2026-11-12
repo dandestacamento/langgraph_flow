@@ -1,0 +1,62 @@
+5. Mock data for your appliance store
+You don't need a real database initially. Use JSON files to simulate an enterprise system.
+Mock file	Example contents
+products.json	Appliance ID, brand, model, price, features
+inventory.json	SKU, stock quantity, warehouse
+customers.json	Customer ID, name, contact
+orders.json	Order ID, customer ID, items, delivery status
+warranties.json	Product, purchase date, coverage details
+returns.json	Return ID, reason, status
+policies.json	Refund, warranty, delivery and escalation rules
+
+For an Australian retailer, you could also model Australian Consumer Law rights separately from voluntary manufacturer warranties. That makes the refund and warranty workflows more realistic.
+6. Suggested project structure for VS Code
+smarthome-csr/
+│
+├── app.py                   # Streamlit CSR dashboard
+├── main.py                  # Application entry point
+│
+├── graph/
+│   ├── workflow.py          # LangGraph StateGraph
+│   ├── state.py             # Shared graph state
+│   ├── router.py            # Intent classification
+│   └── routing_rules.py     # Conditional routing
+│
+├── agents/
+│   ├── product_agent.py
+│   ├── technical_agent.py
+│   ├── warranty_agent.py
+│   ├── orders_agent.py
+│   └── returns_agent.py
+│
+├── tools/
+│   ├── product_tools.py
+│   ├── inventory_tools.py
+│   ├── order_tools.py
+│   └── warranty_tools.py
+│
+├── data/
+│   ├── products.json
+│   ├── inventory.json
+│   ├── customers.json
+│   ├── orders.json
+│   └── policies.json
+│
+├── tests/
+│   ├── test_routing.py
+│   ├── test_workflows.py
+│   └── test_interrupts.py
+│
+└── requirements.txt
+
+
+For your stack, I'd suggest:
+Component	Technology
+Agent orchestration	LangGraph
+LLM	OpenAI API or local Ollama
+CSR interface	Streamlit
+Mock database	JSON, later SQLite
+Graph visualization	LangGraph Mermaid
+Agent tracing	MLflow Tracing
+Automated testing	pytest
+Development	VS Code + GitHub Copilot

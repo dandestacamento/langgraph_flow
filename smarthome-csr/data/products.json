@@ -1,0 +1,100 @@
+[
+  {
+    "product_id": "FRIDGE-001",
+    "brand": "Samsung",
+    "model": "RF23A2651",
+    "category": "refrigerator",
+    "price": 1899.00,
+    "capacity_l": 442,
+    "features": ["frost-free", "inverter compressor"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "FRIDGE-002",
+    "brand": "LG",
+    "model": "GSL360",
+    "category": "refrigerator",
+    "price": 1399.00,
+    "capacity_l": 410,
+    "features": ["frost-free", "door-in-door"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "FRIDGE-003",
+    "brand": "Haier",
+    "model": "HRF420",
+    "category": "refrigerator",
+    "price": 999.00,
+    "capacity_l": 420,
+    "features": ["frost-free"],
+    "delivery_included": false
+  },
+  {
+    "product_id": "WASHER-001",
+    "brand": "Samsung",
+    "model": "WW90T",
+    "category": "washing_machine",
+    "price": 1099.00,
+    "capacity_kg": 9,
+    "features": ["inverter motor", "steam wash"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "WASHER-002",
+    "brand": "LG",
+    "model": "WV5-1409",
+    "category": "washing_machine",
+    "price": 899.00,
+    "capacity_kg": 8.5,
+    "features": ["direct drive motor"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "DRYER-001",
+    "brand": "Bosch",
+    "model": "WTH85",
+    "category": "dryer",
+    "price": 1199.00,
+    "capacity_kg": 8,
+    "features": ["heat pump", "condenser"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "DISH-001",
+    "brand": "Bosch",
+    "model": "Series 6 SMS6",
+    "category": "dishwasher",
+    "price": 1349.00,
+    "place_settings": 14,
+    "features": ["quiet 44dB", "third rack"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "DISH-002",
+    "brand": "Miele",
+    "model": "G7000",
+    "category": "dishwasher",
+    "price": 2199.00,
+    "place_settings": 14,
+    "features": ["autodose", "quiet 42dB"],
+    "delivery_included": true
+  },
+  {
+    "product_id": "OVEN-001",
+    "brand": "Westinghouse",
+    "model": "WVE665S",
+    "category": "oven",
+    "price": 1499.00,
+    "features": ["pyrolytic cleaning", "multifunction"],
+    "delivery_included": false
+  },
+  {
+    "product_id": "AC-001",
+    "brand": "Daikin",
+    "model": "US7",
+    "category": "air_conditioner",
+    "price": 1699.00,
+    "features": ["inverter", "wifi control"],
+    "delivery_included": true
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "refund_policy": {
+    "standard_change_of_mind_days": 14,
+    "faulty_item_policy": "Under Australian Consumer Law, customers are entitled to a repair, replacement or refund for a major failure, regardless of the manufacturer's warranty period.",
+    "csr_discretion_limit_aud": 100,
+    "requires_human_approval_above_aud": 100
+  },
+  "warranty_policy": {
+    "standard_manufacturer_warranty_months": 12,
+    "retailer_extended_warranty_months": 12,
+    "note": "Australian Consumer Law guarantees apply in addition to, and are not limited by, any manufacturer or retailer warranty."
+  },
+  "delivery_policy": {
+    "standard_delivery_days": 5,
+    "escalation_after_days_delayed": 3
+  },
+  "escalation_rules": {
+    "discount_requests": "Any discount or goodwill offer must be approved by a CSR supervisor before being communicated to the customer.",
+    "replacement_requests": "Replacement approvals for orders over $500 AUD require supervisor sign-off."
+  }
+}

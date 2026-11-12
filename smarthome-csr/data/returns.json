@@ -1,0 +1,8 @@
+[
+  {
+    "return_id": "RET-2001",
+    "order_id": "ORD-1098",
+    "reason": "Dishwasher not draining correctly, suspected faulty pump",
+    "status": "pending_review"
+  }
+]
