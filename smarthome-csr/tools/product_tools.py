@@ -53,13 +53,25 @@ def _detect_budget(query: str) -> float | None:
     return None
 
 
+def _detect_product_id(query: str) -> str | None:
+    """Pull an explicit catalog id like 'FRIDGE-001' out of free text, if present."""
+    match = re.search(r"\b[a-zA-Z]+-\d+\b", query)
+    return match.group(0).upper() if match else None
+
+
 def search_products(query: str) -> list[dict]:
     """Keyword + filter search over the catalog.
 
-    Detects an appliance category (fridge, washer, ...) and an optional
-    budget from the free-text query, then falls back to simple brand/model
-    keyword matching if neither is present.
+    If the query mentions an exact product id (e.g. "FRIDGE-001"), that
+    product is looked up directly. Otherwise, detects an appliance category
+    (fridge, washer, ...) and an optional budget from the free-text query,
+    falling back to simple brand/model keyword matching if neither is present.
     """
+    product_id = _detect_product_id(query)
+    if product_id:
+        product = get_product_by_id(product_id)
+        return [product] if product else []
+
     query_lower = query.lower()
     category = _detect_category(query_lower)
     budget = _detect_budget(query)

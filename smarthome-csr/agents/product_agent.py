@@ -22,7 +22,7 @@ def product_agent(state: CSRState) -> dict:
 
     matches = search_products(message)
     lines = [
-        f"- {p['brand']} {p['model']} ({p['category']}): ${p['price']:.2f} AUD, "
+        f"- {p['product_id']}: {p['brand']} {p['model']} ({p['category']}): ${p['price']:.2f} AUD, "
         f"{check_stock(p['product_id'])} in stock"
         for p in matches
     ]
