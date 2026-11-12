@@ -70,6 +70,15 @@ def test_check_stock_falls_back_after_exhausting_retries():
     assert all(a["success"] is False for a in result["attempts"])
 
 
+def test_graph_mermaid_visualization_includes_all_agents():
+    """Phase 4 observability: the Mermaid diagram (shown in app.py and
+    printed by main.py) should include every wired-in node."""
+    graph = build_graph()
+    mermaid = graph.get_graph().draw_mermaid()
+    for node in ["router", "product", "technical", "warranty", "orders", "returns", "approval_gate", "aggregator"]:
+        assert node in mermaid
+
+
 @requires_openai_key
 def test_product_inquiry_produces_response():
     graph = build_graph()

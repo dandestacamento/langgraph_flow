@@ -7,8 +7,9 @@ workflow before launching the Streamlit dashboard (`streamlit run app.py`).
 from __future__ import annotations
 
 import os
+import socket
+from urllib.parse import urlparse
 
-import mlflow
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
@@ -33,6 +34,38 @@ FOLLOW_UP_CONVERSATION = [
 # A refund request large enough to require supervisor approval, demonstrating
 # Phase 3's human-in-the-loop Approval Gate (use case 7).
 REFUND_MESSAGE = "I want a refund for my faulty dishwasher. My order is ORD-1098."
+
+
+def _enable_mlflow_tracing_if_available(tracking_uri: str, experiment: str, timeout: float = 0.5) -> bool:
+    """Enable MLflow autologging only if the tracking server is actually
+    reachable. `mlflow.set_experiment()` blocks when the server is
+    unreachable, and MLflow is meant to run on-demand (see
+    start_mlflow.ps1), not always-on - so this does a quick socket check
+    first instead of letting the script hang."""
+    parsed = urlparse(tracking_uri)
+    host, port = parsed.hostname or "127.0.0.1", parsed.port or 80
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            pass
+    except OSError:
+        print(f"[mlflow] Tracking server not reachable at {tracking_uri} - running without tracing.")
+        return False
+
+    import mlflow
+
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_experiment(experiment)
+    mlflow.langchain.autolog()
+    print(f"[mlflow] Tracing enabled -> {tracking_uri}")
+    return True
+
+
+def print_graph_visualization(graph) -> None:
+    """Print the graph's Mermaid diagram source (Phase 4 observability).
+    Paste the output into https://mermaid.live or a Markdown ```mermaid
+    fenced block to render it."""
+    print("\n--- Graph visualization (Mermaid) ---")
+    print(graph.get_graph().draw_mermaid())
 
 
 def run_single_turn_demo(graph) -> None:
@@ -73,16 +106,19 @@ def run_approval_demo(graph) -> None:
 if __name__ == "__main__":
     load_dotenv()  # reads OPENAI_API_KEY (and others) from .env
 
-    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"))
-    mlflow.set_experiment("smarthome_csr")
-    mlflow.langchain.autolog()
-
     # InMemorySaver keeps conversation state for the lifetime of this
     # process, keyed by thread_id. Swap in a persistent checkpointer (e.g.
     # SqliteSaver) if state needs to survive a process restart.
     demo_graph = build_graph(checkpointer=InMemorySaver())
+
+    _enable_mlflow_tracing_if_available(
+        os.environ.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"), "smarthome_csr"
+    )
+
+    print_graph_visualization(demo_graph)
     run_single_turn_demo(demo_graph)
     run_follow_up_demo(demo_graph)
     run_approval_demo(demo_graph)
+
 
 
