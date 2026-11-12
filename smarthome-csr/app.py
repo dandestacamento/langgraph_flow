@@ -10,6 +10,7 @@ import uuid
 import streamlit as st
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
 from graph.workflow import build_graph
 
@@ -21,8 +22,8 @@ st.set_page_config(page_title="SmartHome Appliances - CSR Dashboard", layout="wi
 @st.cache_resource
 def get_graph():
     # InMemorySaver persists conversation state (order_id, troubleshooting
-    # history, ...) for the lifetime of this process, keyed by thread_id -
-    # see graph/workflow.py's `extract_context` and `conversation_history`.
+    # history, pending approvals, ...) for the lifetime of this process,
+    # keyed by thread_id - see graph/workflow.py.
     return build_graph(checkpointer=InMemorySaver())
 
 
@@ -34,24 +35,60 @@ if "history" not in st.session_state:
 if "thread_id" not in st.session_state:
     # One thread_id per browser session = one persisted conversation.
     st.session_state.thread_id = str(uuid.uuid4())
+if "pending_interrupt" not in st.session_state:
+    # Set while the graph is paused at the Approval Gate, waiting on a CSR
+    # decision. Holds {"customer_message": ..., "request": <interrupt payload>}.
+    st.session_state.pending_interrupt = None
+
+config = {"configurable": {"thread_id": st.session_state.thread_id}}
 
 chat_col, inspector_col = st.columns([2, 1])
 
 with chat_col:
     st.subheader("Customer conversation")
-    message = st.chat_input("Type the customer's message...")
 
-    if message:
+    awaiting_approval = st.session_state.pending_interrupt is not None
+    message = st.chat_input(
+        "Awaiting CSR approval below..." if awaiting_approval else "Type the customer's message...",
+        disabled=awaiting_approval,
+    )
+
+    if message and not awaiting_approval:
         graph = get_graph()
-        config = {"configurable": {"thread_id": st.session_state.thread_id}}
         result = graph.invoke({"customer_message": message}, config=config)
-        st.session_state.history.append((message, result))
+        if "__interrupt__" in result:
+            st.session_state.pending_interrupt = {
+                "customer_message": message,
+                "request": result["__interrupt__"][0].value,
+            }
+            st.rerun()  # fresh rerun so chat_input/approval UI reflect the new state immediately
+        else:
+            st.session_state.history.append((message, result))
 
     for customer_message, result in st.session_state.history:
         with st.chat_message("user"):
             st.write(customer_message)
         with st.chat_message("assistant"):
             st.write(result["final_response"])
+
+    if awaiting_approval:
+        pending = st.session_state.pending_interrupt
+        with st.chat_message("user"):
+            st.write(pending["customer_message"])
+        with st.chat_message("assistant"):
+            st.warning(f"**Human approval required:** {pending['request']['prompt']}")
+            approve_col, deny_col = st.columns(2)
+            graph = get_graph()
+            if approve_col.button("✅ Approve", use_container_width=True):
+                result = graph.invoke(Command(resume="approve"), config=config)
+                st.session_state.history.append((pending["customer_message"], result))
+                st.session_state.pending_interrupt = None
+                st.rerun()
+            if deny_col.button("❌ Deny", use_container_width=True):
+                result = graph.invoke(Command(resume="deny"), config=config)
+                st.session_state.history.append((pending["customer_message"], result))
+                st.session_state.pending_interrupt = None
+                st.rerun()
 
 
 with inspector_col:
@@ -68,3 +105,4 @@ with inspector_col:
             st.json(entry, expanded=False)
     else:
         st.info("Send a message to see the execution trace.")
+

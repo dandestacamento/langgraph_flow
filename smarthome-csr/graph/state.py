@@ -15,6 +15,12 @@ by including that key in its returned dict, so as long as `extract_context`
 in the latest message, a value learned on an earlier turn stays in the
 checkpointed state for the rest of the conversation (use case 8: "I already
 gave you my order number").
+
+Phase 3 adds the human-in-the-loop Approval Gate: `pending_approval` is set
+by the Returns Agent when a refund/replacement needs CSR sign-off, and read
+by `graph.workflow.approval_gate`, which pauses the graph with LangGraph's
+`interrupt()` (requires the checkpointer from Phase 2) until the caller
+resumes with a `Command(resume=...)` decision.
 """
 
 from __future__ import annotations
@@ -37,6 +43,14 @@ class RouterDecision(TypedDict):
     reasoning: str
 
 
+class PendingApproval(TypedDict):
+    agent: AgentName
+    action: str
+    order_id: str | None
+    amount: float | None
+    reason: str
+
+
 class CSRState(TypedDict):
     # Input
     customer_message: str
@@ -57,6 +71,11 @@ class CSRState(TypedDict):
     # detect repeat visits to the same fault and escalate (troubleshooting
     # loop across turns rather than within a single graph run).
     conversation_history: Annotated[list[dict], operator.add]
+
+    # Phase 3 human-in-the-loop: set by the Returns Agent when a request
+    # needs CSR sign-off, cleared by the Approval Gate once resolved.
+    pending_approval: PendingApproval | None
+    approval_decision: str | None
 
     # Execution trace for the Graph Execution Inspector (Phase 4)
     execution_log: Annotated[list[dict], operator.add]

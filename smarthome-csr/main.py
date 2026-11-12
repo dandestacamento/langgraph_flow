@@ -11,6 +11,7 @@ import os
 import mlflow
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
 from graph.workflow import build_graph
 
@@ -28,6 +29,10 @@ FOLLOW_UP_CONVERSATION = [
     "My washing machine (order ORD-1045) is making a loud banging noise during spinning.",
     "I tried that already and it's still banging. What now?",
 ]
+
+# A refund request large enough to require supervisor approval, demonstrating
+# Phase 3's human-in-the-loop Approval Gate (use case 7).
+REFUND_MESSAGE = "I want a refund for my faulty dishwasher. My order is ORD-1098."
 
 
 def run_single_turn_demo(graph) -> None:
@@ -48,6 +53,23 @@ def run_follow_up_demo(graph) -> None:
         print(f"CSR reply:\n{result['final_response']}")
 
 
+def run_approval_demo(graph) -> None:
+    print("\n--- Human-in-the-loop approval demo ---")
+    config = {"configurable": {"thread_id": "demo-approval-1"}}
+
+    print(f"\nCustomer: {REFUND_MESSAGE}")
+    result = graph.invoke({"customer_message": REFUND_MESSAGE}, config=config)
+
+    if "__interrupt__" in result:
+        request = result["__interrupt__"][0].value
+        print(f"[Graph paused for CSR approval] {request['prompt']}")
+        # In the Streamlit app a human CSR clicks Approve/Deny; here we
+        # simulate an approval to show the graph resuming to completion.
+        result = graph.invoke(Command(resume="approve"), config=config)
+
+    print(f"CSR reply:\n{result['final_response']}")
+
+
 if __name__ == "__main__":
     load_dotenv()  # reads OPENAI_API_KEY (and others) from .env
 
@@ -61,4 +83,6 @@ if __name__ == "__main__":
     demo_graph = build_graph(checkpointer=InMemorySaver())
     run_single_turn_demo(demo_graph)
     run_follow_up_demo(demo_graph)
+    run_approval_demo(demo_graph)
+
 

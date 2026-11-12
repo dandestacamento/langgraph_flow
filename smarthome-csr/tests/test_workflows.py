@@ -1,13 +1,13 @@
 """End-to-end workflow tests, plus fast unit tests for the Product Agent's
-underlying search tool.
+underlying search and inventory tools.
 
 The `test_*_workflow` / `test_*_agent` integration tests invoke the full
-LangGraph workflow (router + Product/Technical/Warranty/Orders agents) and
-require OPENAI_API_KEY since they call the real LLMs. The `test_search_
-products_*` tests exercise `tools.product_tools.search_products` directly
-and need no API key - they're regression tests for bugs found during manual
-dashboard testing (exact catalog ids, and brand/model keyword matching with
-punctuation or short brand names like "LG").
+LangGraph workflow (router + Product/Technical/Warranty/Orders/Returns
+agents) and require OPENAI_API_KEY since they call the real LLMs. The
+`test_search_products_*` and `test_check_stock_*` tests exercise the
+underlying tools directly and need no API key - they're regression tests
+for bugs found during manual dashboard testing, plus Phase 3's retry/
+fallback behaviour (use case 9).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
 from graph.workflow import build_graph
+from tools.inventory_tools import check_stock
 from tools.product_tools import search_products
 
 requires_openai_key = pytest.mark.skipif(
@@ -43,6 +44,30 @@ def test_search_products_matches_dishwasher_not_washing_machine():
     # to misclassify dishwasher queries as washing-machine queries.
     results = search_products("Do you have a Bosch Series 6 dishwasher in stock?")
     assert {p["product_id"] for p in results} == {"DISH-001", "DISH-002"}
+
+
+def test_check_stock_succeeds_on_first_try():
+    result = check_stock("FRIDGE-001")
+    assert result == {"quantity": 12, "attempts": [{"attempt": 1, "success": True}], "degraded": False}
+
+
+def test_check_stock_retries_then_succeeds():
+    """Use case 9: 'The inventory API is not responding.' A transient
+    failure should be retried and still return the correct quantity."""
+    result = check_stock("FRIDGE-001", max_retries=2, _fail_times=1)
+    assert result["degraded"] is False
+    assert result["quantity"] == 12
+    assert len(result["attempts"]) == 2
+    assert result["attempts"][0]["success"] is False
+    assert result["attempts"][1]["success"] is True
+
+
+def test_check_stock_falls_back_after_exhausting_retries():
+    result = check_stock("FRIDGE-001", max_retries=2, _fail_times=10)
+    assert result["degraded"] is True
+    assert result["quantity"] is None
+    assert len(result["attempts"]) == 3  # 1 initial try + 2 retries, all failed
+    assert all(a["success"] is False for a in result["attempts"])
 
 
 @requires_openai_key
@@ -74,6 +99,22 @@ def test_execution_log_records_router_and_agent_nodes():
     node_names = {entry["node"] for entry in result["execution_log"]}
     assert "router" in node_names
     assert "aggregator" in node_names
+
+
+@requires_openai_key
+def test_multi_agent_routing_combines_both_responses():
+    """Use case 10: parallel agents and response aggregation. A fault on a
+    product that's also under warranty should run Technical and Warranty in
+    parallel and combine both replies into final_response."""
+    graph = build_graph()
+    result = graph.invoke(
+        {"customer_message": "My fridge stopped cooling. It's still under warranty. Can I get a replacement?"}
+    )
+    assert {"technical", "warranty"} <= set(result["agent_responses"])
+    assert {"technical", "warranty"} <= set(result["selected_agents"])
+    # Both individual responses should appear in the combined final reply.
+    assert result["agent_responses"]["technical"] in result["final_response"]
+    assert result["agent_responses"]["warranty"] in result["final_response"]
 
 
 @requires_openai_key

@@ -2,19 +2,19 @@
 on the router's classification.
 
 Returning a list lets LangGraph fan out to multiple agents in parallel; for
-the Phase 1 "basic routing" demos this will usually be a list with a single
-entry, but the mechanism already supports Phase 3's multi-agent scenarios
-(e.g. a fault that is also a warranty claim) without any graph changes.
+example a fault that's also a warranty claim routes to both `technical` and
+`warranty` at once, which `graph.workflow` merges via the `agent_responses`
+reducer and the aggregator node.
 """
 
 from __future__ import annotations
 
 from graph.state import CSRState
 
-# Agents wired into the graph so far (Phase 1: product/technical/warranty,
-# Phase 2 adds orders). `returns` is added in Phase 3, alongside the human
-# approval gate it needs (see agents/returns_agent.py).
-IMPLEMENTED_AGENTS = {"product", "technical", "warranty", "orders"}
+# All five specialist agents are wired into the graph as of Phase 3. This
+# set is kept as a defensive filter against any agent name the router might
+# hallucinate that isn't an actual graph node.
+IMPLEMENTED_AGENTS = {"product", "technical", "warranty", "orders", "returns"}
 
 
 def route_to_agents(state: CSRState) -> list[str]:

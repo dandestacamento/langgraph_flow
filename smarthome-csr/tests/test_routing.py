@@ -28,10 +28,11 @@ def test_route_to_agents_single_implemented_agent():
     assert route_to_agents(_state(["product"])) == ["product"]
 
 
-def test_route_to_agents_filters_unimplemented_agents():
-    # `returns` isn't wired into the graph until Phase 3 (needs the human
-    # approval gate), so it should be filtered out of the routing decision.
-    assert route_to_agents(_state(["warranty", "returns"])) == ["warranty"]
+def test_route_to_agents_filters_unknown_agent_names():
+    # Defensive filter against any agent name the router might hallucinate
+    # that doesn't correspond to an actual graph node (all five real agents
+    # are implemented as of Phase 3).
+    assert route_to_agents(_state(["warranty", "unknown_agent"])) == ["warranty"]
 
 
 def test_route_to_agents_multiple_agents_preserved():
