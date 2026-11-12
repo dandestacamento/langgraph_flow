@@ -1,0 +1,5 @@
+loan_type,typical_apr_low,typical_apr_high
+fixed-rate mortgage,5.5,7.0
+variable-rate mortgage,5.0,7.5
+personal loan,7.0,15.0
+car loan,6.0,12.0
