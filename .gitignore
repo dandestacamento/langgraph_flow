@@ -9,6 +9,11 @@ mlflow.db
 # and would otherwise commit raw OpenAI embedding vectors).
 routing/.chroma/
 
+# Routing Accuracy Lab: persistent LLM/embedding response cache (see
+# routing/app/cache.py) - development cost-control only, not meant to be
+# shared/committed.
+routing/.llm_cache.db
+
 # Python
 __pycache__/
 *.py[cod]

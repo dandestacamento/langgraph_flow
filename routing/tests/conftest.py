@@ -21,8 +21,11 @@ from dotenv import find_dotenv, load_dotenv  # noqa: E402
 # .env (routing/ has no .env of its own) regardless of the pytest cwd.
 load_dotenv(find_dotenv())
 
+from app.cache import enable_llm_cache  # noqa: E402
 from app.config import CHROMA_PERSIST_DIR  # noqa: E402
 from app.graph import build_graph  # noqa: E402
+
+enable_llm_cache()  # cheap/no-op if ROUTING_LAB_CACHE_ENABLED=0; see app/cache.py
 
 GROUND_TRUTH_PATH = _PROJECT_ROOT / "datasets" / "routing_ground_truth.jsonl"
 

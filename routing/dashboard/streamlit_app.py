@@ -31,6 +31,7 @@ from dotenv import find_dotenv, load_dotenv  # noqa: E402
 
 load_dotenv(find_dotenv())
 
+from app.cache import CACHE_ENABLED, enable_llm_cache  # noqa: E402
 from app.evaluation.routing_metrics import (  # noqa: E402
     ChapterRoutingResult,
     RoutingResult,
@@ -47,6 +48,8 @@ from app.observability.mlflow_tracing import (  # noqa: E402
 )
 from app.state import initial_state  # noqa: E402
 from scripts.run_evaluations import load_ground_truth  # noqa: E402
+
+enable_llm_cache()
 
 st.set_page_config(page_title="LangGraph Routing Accuracy Lab", layout="wide")
 
@@ -75,6 +78,7 @@ if get_mlflow_status():
     status_col.caption(f"🟢 MLflow tracing active ({DEFAULT_TRACKING_URI})")
 else:
     status_col.caption("⚪ MLflow not running (see start_mlflow.ps1)")
+status_col.caption("💾 Response cache active (app/cache.py)" if CACHE_ENABLED else "⚪ Response cache disabled")
 
 with st.expander("🗺️ Graph visualization"):
     png_bytes, mermaid_source = get_graph_diagram()

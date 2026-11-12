@@ -4,8 +4,8 @@ report, without going through pytest. Useful for ad-hoc runs and for the
 Streamlit dashboard to shell out to (or import directly).
 
 Level 1 is scored on topic accuracy; Level 2 is scored on subtopic
-accuracy (within the expected topic); Level 3 is scored on chapter
-accuracy (within the expected topic and subtopic).
+accuracy (within the expected topic). Later levels will add their own
+metrics (chapter/retrieval/answer accuracy) as those levels are built.
 
 Usage:
     python scripts/run_evaluations.py --level 1
@@ -26,6 +26,7 @@ from dotenv import find_dotenv, load_dotenv  # noqa: E402
 
 load_dotenv(find_dotenv())
 
+from app.cache import enable_llm_cache  # noqa: E402
 from app.evaluation.routing_metrics import (  # noqa: E402
     ChapterRoutingResult,
     RoutingResult,
@@ -36,6 +37,8 @@ from app.evaluation.routing_metrics import (  # noqa: E402
 )
 from app.graph import build_graph  # noqa: E402
 from app.state import initial_state  # noqa: E402
+
+enable_llm_cache()
 
 GROUND_TRUTH_PATH = PROJECT_ROOT / "datasets" / "routing_ground_truth.jsonl"
 

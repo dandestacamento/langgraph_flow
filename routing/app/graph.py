@@ -14,12 +14,13 @@ router's output.
 
 `subtopic_router` (Level 2) classifies each selected topic's question into
 one of that topic's subtopics. `chapter_selector` (Level 3) then narrows
-that (topic, subtopic) pair down to a specific chapter_id, using the real
-chapter metadata parsed from `knowledge_base/` - used for evaluation and
-the dashboard, not for retrieval scoping. `rag_retriever` (Level 4)
-retrieves the actual passages each topic agent is grounded in - topic
-agents no longer answer from their own general knowledge; they answer
-only from retrieved passages, or report insufficient information.
+that (topic, subtopic) pair down to a specific chapter_id - used for
+evaluation and the dashboard, not for retrieval scoping (see
+`app/rag/retrieval.py` for why retrieval is scoped to subtopic, not the
+single chapter guess). `rag_retriever` (Level 4) retrieves the actual
+passages each topic agent is grounded in - topic agents no longer answer
+from their own general knowledge; they answer only from retrieved
+passages, or report insufficient information.
 
 `complexity_decision` is recorded but doesn't yet change the path taken;
 the branch it will drive (RAG for intermediate, multi-agent planning for

@@ -11,6 +11,7 @@ import sys
 
 from dotenv import load_dotenv
 
+from app.cache import enable_llm_cache
 from app.graph import build_graph
 from app.observability.mlflow_tracing import enable_mlflow_tracing_if_available
 from app.state import initial_state
@@ -24,6 +25,8 @@ def main() -> None:
         raise SystemExit(1)
     question = " ".join(sys.argv[1:])
 
+    if enable_llm_cache():
+        print("(LLM/embedding response cache active - see app/cache.py)")
     if enable_mlflow_tracing_if_available():
         print("(MLflow tracing active - see http://127.0.0.1:5000)")
 

@@ -13,3 +13,8 @@ pyyaml>=6.0
 # Level 4 (RAG retrieval): local Chroma vector store + OpenAI embeddings.
 chromadb>=1.5
 langchain-chroma>=1.1
+
+# Response caching (app/cache.py): avoids re-billing identical repeated
+# LLM calls across development/test iterations. langchain-community is
+# used only for its SQLiteCache - no other integrations from it are used.
+langchain-community>=0.4

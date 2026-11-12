@@ -124,18 +124,19 @@ Streamlit dashboard for a rendered graph diagram.
 
 ```
 routing/
-├── app/                   # LangGraph application code
-│   ├── routers/           # complexity, topic, subtopic, chapter_selector (done); tool_router (stub)
-│   ├── agents/             # one agent per topic + synthesis_agent
-│   ├── rag/                # ingestion.py (chapter metadata - done); chunking/embeddings/retrieval (done); reranking (stub)
-│   ├── tools/              # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
-│   ├── evaluation/          # routing_metrics, retrieval_metrics, answer_metrics (all done)
-│   └── observability/      # mlflow_tracing, graph_visualizer, execution_logger
-├── knowledge_base/         # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22 questions)
-├── tests/                   # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4)
-├── dashboard/                # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
-├── scripts/                  # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
+├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
+├── app/                     # LangGraph application code
+│   ├── routers/             # complexity, topic, subtopic, chapter_selector (done); tool_router (stub)
+│   ├── agents/               # one agent per topic (RAG-grounded) + synthesis_agent
+│   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
+│   ├── tools/                # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
+│   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
+│   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
+├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22 questions)
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4)
+├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
+├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
 ```
 

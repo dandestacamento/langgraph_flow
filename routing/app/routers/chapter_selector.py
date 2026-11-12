@@ -6,12 +6,9 @@ front-matter metadata parsed by `app.rag.ingestion.list_chapter_metadata`.
 One structured-output LLM call is made per selected topic (using the
 subtopic chosen by `subtopic_router` for that topic), each constrained to
 that subtopic's own chapter_id list - same pattern as `subtopic_router`,
-one level deeper. Chapter titles *and* a short content preview are
-included in the prompt, since titles alone proved insufficient during
-testing (e.g. "which refrigerator has a water dispenser" was misrouted to
-the "Features" chapter by title, when the fact actually lives in
-"Overview") - a preview gives the model real content to discriminate
-between chapters instead of guessing from the ID/title alone.
+one level deeper. Chapter titles (not just IDs) are included in the
+prompt so the model has real signal to discriminate between chapters
+instead of guessing from the ID string alone.
 """
 
 from __future__ import annotations
