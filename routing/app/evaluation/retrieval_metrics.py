@@ -49,3 +49,50 @@ def summarize_retrieval(results: list[RetrievalResult]) -> dict[str, float | int
         "recalled": sum(1 for r in answerable if r.is_recalled),
         "recall_at_k": round(retrieval_recall_at_k(results), 4),
     }
+
+
+@dataclass
+class MultiChapterRetrievalResult:
+    """One scored Level 6 test case: did ALL of the chapters a compound
+    question needs evidence from appear among the top-k retrieved
+    passages, not just one of them?
+
+    This is the multi-chapter generalization of `RetrievalResult` - a
+    compound question like "what does E21 mean on the WM-500, and is the
+    repair covered under warranty?" needs both the fault-code chapter AND
+    the model-specific warranty-terms chapter; recalling only one is a
+    partial, not full, success (per instructions/Langgraph_routing/4_to_5_obserability.md's
+    washing-machine example)."""
+
+    question_id: str
+    expected_chapters: list[str]
+    retrieved_chapter_ids: list[str]
+    is_fully_covered: bool = field(init=False)
+    coverage_fraction: float = field(init=False)
+
+    def __post_init__(self) -> None:
+        expected = set(self.expected_chapters)
+        retrieved = set(self.retrieved_chapter_ids)
+        covered = expected & retrieved
+        self.coverage_fraction = len(covered) / len(expected) if expected else 1.0
+        self.is_fully_covered = expected.issubset(retrieved)
+
+
+def multichapter_coverage(results: list[MultiChapterRetrievalResult]) -> float:
+    """Fraction of test cases where EVERY expected chapter was recalled
+    (not partial credit). Returns 0.0 for an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_fully_covered) / len(results)
+
+
+def summarize_multichapter_retrieval(results: list[MultiChapterRetrievalResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 6 retrieval test reports."""
+    return {
+        "total": len(results),
+        "fully_covered": sum(1 for r in results if r.is_fully_covered),
+        "avg_coverage_fraction": round(
+            sum(r.coverage_fraction for r in results) / len(results), 4
+        ) if results else 0.0,
+        "multichapter_coverage": round(multichapter_coverage(results), 4),
+    }
