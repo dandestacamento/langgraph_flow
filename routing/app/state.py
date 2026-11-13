@@ -41,6 +41,23 @@ executed result, if any) per selected topic, keyed by topic in
 pattern as every stage above. Most questions still need no tool at all
 (`needs_tool=False`) - `tool_results` only has an entry for a topic when
 `select_tools` (`app/routers/tool_router.py`) actually ran one.
+
+Level 9 adds `is_multi_hop`/`hop_plan`/`hop_results` for genuine
+multi-hop questions, where a second sub-question literally cannot be
+formed until the first's answer is known (e.g. "which washing machine
+model has the largest capacity, and what's its price?" - the price
+lookup needs the model name hop 1 resolves). This is architecturally
+different from Level 7's multi-topic parallelism (independent
+sub-questions, run together via `Send`) - these hops are sequential and
+dependent, so they're resolved one at a time by
+`app.agents.multihop_agent.execute_multihop`, which recursively invokes
+`app.graph.build_graph()` once per hop (reusing the entire existing
+single-question pipeline - topic/subtopic/chapter/retrieval/tool/agent -
+unchanged) rather than adding a second routing mechanism. A dedicated
+`app.routers.multihop_router.classify_multihop` node runs right after
+`complexity_router` and conditionally routes to this path only when
+`is_multi_hop` is true; every other question's existing pipeline
+(`topic_router` onward) is completely untouched by Level 9.
 """
 
 from __future__ import annotations
@@ -107,12 +124,57 @@ class ToolResult(TypedDict):
     error: str | None
 
 
+class HopPlan(TypedDict):
+    """Level 9: the (at most two-hop) decomposition of a multi-hop
+    question. `hop2_question_template` contains the literal placeholder
+    text `{hop1_answer}`, substituted with hop 1's extracted value before
+    hop 2 is resolved - see `app.agents.multihop_agent` for why a plain
+    string template (rather than a structured query object) is enough:
+    every Level 9 hop 2 is itself just an ordinary single-topic question
+    once the placeholder is filled in, answerable by the existing
+    pipeline with no further special-casing."""
+
+    hop1_question: str
+    hop2_question_template: str
+    reasoning: str
+
+
+class HopResult(TypedDict):
+    """One resolved hop: the question actually asked (after substitution,
+    for hop 2), the full final_answer the existing pipeline produced for
+    it, and (if this isn't the last hop) the specific short value
+    extracted from that answer to substitute into the next hop's
+    template."""
+
+    hop_number: int
+    question: str
+    final_answer: str
+    extracted_value: str | None
+
+
 class RoutingState(TypedDict):
     # Input
     question: str
 
     # Stage 1 (complexity_router): simple/intermediate/complex classification.
     complexity_decision: ComplexityDecision | None
+
+    # Set True only on the sub-invocations `multihop_agent` makes for
+    # hop 1/hop 2 - guards against unbounded recursion if a hop's own
+    # question (e.g. after `{hop1_answer}` substitution) would otherwise
+    # itself be classified as multi-hop by `multihop_router` and sent
+    # back into `multihop_agent` again. When true, `multihop_router` is
+    # skipped entirely (see `app.graph.route_after_complexity`) - a hop
+    # is always treated as an ordinary single-pass question, by design
+    # (every Level 9 hop 2 is just an ordinary question once its
+    # placeholder is filled in; see `HopPlan`'s docstring).
+    is_hop_subquestion: bool
+
+    # Stage 1b (multihop_router, Level 9): is this a genuine multi-hop
+    # question, and if so, its (at most two-hop) decomposition plan.
+    is_multi_hop: bool
+    hop_plan: HopPlan | None
+    hop_results: Annotated[list[HopResult], operator.add]
 
     # Stage 2 (topic_router): one or more topics the question belongs to.
     topic_decision: TopicDecision | None
@@ -148,16 +210,22 @@ class RoutingState(TypedDict):
     execution_log: Annotated[list[dict], operator.add]
 
 
-def initial_state(question: str) -> dict:
+def initial_state(question: str, is_hop_subquestion: bool = False) -> dict:
     """Base state dict for a fresh `graph.invoke()` call. Every
     reducer-backed field (the `Annotated[..., merge_dicts/operator.add]`
     ones above) needs an explicit empty value up front - LangGraph applies
     the reducer to combine a channel's current value with each update, so
     a channel that was never initialized has nothing to combine against.
     Centralizing this here means callers don't need to repeat every
-    reducer field whenever a new one is added."""
+    reducer field whenever a new one is added.
+
+    `is_hop_subquestion` is set True only by `app.agents.multihop_agent`
+    when invoking the graph for one of its own hops - see
+    `RoutingState.is_hop_subquestion`'s docstring for why that's needed
+    (prevents unbounded multi-hop-within-multi-hop recursion)."""
     return {
         "question": question,
+        "is_hop_subquestion": is_hop_subquestion,
         "agent_responses": {},
         "subtopic_decisions": {},
         "selected_subtopics": {},
@@ -166,8 +234,10 @@ def initial_state(question: str) -> dict:
         "retrieved_passages": {},
         "tool_decisions": {},
         "tool_results": {},
+        "hop_results": [],
         "execution_log": [],
     }
+
 
 
 def get_topic_question(state: RoutingState, topic: str) -> str:

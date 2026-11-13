@@ -7,7 +7,7 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 8 complete ✅
+## Status: Level 9 complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
@@ -117,12 +117,11 @@ finding below), just not with a full per-topic dataset yet.
   3/4 pipeline stages, confirming no regression, instead of a full
   6-topic re-run.
 
-Levels 9-10 (complex multi-hop reasoning, error recovery) are
-**scaffolded but not yet implemented** - see the `NotImplementedError`
-stub in `app/rag/reranking.py` (not needed by Level 8) and the overall
-node list in
+Level 10 (error recovery) is **scaffolded but not yet implemented** -
+see the `NotImplementedError` stub in `app/rag/reranking.py` and the
+overall node list in
 [`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md)
-for what each remaining level builds.
+for what it builds.
 
 **Level 6 (multi-chapter evidence aggregation):**
 - **10/10 Level 6 questions recall every chapter needed to answer a
@@ -362,18 +361,115 @@ for what each remaining level builds.
   consistent with how Levels 1-7 resolved similar wording-sensitivity
   findings.
 
+**Level 9 (complex multi-hop reasoning):**
+- **10/10 Level 9 questions get the correct multi-hop decision -
+  including correctly deciding 2 ordinary questions are NOT multi-hop
+  (100% multi-hop detection accuracy) - and the final answer contains
+  the expected facts from BOTH hops (100% answer accuracy)**, e.g.
+  "which washing machine model has the largest capacity, and what's its
+  price?" - hop 1 identifies WM-900 (11 kg, the unique largest), then
+  hop 2 looks up WM-900's price (only once hop 1 has resolved it).
+- Verified with `pytest tests/test_multihop_reasoning.py` (22 tests, all
+  passing), plus a full regression across Levels 1-8 (248 tests: 247
+  passed, the one exception being the same pre-existing `L3-022`
+  non-determinism documented since Level 7, unrelated to Level 9).
+- **Architecture**: a new `multihop_router` node runs right after
+  `complexity_router` and decides whether a question is genuinely
+  multi-hop. When true, a dedicated `multihop_agent` node takes over
+  entirely, bypassing `topic_router` onward completely (the same way
+  `clarification_agent` bypasses the rest of the pipeline for an
+  ambiguous question) - it resolves hop 1 and hop 2 by **recursively
+  invoking `app.graph.build_graph()` on each hop's own self-contained
+  question text**, reusing the whole existing single-question pipeline
+  (topic/subtopic/chapter routing, RAG retrieval, tool selection, topic
+  agent) completely unchanged for each hop, rather than duplicating any
+  of that logic. A small structured-output call between hops extracts
+  the specific short value hop 1's answer identified (e.g. "WM-900",
+  not the whole sentence), which is substituted into hop 2's
+  `{hop1_answer}` placeholder before hop 2 runs.
+- **Why this is architecturally different from Levels 6-8**: Level 6
+  (multi-chapter) and Level 7 (multi-topic) both involve compound
+  questions where every part's subject is already fully specified -
+  both facts are independently retrievable right away, no dependency.
+  Level 9 is the first level where a second part's subject genuinely
+  isn't named anywhere - only a reference ("its price") standing in for
+  whatever a first, identification-style sub-question ("which model has
+  the largest capacity") turns out to resolve to. Hop 2 literally cannot
+  be fully phrased, let alone routed or retrieved for, until hop 1 runs.
+- **Real finding, fixed - unbounded recursion**: a hop's own question
+  (especially hop 2, after `{hop1_answer}` substitution) could in
+  principle itself look multi-hop to `multihop_router`, sending it back
+  into `multihop_agent` again - and did, for one test question,
+  manifesting as a `RecursionError` deep in Pydantic's schema generation
+  after the call stack grew unbounded. Fixed with an explicit
+  `is_hop_subquestion` state flag, set only by `multihop_agent`'s own
+  sub-invocations, that makes `complexity_router`'s conditional edge
+  skip `multihop_router` entirely and go straight to `topic_router` -
+  every hop is always treated as an ordinary single-pass question by
+  design, which is also strictly correct given how hop 2's placeholder
+  is already filled in with a concrete value by the time it runs.
+- **Real finding, fixed - ambiguous bare hop 2 questions**: the first
+  version of hop 2's template was often just `"What's the price of
+  {hop1_answer}?"` - once substituted (e.g. "What's the price of
+  RF-700?"), this was sometimes ambiguous enough on its own that
+  `topic_router` flagged it as needing clarification, since a bare
+  model code without stating its product category isn't always
+  obviously recognizable (this worked for "WM-900" but not "RF-700").
+  Fixed by instructing `multihop_router` to always carry the original
+  question's product/category context into the template alongside the
+  placeholder (e.g. "What is the price of the refrigerator model
+  {hop1_answer}?").
+- **Real finding, fixed - severe false-positive multi-hop detection,
+  found via full regression**: the first two prompt revisions, each
+  validated against a small hand-picked battery of examples, still
+  caused the Multi-Hop Router to misclassify many *previously-passing*
+  ordinary questions from Levels 2, 3, 4, 6, and 7 as multi-hop once a
+  *full* regression was run - including a single-clause question with
+  no "and" at all (over-triggering on long/detailed phrasing), and
+  several genuine Level 6/7 compound questions ("is the DW-400 quiet,
+  and what's needed for its express cycle?", "what shipping methods are
+  available, and when does a redelivery fee apply?") where a pronoun or
+  topical relatedness was mistaken for a real dependency. Root-caused
+  and fixed by replacing the fuzzy "is the second clause's subject
+  named" test with a much narrower, more mechanically checkable rule:
+  multi-hop requires the FIRST clause to itself be a "which X has/is
+  CRITERION" identification query with an unknown winner (a comparison
+  or superlative) - a direct fact-lookup, yes/no question, or statement
+  about an already-named subject is never multi-hop, no matter what the
+  second clause says. Re-validated against a 26-case battery (18
+  negative, 8 positive) with zero mismatches before re-running the full
+  248-test regression clean. This is the clearest example in the
+  project so far of why "validate against a hand-picked battery" isn't
+  a substitute for a full regression before considering a shared-prompt
+  change done.
+
 ## Architecture (current)
 
 ```
-START -> complexity_router -> topic_router -> {conditional}
-  - if is_ambiguous: -> clarification_agent -> END
-  - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
-    tool_router -> {one agent per selected topic, via Send fan-out} ->
-    synthesis_agent -> END
+START -> complexity_router -> multihop_router -> {conditional}
+  - if is_multi_hop: -> multihop_agent -> END
+  - else: -> topic_router -> {conditional}
+    - if is_ambiguous: -> clarification_agent -> END
+    - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
+      tool_router -> {one agent per selected topic, via Send fan-out} ->
+      synthesis_agent -> END
 ```
 
 - **`complexity_router`**: classifies simple/intermediate/complex (recorded,
   not yet branched on - no scenario needs the branch until later levels).
+- **`multihop_router`**: decides whether the question is genuinely
+  multi-hop (see the Level 9 finding above for the precise "which X
+  has/is CRITERION" identification-query test) and, if so, produces its
+  two-hop decomposition plan. Skipped entirely for `multihop_agent`'s own
+  hop sub-invocations (`is_hop_subquestion=True`), which always take the
+  normal single-pass path regardless of their own phrasing.
+- **`multihop_agent`**: runs instead of the rest of the pipeline when
+  `is_multi_hop` is true - resolves hop 1 and hop 2 by recursively
+  invoking `build_graph()` on each hop's own question, extracts hop 1's
+  short answer value between hops, and synthesizes the final combined
+  answer, routing straight to END (bypassing `topic_router` onward
+  entirely, the same way `clarification_agent` does for an ambiguous
+  question).
 - **`topic_router`**: classifies into one or more of
   `appliances | azure_cloud | data_engineering | python | finance | customer_support`
   (most questions need exactly one), flags `is_ambiguous` when the
@@ -435,15 +531,15 @@ Streamlit dashboard for a rendered graph diagram.
 routing/
 ├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
 ├── app/                     # LangGraph application code
-│   ├── routers/             # complexity, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
-│   ├── agents/               # one agent per topic (RAG-grounded, +tool results) + clarification_agent + synthesis_agent
+│   ├── routers/             # complexity, multihop_router, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
+│   ├── agents/               # one agent per topic (RAG-grounded, +tool results) + clarification_agent + multihop_agent + synthesis_agent
 │   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
 │   ├── tools/                # calculator/sql_query/metadata_lookup (done, Level 8); document_search (deliberately unimplemented - see Level 8 README section)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10, L8: 10 questions)
-├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8)
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10, L8: 10, L9: 10 questions)
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
 ├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
@@ -506,16 +602,20 @@ question text).
 
 ## Next step
 
-Implement Level 9 (complex multi-hop reasoning): questions that require
-planning and dependency-aware execution across several sequential
-sub-questions, where a later step's retrieval/tool input depends on an
-earlier step's result (e.g. "which washing machine model has the
-longest motor warranty, and what's its price?" - needing the model
-identified in step one before step two's lookup can even be formed),
-exercising a genuine Multi-Agent Planner node (named but not yet built,
-per
-[`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md)'s
-node list) rather than the independent per-topic parallelism Level 7
-already covers, extending `datasets/routing_ground_truth.jsonl` with
-Level 9 cases (still scoped to `appliances` + `customer_support`), and
-adding `tests/test_multihop_reasoning.py`.
+Implement Level 10 (error recovery and fallback): questions that
+deliberately trigger a failure somewhere in the pipeline (a tool
+executing with invalid input, a retrieval returning nothing useful, an
+LLM producing malformed structured output) and exercise retry/rerouting/
+fallback behavior rather than surfacing the raw failure - e.g. a
+`sql_query` with a typo'd column name should retry with a corrected
+query or fall back to RAG, not crash the whole request; an
+`Insufficient information` answer for a question that actually has an
+answer elsewhere should trigger a broader retrieval retry before giving
+up. This is the last of the 10 levels in
+[`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md),
+closing out the originally-planned test suite before the post-Level-10
+backfill of the 4 deferred topics (`azure_cloud`, `data_engineering`,
+`python`, `finance`) begins. Extend
+`datasets/routing_ground_truth.jsonl` with Level 10 cases (still scoped
+to `appliances` + `customer_support`) and add
+`tests/test_error_recovery.py`.

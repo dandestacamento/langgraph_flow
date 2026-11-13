@@ -1,12 +1,14 @@
 """Builds the LangGraph `StateGraph` for the Routing Accuracy Lab.
 
-Current (Level 8) graph shape:
+Current (Level 9) graph shape:
 
-    START -> complexity_router -> topic_router -> {conditional}
-      - if is_ambiguous: -> clarification_agent -> END
-      - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
-        tool_router -> {one agent per selected topic, via Send fan-out} ->
-        synthesis_agent -> END
+    START -> complexity_router -> multihop_router -> {conditional}
+      - if is_multi_hop: -> multihop_agent -> END
+      - else: -> topic_router -> {conditional}
+        - if is_ambiguous: -> clarification_agent -> END
+        - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
+          tool_router -> {one agent per selected topic, via Send fan-out} ->
+          synthesis_agent -> END
 
 Levels 1-6 only ever select a single topic, so exactly one agent node runs
 per question - but using `Send` for the fan-out (rather than a single
@@ -52,9 +54,24 @@ it needs `selected_subtopics` (for the `sql_query` schema) but not the
 retrieved passages themselves; most questions still need no tool at all,
 so this adds cost only when a tool is genuinely selected.
 
-`complexity_decision` is recorded but doesn't yet change the path taken;
-the branch it will drive (RAG for intermediate, multi-agent planning for
-complex) is added in later levels once those scenarios exist to test it.
+`multihop_router` (Level 9) runs right after `complexity_router` and
+decides whether the question is genuinely multi-hop - a second part whose
+subject isn't named yet, only a reference to whatever a first part
+identifies (see that module's docstring for why this is a different
+thing from Levels 6/7/8's compound questions). When true, `multihop_agent`
+takes over entirely: it resolves hop 1 and hop 2 by recursively invoking
+this very `build_graph()` on each hop's own self-contained question text
+(reusing the whole existing single-question pipeline unchanged for each
+hop), then synthesizes the final answer - bypassing `topic_router`
+onward completely for that question, the same way `clarification_agent`
+bypasses the rest of the pipeline for an ambiguous one. For every
+non-multi-hop question (still the overwhelming majority), this adds
+exactly one extra classification call and otherwise doesn't touch
+anything - `topic_router` onward is completely unchanged from Level 8.
+`multihop_router` is itself skipped entirely for `multihop_agent`'s own
+hop sub-invocations (`is_hop_subquestion=True`) - without this guard, a
+hop's own question could in principle also look multi-hop and recurse
+into `multihop_agent` again unboundedly.
 """
 
 from __future__ import annotations
@@ -71,10 +88,12 @@ from app.agents import (
     python_agent,
 )
 from app.agents.clarification_agent import ask_for_clarification
+from app.agents.multihop_agent import execute_multihop
 from app.agents.synthesis_agent import synthesize
 from app.rag.retrieval import retrieve_evidence
 from app.routers.chapter_selector import select_chapter
 from app.routers.complexity_router import classify_complexity
+from app.routers.multihop_router import classify_multihop
 from app.routers.subtopic_router import classify_subtopic
 from app.routers.tool_router import select_tools
 from app.routers.topic_router import classify_topic
@@ -116,10 +135,35 @@ def route_after_topic(state: RoutingState) -> str:
     return "subtopic_router"
 
 
+def route_after_complexity(state: RoutingState) -> str:
+    """Conditional edge from complexity_router: skip `multihop_router`
+    entirely for a hop sub-question (`is_hop_subquestion=True`, set only
+    by `multihop_agent`'s own recursive invocations) - a hop is always
+    treated as an ordinary single-pass question by design, both to avoid
+    unbounded multi-hop-within-multi-hop recursion if a hop's own
+    question would otherwise also look multi-hop, and to save a
+    classification call that would always need to answer false anyway."""
+    if state.get("is_hop_subquestion", False):
+        return "topic_router"
+    return "multihop_router"
+
+
+def route_after_multihop(state: RoutingState) -> str:
+    """Conditional edge from multihop_router: skip the entire normal
+    pipeline (topic/subtopic/chapter/retrieval/tool/agent/synthesis) and
+    go straight to `multihop_agent` when the question was flagged as
+    genuinely multi-hop."""
+    if state["is_multi_hop"]:
+        return "multihop_agent"
+    return "topic_router"
+
+
 def build_graph():
     graph = StateGraph(RoutingState)
 
     graph.add_node("complexity_router", classify_complexity)
+    graph.add_node("multihop_router", classify_multihop)
+    graph.add_node("multihop_agent", execute_multihop)
     graph.add_node("topic_router", classify_topic)
     graph.add_node("clarification_agent", ask_for_clarification)
     graph.add_node("subtopic_router", classify_subtopic)
@@ -131,7 +175,13 @@ def build_graph():
     graph.add_node("synthesis_agent", synthesize)
 
     graph.add_edge(START, "complexity_router")
-    graph.add_edge("complexity_router", "topic_router")
+    graph.add_conditional_edges(
+        "complexity_router", route_after_complexity, ["multihop_router", "topic_router"]
+    )
+    graph.add_conditional_edges(
+        "multihop_router", route_after_multihop, ["multihop_agent", "topic_router"]
+    )
+    graph.add_edge("multihop_agent", END)
     graph.add_conditional_edges(
         "topic_router", route_after_topic, ["clarification_agent", "subtopic_router"]
     )

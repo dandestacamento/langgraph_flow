@@ -241,3 +241,52 @@ def summarize_tool_selection(results: list[ToolSelectionResult]) -> dict[str, fl
         "correct": sum(1 for r in results if r.is_correct),
         "tool_selection_accuracy": round(tool_selection_accuracy(results), 4),
     }
+
+
+@dataclass
+class MultiHopResult:
+    """One scored Level 9 test case: did the Multi-Hop Router make the
+    correct is_multi_hop decision, and - when it genuinely is multi-hop -
+    did hop 1 resolve to the expected value?
+
+    `expected_hop1_fact` is `None` for the regression-check questions
+    (should NOT be flagged multi-hop) - matching that correctly, not just
+    detecting genuine multi-hop cases, is part of Level 9 accuracy for
+    the same "efficiency" reason as `ToolSelectionResult.expected_tool`
+    above: treating an ordinary question as multi-hop would trigger two
+    extra full pipeline invocations for no reason."""
+
+    question_id: str
+    expected_is_multi_hop: bool
+    expected_hop1_fact: str | None
+    actual_is_multi_hop: bool
+    actual_hop1_value: str | None
+    is_correct: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        if not self.expected_is_multi_hop:
+            self.is_correct = not self.actual_is_multi_hop
+        elif not self.actual_is_multi_hop:
+            self.is_correct = False
+        elif self.expected_hop1_fact is None or self.actual_hop1_value is None:
+            self.is_correct = True
+        else:
+            self.is_correct = self.expected_hop1_fact.lower() in self.actual_hop1_value.lower()
+
+
+def multihop_accuracy(results: list[MultiHopResult]) -> float:
+    """Fraction of test cases where the multi-hop decision (and, when
+    applicable, hop 1's resolved value) matched expected. Returns 0.0 for
+    an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_correct) / len(results)
+
+
+def summarize_multihop(results: list[MultiHopResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 9 test reports."""
+    return {
+        "total": len(results),
+        "correct": sum(1 for r in results if r.is_correct),
+        "multihop_accuracy": round(multihop_accuracy(results), 4),
+    }
