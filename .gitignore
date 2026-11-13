@@ -14,6 +14,11 @@ routing/.chroma/
 # shared/committed.
 routing/.llm_cache.db
 
+# Routing Accuracy Lab: ad-hoc MLflow trace export (scripts/export_mlflow_traces.py) -
+# a snapshot of whatever was tested locally and in-session, not a
+# reproducible artifact like experiments/architecture_comparison_results.json.
+routing/experiments/mlflow_trace_export.json
+
 # Python
 __pycache__/
 *.py[cod]

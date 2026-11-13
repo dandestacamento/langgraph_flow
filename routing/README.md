@@ -885,6 +885,12 @@ routing/
 # Launch the dashboard (Evaluation tab has a Level 1/2/3 selector; Ask
 # tab shows retrieved chapters, citations, and insufficient-info behavior)
 ..\.venv\Scripts\python.exe -m streamlit run dashboard\streamlit_app.py
+
+# Export recent MLflow traces (question, final answer, every routing
+# decision, execution trace, token usage/cost) to a local JSON file -
+# useful for inspecting what actually happened without the MLflow UI,
+# e.g. after testing a question through the dashboard with tracing on
+..\.venv\Scripts\python.exe scripts\export_mlflow_traces.py --limit 10
 ```
 
 MLflow tracing is **on-demand only** - run `..\start_mlflow.ps1` from the
