@@ -142,7 +142,18 @@ def execute_multihop(state: RoutingState) -> dict:
         }
     )
 
+    # Surface the union of both hops' own topic selections as this state's
+    # `selected_topics` - this path never runs `topic_router` itself (it
+    # bypasses the whole normal pipeline, see `app.graph.route_after_multihop`),
+    # so without this, `selected_topics` would simply be absent from the
+    # final state - every other path in the graph always sets it, and
+    # callers that assume it's always present (e.g. the dashboard's Ask
+    # tab) would otherwise raise a `KeyError` on any genuinely multi-hop
+    # question.
+    selected_topics = sorted(set(hop1_state.get("selected_topics", []) + hop2_state.get("selected_topics", [])))
+
     return {
+        "selected_topics": selected_topics,
         "hop_results": [hop1_result, hop2_result],
         "final_answer": final_answer,
         "execution_log": log_entries,
