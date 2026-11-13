@@ -58,6 +58,7 @@ class ComplexityDecision(TypedDict):
 
 class TopicDecision(TypedDict):
     topics: list[Topic]
+    is_ambiguous: bool
     confidence: float
     reasoning: str
 

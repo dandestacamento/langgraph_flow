@@ -159,3 +159,40 @@ def summarize_chapter(results: list[ChapterRoutingResult]) -> dict[str, float | 
         "correct": sum(1 for r in results if r.is_correct),
         "chapter_accuracy": round(chapter_accuracy(results), 4),
     }
+
+
+@dataclass
+class ClarificationResult:
+    """One scored Level 5 test case: did the system correctly decide
+    whether to ask a clarifying question or answer directly?
+
+    `actual_behavior` should be derived from the execution trace (see
+    `app.observability.execution_logger.get_node_sequence`) rather than
+    inspecting `final_answer` text, since "did clarification_agent run"
+    is the deterministic signal - checking the answer text for something
+    that "looks like a question" would be unreliable."""
+
+    question_id: str
+    expected_behavior: str  # "clarify" or "answer"
+    actual_behavior: str  # "clarify" or "answer"
+    is_correct: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.is_correct = self.expected_behavior == self.actual_behavior
+
+
+def clarification_accuracy(results: list[ClarificationResult]) -> float:
+    """Fraction of test cases where the clarify-vs-answer decision matched
+    the expected behavior. Returns 0.0 for an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_correct) / len(results)
+
+
+def summarize_clarification(results: list[ClarificationResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 5 test reports."""
+    return {
+        "total": len(results),
+        "correct": sum(1 for r in results if r.is_correct),
+        "clarification_accuracy": round(clarification_accuracy(results), 4),
+    }

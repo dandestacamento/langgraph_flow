@@ -64,6 +64,19 @@ def _topic_router_system_prompt() -> str:
         "Only include more than one topic if the question genuinely cannot be answered without "
         "evidence from more than one topic area."
     )
+    lines.append("")
+    lines.append(
+        "Also decide: is this question ambiguous? Only set is_ambiguous=true when the question uses "
+        "a vague, unresolved reference with NO identifiable subject at all - e.g. 'it'/'this'/'that' "
+        "with nothing to anchor what it refers to, or when answering truly depends on a specific "
+        "product/model/order/error code that isn't given (e.g. 'how long is the warranty?' - warranty "
+        "length genuinely varies by product, so there's no single correct answer without knowing "
+        "which one). Do NOT set is_ambiguous=true just because a question is general rather than "
+        "product-specific - a question about an overall POLICY (e.g. 'what is the refund policy for "
+        "change-of-mind returns?' or 'what format does an order number use?') has one real answer "
+        "regardless of product, so it is NOT ambiguous. Still pick your best-guess topics even when "
+        "ambiguous."
+    )
     return "\n".join(lines)
 
 
@@ -73,11 +86,16 @@ TOPIC_ROUTER_SYSTEM_PROMPT = _topic_router_system_prompt()
 class TopicOutput(BaseModel):
     """Structured output the LLM must produce."""
 
+    is_ambiguous: bool = Field(
+        description="True only if the question has no identifiable subject or needs a specific "
+        "product/model/order/error code that isn't given - not just because it's a general question."
+    )
     topics: list[TopicLiteral] = Field(
-        description="One or more topics needed to answer the question, most specific/relevant first."
+        description="Best-guess topic(s) needed to answer the question, most specific/relevant first, "
+        "even if is_ambiguous is true."
     )
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence in this classification, 0-1.")
-    reasoning: str = Field(description="One sentence explaining the classification.")
+    reasoning: str = Field(description="One sentence explaining the classification and ambiguity decision.")
 
 
 def build_topic_llm() -> ChatOpenAI:
@@ -85,7 +103,8 @@ def build_topic_llm() -> ChatOpenAI:
 
 
 def classify_topic(state: RoutingState) -> dict:
-    """Router node: classify the question into one or more topics."""
+    """Router node: classify the question into one or more topics, and
+    flag whether it's too ambiguous to route confidently."""
     start = time.perf_counter()
     llm = build_topic_llm()
     result: TopicOutput = llm.invoke(
@@ -99,6 +118,7 @@ def classify_topic(state: RoutingState) -> dict:
     topics = list(dict.fromkeys(result.topics)) or ["customer_support"]
     decision: dict = {
         "topics": topics,
+        "is_ambiguous": result.is_ambiguous,
         "confidence": result.confidence,
         "reasoning": result.reasoning,
     }

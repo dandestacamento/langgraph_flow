@@ -7,11 +7,23 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 4 complete ✅
+## Status: Level 5 complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
 section 9), levels are built and verified one at a time.
+
+**Scope note for Levels 5-10**: to control API cost while these levels'
+*routing mechanisms* are built and debugged (they test mechanism, not
+topic-specific knowledge - the knowledge base already covers all 6 topics
+from Level 1), test datasets for Levels 5-10 are scoped to **`appliances`
++ `customer_support`** only. The other 4 topics (`azure_cloud`,
+`data_engineering`, `python`, `finance`) will be backfilled with
+equivalent test coverage once Level 10 is complete and the full
+architecture is proven - this is purely additive test-data work, since
+the graph itself isn't topic-specific. Every graph-level change is still
+spot-checked against all 6 topics before being committed (see the Level 5
+finding below), just not with a full per-topic dataset yet.
 
 **Level 1 (simple topic routing):**
 - **24/24 Level 1 questions route to the correct topic (100% topic accuracy)**,
@@ -77,27 +89,63 @@ section 9), levels are built and verified one at a time.
      reduce but not eliminate occasional non-determinism, which is
      inherent to generation (unlike the deterministic classification
      tasks in Levels 1-3).
-- Full regression (Levels 1-4 together) re-verified after wiring
-  `rag_retriever` into the graph.
 
-Levels 5-10 (ambiguous questions, multi-chapter evidence, multi-topic
-parallel routing, tool selection, multi-hop reasoning, error recovery)
-are **scaffolded but not yet implemented** - see the `NotImplementedError`
-stubs in `app/rag/reranking.py`, `app/tools/`, and
-`app/routers/tool_router.py`, each pointing at the level that builds it.
+**Level 5 (ambiguous questions):**
+- **16/16 Level 5 questions get the correct clarify-vs-answer decision
+  (100% clarification accuracy)** - 8 genuinely ambiguous questions (e.g.
+  "is it covered?", "how long is the warranty?" with no model named)
+  correctly trigger a clarifying question instead of a guess; 8
+  self-contained questions (regression checks reused from Levels 1-4)
+  correctly do NOT get flagged as ambiguous.
+- Verified with `pytest tests/test_ambiguous_questions.py` (17 tests, all passing).
+- **Real finding, fixed**: the obvious first approach - using
+  `topic_router`'s existing `confidence` score as the ambiguity signal -
+  doesn't work. Probing it directly showed the LLM reports `confidence:
+  0.9` for almost *everything*, ambiguous or not; raw self-reported LLM
+  confidence is well known to be poorly calibrated, and this confirmed it
+  empirically. Fixed by adding an explicit `is_ambiguous: bool` field to
+  `topic_router`'s structured output instead, with a prompt that
+  distinguishes "no identifiable subject" (genuinely ambiguous, e.g. "is
+  it covered?") from "general policy question" (not ambiguous, e.g. "what
+  is the refund policy?" - one real answer regardless of product). The
+  first version of that prompt was itself too aggressive (2 false
+  positives on clear policy questions) before narrowing the instruction.
+- `topic_router`'s `is_ambiguous` change applies to all 6 topics (it's
+  not scoped to the Levels 5-10 focus topics), so it was spot-checked
+  against one question from each of the 4 backfill topics
+  (`azure_cloud`, `data_engineering`, `python`, `finance`) plus Level
+  3/4 pipeline stages, confirming no regression, instead of a full
+  6-topic re-run.
+
+Levels 6-10 (multi-chapter evidence, multi-topic parallel routing, tool
+selection, multi-hop reasoning, error recovery) are **scaffolded but not
+yet implemented** - see the `NotImplementedError` stubs in
+`app/rag/reranking.py`, `app/tools/`, and `app/routers/tool_router.py`,
+each pointing at the level that builds it.
 
 ## Architecture (current)
 
 ```
-START -> complexity_router -> topic_router -> subtopic_router ->
-chapter_selector -> rag_retriever -> {one agent per selected topic, via
-Send fan-out} -> synthesis_agent -> END
+START -> complexity_router -> topic_router -> {conditional}
+  - if is_ambiguous: -> clarification_agent -> END
+  - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
+    {one agent per selected topic, via Send fan-out} ->
+    synthesis_agent -> END
 ```
 
 - **`complexity_router`**: classifies simple/intermediate/complex (recorded,
   not yet branched on - no scenario needs the branch until later levels).
 - **`topic_router`**: classifies into one or more of
-  `appliances | azure_cloud | data_engineering | python | finance | customer_support`.
+  `appliances | azure_cloud | data_engineering | python | finance | customer_support`,
+  and flags `is_ambiguous` when the question has no identifiable subject
+  or depends on an unspecified product/model/order/error code (see the
+  Level 5 finding above for why this isn't based on the `confidence`
+  field).
+- **`clarification_agent`**: runs instead of the rest of the pipeline when
+  `is_ambiguous` is true - asks a short clarifying question and routes
+  straight to END, skipping `synthesis_agent` entirely (which would
+  otherwise overwrite `final_answer` with an empty string, since no topic
+  agent ran).
 - **`subtopic_router`**: narrows each selected topic down to one of its own
   subtopics (e.g. `appliances` -> `washing_machines`), via a dynamically
   constrained structured-output call per topic.
@@ -126,15 +174,15 @@ Streamlit dashboard for a rendered graph diagram.
 routing/
 ├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
 ├── app/                     # LangGraph application code
-│   ├── routers/             # complexity, topic, subtopic, chapter_selector (done); tool_router (stub)
-│   ├── agents/               # one agent per topic (RAG-grounded) + synthesis_agent
+│   ├── routers/             # complexity, topic (+ambiguity flag), subtopic, chapter_selector (done); tool_router (stub)
+│   ├── agents/               # one agent per topic (RAG-grounded) + clarification_agent + synthesis_agent
 │   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
 │   ├── tools/                # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22 questions)
-├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4)
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16 questions)
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
 ├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
@@ -165,8 +213,14 @@ routing/
 # Ask a single question through the graph
 ..\.venv\Scripts\python.exe -m app.main "What is a Python decorator?"
 
-# Run all pytest suites (takes 25-35 minutes - real LLM + embedding calls)
+# Run all pytest suites (takes 25-40 minutes - real LLM + embedding calls)
 ..\.venv\Scripts\python.exe -m pytest tests\ -v
+
+# Run just the newest level's tests (recommended during active development,
+# to avoid re-billing every previously-passing level - see app/cache.py for
+# why repeat runs of unchanged questions are still cheap even if you do
+# run everything)
+..\.venv\Scripts\python.exe -m pytest tests\test_ambiguous_questions.py -v
 
 # Run the same evaluation without pytest, with per-question pass/fail output
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 1
@@ -183,12 +237,21 @@ repo root before testing if you want traces, then `..\stop_mlflow.ps1`
 when done. Nothing here starts MLflow automatically; the dashboard and
 `app/main.py` silently skip tracing if the server isn't reachable.
 
+Response caching is **on by default** (`app/cache.py`) - repeated runs of
+the same question are served from a local SQLite cache instead of
+re-billing the API. Set `ROUTING_LAB_CACHE_ENABLED=0` to force fresh calls
+(e.g. after changing a prompt, since the cache key is just the literal
+question text).
+
 ## Next step
 
-Implement Level 5 (ambiguous questions): add clarification/confidence
-handling for questions that are genuinely ambiguous between topics or
-subtopics (distinct from Levels 1-4's deliberately unambiguous test
-questions) - likely branching on `complexity_decision` for the first time
-(an `intermediate`/low-confidence path that asks a clarifying question
-instead of guessing), extending `datasets/routing_ground_truth.jsonl`
-with Level 5 cases, and adding `tests/test_ambiguous_questions.py`.
+Implement Level 6 (multi-chapter evidence aggregation): questions whose
+correct answer requires combining facts from more than one chapter within
+the same topic/subtopic (e.g. a fault code plus a warranty chapter, per
+the washing-machine E21 example in
+[`4_to_5_obserability.md`](../instructions/Langgraph_routing/4_to_5_obserability.md)),
+extending `rag_retriever`/`chapter_selector` to return multiple chapters
+when appropriate, adding an evidence-aggregation step before the answer
+agent, extending `datasets/routing_ground_truth.jsonl` with Level 6 cases
+(still scoped to `appliances` + `customer_support`), and adding
+`tests/test_multichapter_evidence.py`.
