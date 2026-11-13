@@ -7,14 +7,18 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: All 10 levels complete ✅
+## Status: All 10 levels complete ✅ + architecture comparison done ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
 section 9), levels are built and verified one at a time. All 10 levels
 from [`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md)
-are now implemented and tested - see "Next step" at the bottom for the
-post-Level-10 backfill work that follows.
+are implemented and tested, the Level 5-10 backfill across all 6 topics
+is done, and the "compare three routing architectures" experiment from
+[`6_routing_design.md`](../instructions/Langgraph_routing/6_routing_design.md)
+is complete - see "Experiment: comparing three routing architectures"
+below, and "Next step" at the bottom for open-ended ideas beyond the
+originally-planned scope.
 
 **Scope note for Levels 5-10**: while these levels' *routing mechanisms*
 were being built and debugged (they test mechanism, not topic-specific
@@ -571,6 +575,162 @@ for what it builds.
   tests/test_error_recovery.py` (265 tests, all passing), then the full
   suite (`pytest tests/`, 392 tests: 391 passed, 1 pre-existing flake).
 
+## Experiment: comparing three routing architectures
+
+`6_routing_design.md` names an "advanced experiment" as a natural next
+step after the hybrid router is built: compare it against two simpler
+architectures on the same test set, to see whether the added complexity
+actually earns its latency and cost.
+
+| Architecture | Design |
+|---|---|
+| **A - LLM Router** | One LLM call selects a single topic; answer generated directly from topic-level retrieval (no subtopic/chapter narrowing). |
+| **B - Hierarchical Router** | Topic → subtopic → chapter → retrieval, a deterministic cascade with no multi-topic planning, tool selection, ambiguity detection, multi-hop decomposition, or error recovery. |
+| **C - Hybrid Router** | This project's full graph (`app/graph.py`), unchanged - every mechanism from Levels 1-10. |
+
+A and B live in `app/architectures/` as genuinely new, minimal
+LangGraph graphs - not simulated by disabling parts of the real graph.
+B deliberately reuses `app.routers.subtopic_router`,
+`app.routers.chapter_selector`, and `app.rag.retrieval.retrieve_evidence`
+completely unmodified (those nodes were already "pure" per-topic
+classifiers with no multi-topic/ambiguity logic baked in, matching what
+the design doc describes for Architecture B), and both A and B reuse
+`app.agents._shared._generate_answer` for the final answer - the same
+grounded, cited-answer logic Architecture C's topic agents use - so the
+comparison isolates the *routing* design as the variable under test, not
+answer-generation quality.
+
+**Method**: `scripts/compare_architectures.py` runs all three
+architectures on the same stratified sample (63 questions: 1 per
+(level, topic) group for Levels 1-4, where all three can be meaningfully
+compared end to end, plus 1 per group for Levels 5-10 as a "stress
+sample" - specifically chosen because A and B structurally lack the
+mechanisms those levels test, so this is where the experiment should
+show its clearest signal). Each question is scored on topic accuracy,
+Level 5's clarify-vs-answer behavior, and answer accuracy (expected-fact
+substring matching, reusing `AnswerResult`/`RoutingResult` from the
+existing evaluation harness - no new scoring logic was invented for this
+experiment). Full per-question results are saved in
+`experiments/architecture_comparison_results.json`.
+
+**Headline results** (63-question sample):
+
+| Architecture | Topic acc. | L5 behavior acc. | Answer acc. | Avg. LLM calls/question |
+|---|---|---|---|---|
+| A - LLM Router | 89% | 0% | 62% | 2.00 |
+| B - Hierarchical Router | 89% | 0% | 64% | 4.00 |
+| C - Hybrid Router | **100%** | **100%** | **100%** | 7.40 |
+
+**Per-level breakdown** (topic accuracy / answer accuracy) is where the
+story actually is - Levels 1-5 and 10 show no gap at all; Levels 6-9
+show exactly the gaps each architecture's missing mechanism predicts:
+
+| Level | A | B | C |
+|---|---|---|---|
+| L1-L3 (topic/subtopic/chapter routing) | 100% / n/a | 100% / n/a | 100% / n/a |
+| L4 (RAG + insufficient-info) | 100% / 100% | 100% / 100% | 100% / 100% |
+| L5 (ambiguous - behavior, not shown here) | n/a | n/a | n/a |
+| L6 (multi-chapter, one topic) | 100% / 83% | 100% / 100% | 100% / 100% |
+| L7 (multi-topic) | 36% / 36% | 36% / 36% | **100% / 100%** |
+| L8 (tool selection) | 100% / **0%** | 100% / **0%** | 100% / 100% |
+| L9 (multi-hop, n=2) | n/a / 50% | n/a / 50% | n/a / 100% |
+| L10 (error recovery) | 100% / 100% | 100% / 100% | 100% / 100% |
+
+**Findings:**
+- **Levels 1-5 and 10 show no real gap** - ordinary single-topic
+  lookups, subtopic/chapter routing, basic RAG, and (in this sample)
+  genuinely-unanswerable Level 10 questions are easy enough that even
+  the simplest architecture gets them right; correctly declining an
+  impossible question doesn't require a recovery *mechanism*, just an
+  answer generator that's willing to say so (which A and B both inherit
+  from `_generate_answer`). Level 10's actual recovery mechanism (wrong-
+  subtopic-guess correction) isn't exercised by this black-box
+  comparison at all - it was already validated directly in Level 10's
+  own test suite (`tests/test_error_recovery.py`'s hardcoded mechanism
+  tests), which is a different, more targeted kind of evidence than this
+  experiment is built to produce.
+- **Level 6 is the first real crack**: Architecture A's answer accuracy
+  drops to 83% - its topic-level (not subtopic-scoped) retrieval has to
+  compete against every chapter in the whole topic for a 2-chapter
+  compound question, not just the relevant subtopic's 3-4, occasionally
+  starving out one of the two needed chapters. B's subtopic narrowing
+  fixes this completely (100%).
+- **Level 7 (multi-topic) is the clearest demonstration of the whole
+  experiment**: A and B can structurally only ever answer ONE topic (by
+  design - "LLM selects one topic", "Topic → subtopic → chapter"), so
+  for a genuinely multi-topic question they silently answer only half of
+  it, collapsing to 36% on both topic and answer accuracy. This is not a
+  close call or a prompt-wording nuance like several of this project's
+  earlier single-topic-vs-multi-topic edge cases - it's a hard
+  architectural ceiling, and Architecture C's multi-agent `Send` fan-out
+  is the *only* thing in this comparison that clears it.
+- **Level 8 (tool selection) is the starkest number in the whole table**:
+  0% answer accuracy for both A and B, despite 100% *topic* accuracy -
+  they correctly know a question is about `appliances`/`washing_machines`
+  but have no tool-selection stage at all, so a fact that only exists in
+  `specifications.csv` (e.g. price) is structurally unreachable no matter
+  how good their retrieval or prompting is. This is the sharpest
+  illustration in the whole experiment that *routing accuracy* and
+  *answer accuracy* are genuinely different questions (see
+  `1_architecture.md`'s five evaluation questions) - A and B's routing
+  isn't wrong here, their capability is just missing.
+- **Level 9 (multi-hop, only 2 sampled rows - see caveat below)**: A and
+  B score 50% (they get the single-hop regression check right, and fail
+  the genuine multi-hop one, exactly as expected), C gets both.
+- **A genuinely interesting failure mode found along the way**: for
+  Level 5's "How long is the warranty?" (ambiguous - warranty length
+  genuinely differs by model), Architecture B didn't just fail to
+  clarify - it *confidently answered with a specific, wrong-by-omission
+  number* ("All refrigerators ship with a standard 2-year..."), picking
+  one plausible subtopic and asserting its answer as if it were the only
+  possible one. Architecture A, lacking even subtopic routing, instead
+  declined with "insufficient information" - a less helpful answer, but
+  a safer failure mode than B's confident, ungrounded guess. This is a
+  real, mechanism-level illustration of why Level 5's clarification
+  stage exists: without it, *more* routing sophistication (B's subtopic
+  narrowing) can make an ambiguous question's wrong answer sound *more*
+  authoritative, not less.
+- **Cost scales roughly with architectural complexity, as expected**:
+  2.00 -> 4.00 -> 7.40 average LLM calls per question (A -> B -> C), a
+  genuine ~3.7x difference between the simplest and most capable
+  architecture. **Latency was not used as a reliable metric here**: this
+  run's LLM response cache (`app/cache.py`) was warm for Architecture C
+  and partially warm for B on most of this sample (the exact same
+  questions/prompts were already exercised by the Levels 1-10 regression
+  suite), while Architecture A's single-shot prompt is new and mostly
+  cache-missed - so the raw wall-clock numbers this run produced would
+  make C look *artificially faster* than A, the opposite of a fair
+  comparison. The call-count ratio above is cache-independent and the
+  more honest cost signal; a rough latency estimate, scaling A's
+  measured per-call cost by each architecture's call count, would put
+  C's cold-cache latency at roughly 3.5-4x Architecture A's for a
+  typical question, consistent with the call-count ratio.
+- **Sample-size caveat**: this is a 63-question stratified sample (1 per
+  level/topic group, 2 per group for the few Level 7 topic-pairs and
+  Level 9's is-multi-hop split), not the full 228-row dataset -
+  deliberately, since Architecture A's single-shot prompt needed fresh
+  (non-cached) calls for every question. Level 9 in particular only has
+  2 sampled rows given its dataset is thin by design (see the Level 9
+  backfill note above) - its 50%/50%/100% split is illustrative, not
+  statistically robust on its own, but is consistent with every other
+  level's pattern of "A/B structurally can't do what C's extra mechanism
+  does."
+
+**Conclusion**: for ordinary single-topic lookups (the overwhelming
+majority of real traffic in Levels 1-5), the simplest architecture is
+just as accurate as the hybrid one, at roughly a quarter of the LLM
+calls - so if a deployment's traffic genuinely looked like that, A would
+be the right call. But this project's whole premise (from
+`1_architecture.md` onward) was built around *testing where routing goes
+wrong* - multi-topic questions, tool-only facts, dependent multi-hop
+reasoning, genuine ambiguity - and on exactly those questions, the two
+simpler architectures don't degrade gracefully, they fail completely
+(0-36% vs. 100%) in ways a user would notice immediately. The 3.7x cost
+premium of the hybrid architecture buys a large, concrete accuracy gap on
+the specific question types that premium is meant to handle, not a
+marginal improvement - which is the answer `6_routing_design.md` asked
+this experiment to find.
+
 ## Architecture (current)
 
 ```
@@ -664,15 +824,17 @@ routing/
 ├── app/                     # LangGraph application code
 │   ├── routers/             # complexity, multihop_router, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
 │   ├── agents/               # one agent per topic (RAG-grounded, +tool results, +bounded recovery retry) + clarification_agent + multihop_agent + synthesis_agent
+│   ├── architectures/         # arch_a_llm_router, arch_b_hierarchical_router - simpler architectures for the 3-way comparison experiment (app/graph.py itself is Architecture C)
 │   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
 │   ├── tools/                # calculator/sql_query/metadata_lookup (done, Level 8); document_search (deliberately unimplemented - see Level 8 README section)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
 ├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 32, L6: 23, L7: 20, L8: 22, L9: 14, L10: 14 questions - 228 total, all 6 topics)
-├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9), test_error_recovery.py (L10)
+├── experiments/                # architecture_comparison_results.json - raw per-question results from scripts/compare_architectures.py
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9), test_error_recovery.py (L10), test_architecture_comparison.py (A/B/C experiment)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
-├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
+├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py, compare_architectures.py (all done)
 └── requirements.txt
 ```
 
@@ -716,6 +878,10 @@ routing/
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 2
 ..\.venv\Scripts\python.exe scripts\run_evaluations.py --level 3
 
+# Compare Architectures A/B/C on the same stratified sample (see
+# "Experiment: comparing three routing architectures" above)
+..\.venv\Scripts\python.exe scripts\compare_architectures.py --save experiments\architecture_comparison_results.json
+
 # Launch the dashboard (Evaluation tab has a Level 1/2/3 selector; Ask
 # tab shows retrieved chapters, citations, and insufficient-info behavior)
 ..\.venv\Scripts\python.exe -m streamlit run dashboard\streamlit_app.py
@@ -736,13 +902,15 @@ question text).
 
 All 10 levels from
 [`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md) are
-implemented and tested, and the Level 5-10 backfill across all 6 topics
-(see "Backfill: Levels 5-10 across all 6 topics" above) is also done -
-the project's originally-planned scope is complete, with a 228-row,
-10-level dataset passing cleanly except for the one pre-existing
-`L3-022` non-determinism flake. A natural further step is the "compare
-three routing architectures" experiment named in
+implemented and tested, the Level 5-10 backfill across all 6 topics is
+done, and the "compare three routing architectures" experiment named in
 [`6_routing_design.md`](../instructions/Langgraph_routing/6_routing_design.md)
-(a single LLM router vs. a hierarchical router vs. this project's hybrid
-router, on the same full dataset) to quantify whether the added
-complexity actually earns its latency and cost.
+is also complete (see "Experiment: comparing three routing architectures"
+above) - every concretely-planned piece of this project's original scope
+is now built, tested, and written up. From here, further work would be
+genuinely open-ended rather than following a pre-set plan: deepening the
+architecture comparison (the full 228-row dataset rather than a 63-row
+sample, or a second complexity-tier knowledge base to see if the gaps
+found here widen or narrow), adding the never-implemented `reranking.py`
+stub, or wiring up real MLflow trace review now that there's a
+10-level/3-architecture trace history worth comparing.

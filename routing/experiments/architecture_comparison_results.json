@@ -1,0 +1,1861 @@
+{
+  "sample_size": 63,
+  "summary": {
+    "A (LLM Router)": {
+      "topic_accuracy": 0.8852459016393442,
+      "behavior_accuracy": 0.0,
+      "answer_accuracy": 0.6153846153846154,
+      "avg_latency_ms": 38.2,
+      "avg_llm_calls": 2.0,
+      "n": 63
+    },
+    "B (Hierarchical Router)": {
+      "topic_accuracy": 0.8852459016393442,
+      "behavior_accuracy": 0.0,
+      "answer_accuracy": 0.6410256410256411,
+      "avg_latency_ms": 45.5,
+      "avg_llm_calls": 4.0,
+      "n": 63
+    },
+    "C (Hybrid Router)": {
+      "topic_accuracy": 1.0,
+      "behavior_accuracy": 1.0,
+      "answer_accuracy": 1.0,
+      "avg_latency_ms": 84.8,
+      "avg_llm_calls": 7.4,
+      "n": 63
+    }
+  },
+  "raw_results": [
+    {
+      "case_id": "L1-001",
+      "level": 1,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 759.9,
+      "llm_calls": 2,
+      "final_answer": "The capacity of the WM-500 washing machine is 9 kg.\n\nSources: chapter_01_types, chapter_02_cycles, chapter_02_operation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-001",
+      "level": 1,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 152.2,
+      "llm_calls": 4,
+      "final_answer": "The capacity of the WM-500 washing machine is 9 kg.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-001",
+      "level": 1,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 98.1,
+      "llm_calls": 7,
+      "final_answer": "The capacity of the WM-500 washing machine is 9 kg.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-005",
+      "level": 1,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 31.5,
+      "llm_calls": 2,
+      "final_answer": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. Each rule specifies a source, destination, port range, protocol, and direction.\n\nSources: chapter_01_rbac, chapter_01_vnet, chapter_02_subnets, chapter_03_key_vault, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-005",
+      "level": 1,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 49.9,
+      "llm_calls": 4,
+      "final_answer": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. Each rule specifies a source, destination, port range, protocol, and direction.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-005",
+      "level": 1,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 92.7,
+      "llm_calls": 7,
+      "final_answer": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. Each rule specifies a source, destination, port range, protocol, and direction.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-009",
+      "level": 1,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 32.0,
+      "llm_calls": 2,
+      "final_answer": "The spark.sql.shuffle.partitions setting controls the default number of partitions created after a shuffle, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-009",
+      "level": 1,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 52.0,
+      "llm_calls": 4,
+      "final_answer": "The spark.sql.shuffle.partitions setting controls the default number of partitions created after a shuffle, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-009",
+      "level": 1,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 86.9,
+      "llm_calls": 7,
+      "final_answer": "The spark.sql.shuffle.partitions setting controls the default number of partitions created after a shuffle, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-013",
+      "level": 1,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.8,
+      "llm_calls": 2,
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-013",
+      "level": 1,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.1,
+      "llm_calls": 4,
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-013",
+      "level": 1,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 71.8,
+      "llm_calls": 7,
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-017",
+      "level": 1,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.2,
+      "llm_calls": 2,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_amortization, chapter_02_tracking, chapter_03_diversification, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-017",
+      "level": 1,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 50.0,
+      "llm_calls": 4,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-017",
+      "level": 1,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 83.0,
+      "llm_calls": 7,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-021",
+      "level": 1,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.6,
+      "llm_calls": 2,
+      "final_answer": "An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_01_policy, chapter_02_process, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-021",
+      "level": 1,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 48.5,
+      "llm_calls": 4,
+      "final_answer": "An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L1-021",
+      "level": 1,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 79.3,
+      "llm_calls": 7,
+      "final_answer": "An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-001",
+      "level": 2,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 28.8,
+      "llm_calls": 2,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_01_types, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-001",
+      "level": 2,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 50.7,
+      "llm_calls": 4,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-001",
+      "level": 2,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 99.8,
+      "llm_calls": 7,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-004",
+      "level": 2,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.2,
+      "llm_calls": 2,
+      "final_answer": "A Virtual Network (VNet) is an isolated network boundary within Azure, while a VNet is divided into one or more subnets, each with its own CIDR range carved out of the VNet's address space.\n\nSources: chapter_01_vms, chapter_01_vnet, chapter_02_subnets, chapter_03_key_vault, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-004",
+      "level": 2,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 48.9,
+      "llm_calls": 4,
+      "final_answer": "A Virtual Network (VNet) is an isolated network boundary within Azure, while a VNet is divided into one or more subnets, each with its own CIDR range carved out of the VNet's address space.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-004",
+      "level": 2,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 83.3,
+      "llm_calls": 7,
+      "final_answer": "A Virtual Network (VNet) is an isolated network boundary within Azure, while a VNet is divided into one or more subnets, each with its own CIDR range carved out of the VNet's address space.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-008",
+      "level": 2,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 29.0,
+      "llm_calls": 2,
+      "final_answer": "Common Spark optimization techniques include using broadcast joins for small lookup tables, caching DataFrames that are reused across multiple actions, avoiding unnecessary wide shuffles, and reading the Catalyst optimizer's query plan via explain() to locate data skew.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_data_flows, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-008",
+      "level": 2,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 39.5,
+      "llm_calls": 4,
+      "final_answer": "Common Spark optimization techniques include using broadcast joins for small lookup tables, caching DataFrames that are reused across multiple actions, avoiding unnecessary wide shuffles, and reading the Catalyst optimizer's query plan via explain() to locate data skew.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-008",
+      "level": 2,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 78.8,
+      "llm_calls": 7,
+      "final_answer": "Common Spark optimization techniques include using broadcast joins for small lookup tables, caching DataFrames that are reused across multiple actions, avoiding unnecessary wide shuffles, and reading the Catalyst optimizer's query plan via explain() to locate data skew.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-011",
+      "level": 2,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 22.0,
+      "llm_calls": 2,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-011",
+      "level": 2,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.5,
+      "llm_calls": 4,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-011",
+      "level": 2,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 74.5,
+      "llm_calls": 7,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-014",
+      "level": 2,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.6,
+      "llm_calls": 2,
+      "final_answer": "Common expense-tracking approaches include zero-based budgeting (every dollar of income is assigned a job before the month starts), the envelope system (cash or virtual \"envelopes\" per category), and dedicated tracking apps that categorize transactions automatically.\n\nSources: chapter_01_basics, chapter_01_interest, chapter_02_tracking, chapter_03_diversification, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-014",
+      "level": 2,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.2,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-014",
+      "level": 2,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 87.2,
+      "llm_calls": 7,
+      "final_answer": "Common expense-tracking approaches include zero-based budgeting (every dollar of income is assigned a job before the month starts), the envelope system (cash or virtual \"envelopes\" per category), and dedicated tracking apps that categorize transactions automatically.\n\nSources: chapter_01_basics, chapter_01_interest, chapter_02_tracking, chapter_03_diversification, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-017",
+      "level": 2,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.9,
+      "llm_calls": 2,
+      "final_answer": "The order number is formatted as ORD- followed by six digits (for example ORD-004821).\n\nSources: chapter_01_placing, chapter_01_policy, chapter_01_shipping_methods, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-017",
+      "level": 2,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 49.1,
+      "llm_calls": 4,
+      "final_answer": "The order number is formatted as ORD- followed by six digits (for example ORD-004821).\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L2-017",
+      "level": 2,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 83.1,
+      "llm_calls": 7,
+      "final_answer": "The order number is formatted as ORD- followed by six digits (for example ORD-004821).\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-001",
+      "level": 3,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 32.8,
+      "llm_calls": 2,
+      "final_answer": "The RF-700 is a 700L French-door model with a built-in ice maker and water dispenser as standard.\n\nSources: chapter_01_overview, chapter_01_types, chapter_02_features",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-001",
+      "level": 3,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 44.9,
+      "llm_calls": 4,
+      "final_answer": "The RF-700 is a 700L French-door model with a built-in ice maker and water dispenser as standard.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-001",
+      "level": 3,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 74.8,
+      "llm_calls": 7,
+      "final_answer": "The RF-700 is a 700L French-door model with a built-in ice maker and water dispenser as standard.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-007",
+      "level": 3,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.2,
+      "llm_calls": 2,
+      "final_answer": "Azure reserves five IP addresses in every subnet (network address, default gateway, two for DNS, and the broadcast address).\n\nSources: chapter_01_vms, chapter_01_vnet, chapter_02_subnets, chapter_03_nsg, chapter_03_redundancy",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-007",
+      "level": 3,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 43.3,
+      "llm_calls": 4,
+      "final_answer": "Azure reserves five IP addresses in every subnet (network address, default gateway, two for DNS, and the broadcast address).\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-007",
+      "level": 3,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 81.3,
+      "llm_calls": 7,
+      "final_answer": "Azure reserves five IP addresses in every subnet (network address, default gateway, two for DNS, and the broadcast address).\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-015",
+      "level": 3,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.5,
+      "llm_calls": 2,
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-015",
+      "level": 3,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.0,
+      "llm_calls": 4,
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-015",
+      "level": 3,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 72.5,
+      "llm_calls": 7,
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-021",
+      "level": 3,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.3,
+      "llm_calls": 2,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-021",
+      "level": 3,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 37.4,
+      "llm_calls": 4,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-021",
+      "level": 3,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 75.5,
+      "llm_calls": 7,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-027",
+      "level": 3,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.6,
+      "llm_calls": 2,
+      "final_answer": "The 50/30/20 rule allocates roughly 30% of after-tax income toward wants.\n\nSources: chapter_01_basics, chapter_02_amortization, chapter_02_risk, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-027",
+      "level": 3,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 46.2,
+      "llm_calls": 4,
+      "final_answer": "The 50/30/20 rule allocates roughly 30% of after-tax income toward wants.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-027",
+      "level": 3,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 84.9,
+      "llm_calls": 7,
+      "final_answer": "The 50/30/20 rule allocates roughly 30% of after-tax income toward wants.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-033",
+      "level": 3,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.6,
+      "llm_calls": 2,
+      "final_answer": "Orders move through these statuses: Processing, Packed, Shipped, Out for Delivery, and Delivered.\n\nSources: chapter_01_placing, chapter_01_shipping_methods, chapter_02_delays, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-033",
+      "level": 3,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 38.4,
+      "llm_calls": 4,
+      "final_answer": "Orders move through these statuses: Processing, Packed, Shipped, Out for Delivery, and Delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L3-033",
+      "level": 3,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 71.1,
+      "llm_calls": 7,
+      "final_answer": "Orders move through these statuses: Processing, Packed, Shipped, Out for Delivery, and Delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true
+    },
+    {
+      "case_id": "L4-001",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.5,
+      "llm_calls": 2,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_01_types, chapter_02_features",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-001",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.8,
+      "llm_calls": 4,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-001",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 84.3,
+      "llm_calls": 7,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-004",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 20.9,
+      "llm_calls": 2,
+      "final_answer": "Azure reserves five IP addresses in every subnet (network address, default gateway, two for DNS, and the broadcast address).\n\nSources: chapter_01_vms, chapter_01_vnet, chapter_02_subnets, chapter_03_nsg, chapter_03_redundancy",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-004",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 37.7,
+      "llm_calls": 4,
+      "final_answer": "Azure reserves five IP addresses in every subnet (network address, default gateway, two for DNS, and the broadcast address).\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-004",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 69.1,
+      "llm_calls": 7,
+      "final_answer": "Azure reserves five IP addresses in every subnet (network address, default gateway, two for DNS, and the broadcast address).\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-008",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.8,
+      "llm_calls": 2,
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-008",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.9,
+      "llm_calls": 4,
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-008",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 73.7,
+      "llm_calls": 7,
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-011",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 19.5,
+      "llm_calls": 2,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-011",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 39.0,
+      "llm_calls": 4,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-011",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 65.6,
+      "llm_calls": 7,
+      "final_answer": "Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-014",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.6,
+      "llm_calls": 2,
+      "final_answer": "The 50/30/20 rule puts 20% of after-tax income toward savings or debt repayment.\n\nSources: chapter_01_basics, chapter_01_interest, chapter_02_amortization, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-014",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.9,
+      "llm_calls": 4,
+      "final_answer": "The 50/30/20 rule puts 20% of after-tax income toward savings or debt repayment.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-014",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 81.7,
+      "llm_calls": 7,
+      "final_answer": "The 50/30/20 rule puts 20% of after-tax income toward savings or debt repayment.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-017",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 24.1,
+      "llm_calls": 2,
+      "final_answer": "The order number is formatted as ORD- followed by six digits (for example ORD-004821).\n\nSources: chapter_01_placing, chapter_01_policy, chapter_01_shipping_methods, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-017",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.3,
+      "llm_calls": 4,
+      "final_answer": "The order number is formatted as ORD- followed by six digits (for example ORD-004821).\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-017",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 65.5,
+      "llm_calls": 7,
+      "final_answer": "The order number is formatted as ORD- followed by six digits (for example ORD-004821).\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-020",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 50.0,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-020",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.9,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-020",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 109.6,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-022",
+      "level": 4,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.5,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-022",
+      "level": 4,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.9,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L4-022",
+      "level": 4,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 102.8,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L5-001",
+      "level": 5,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.9,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-001",
+      "level": 5,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 41.0,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-001",
+      "level": 5,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 47.5,
+      "llm_calls": 4,
+      "final_answer": "What specific item or service are you inquiring about regarding coverage?",
+      "topic_correct": true,
+      "behavior_correct": true
+    },
+    {
+      "case_id": "L5-004",
+      "level": 5,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.2,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-004",
+      "level": 5,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.6,
+      "llm_calls": 4,
+      "final_answer": "All refrigerators ship with a standard 2-year parts and labour warranty. The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-004",
+      "level": 5,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 35.7,
+      "llm_calls": 4,
+      "final_answer": "Which product or model are you asking about regarding the warranty?",
+      "topic_correct": true,
+      "behavior_correct": true
+    },
+    {
+      "case_id": "L5-017",
+      "level": 5,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 22.6,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-017",
+      "level": 5,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 44.0,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-017",
+      "level": 5,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 42.6,
+      "llm_calls": 4,
+      "final_answer": "Which specific network or service are you referring to for the CIDR range?",
+      "topic_correct": true,
+      "behavior_correct": true
+    },
+    {
+      "case_id": "L5-021",
+      "level": 5,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.6,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-021",
+      "level": 5,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 44.1,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-021",
+      "level": 5,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 40.9,
+      "llm_calls": 4,
+      "final_answer": "What specific system or dataset are you referring to when asking about the number of partitions?",
+      "topic_correct": true,
+      "behavior_correct": true
+    },
+    {
+      "case_id": "L5-025",
+      "level": 5,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 20.2,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-025",
+      "level": 5,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 46.5,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-025",
+      "level": 5,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 44.7,
+      "llm_calls": 4,
+      "final_answer": "Which specific Python library or framework are you referring to when asking about true parallelism?",
+      "topic_correct": true,
+      "behavior_correct": true
+    },
+    {
+      "case_id": "L5-029",
+      "level": 5,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.9,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-029",
+      "level": 5,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.2,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "behavior_correct": false
+    },
+    {
+      "case_id": "L5-029",
+      "level": 5,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 39.6,
+      "llm_calls": 4,
+      "final_answer": "What type of rate are you inquiring about, such as an interest rate for a loan, credit card, or investment?",
+      "topic_correct": true,
+      "behavior_correct": true
+    },
+    {
+      "case_id": "L6-001",
+      "level": 6,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.3,
+      "llm_calls": 2,
+      "final_answer": "E21: Drainage problem. Check the pump filter and drain hose for blockages before assuming a pump motor failure. The WM-500 has a standard warranty term of 2 years.\n\nSources: chapter_01_overview, chapter_01_types, chapter_03_faults",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L6-001",
+      "level": 6,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.7,
+      "llm_calls": 4,
+      "final_answer": "E21: Drainage problem. Check the pump filter and drain hose for blockages before assuming a pump motor failure. The WM-500 has a 2-year standard warranty.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-001",
+      "level": 6,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 86.7,
+      "llm_calls": 7,
+      "final_answer": "E21: Drainage problem. Check the pump filter and drain hose for blockages before assuming a pump motor failure. The WM-500 has a 2-year standard warranty.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-004",
+      "level": 6,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.4,
+      "llm_calls": 2,
+      "final_answer": "The order number format is formatted as ORD- followed by six digits (for example ORD-004821). An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_delays, chapter_02_process, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-004",
+      "level": 6,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.1,
+      "llm_calls": 4,
+      "final_answer": "The order number format is formatted as ORD- followed by six digits (for example ORD-004821). An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-004",
+      "level": 6,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 71.5,
+      "llm_calls": 7,
+      "final_answer": "The order number format is formatted as ORD- followed by six digits (for example ORD-004821). An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-011",
+      "level": 6,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.0,
+      "llm_calls": 2,
+      "final_answer": "Azure B-series are burstable and cost-efficient for variable workloads. Scaling rules for Virtual Machine Scale Sets can trigger on CPU utilization, memory pressure, or a custom metric published to Azure Monitor.\n\nSources: chapter_01_vms, chapter_01_vnet, chapter_02_scale_sets, chapter_02_table_partitions, chapter_03_app_service",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-011",
+      "level": 6,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.4,
+      "llm_calls": 4,
+      "final_answer": "Azure B-series are burstable and cost-efficient for variable workloads. Scaling rules can trigger on CPU utilization, memory pressure, or a custom metric published to Azure Monitor.\n\nSources: chapter_01_vms, chapter_02_scale_sets, chapter_03_app_service",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-011",
+      "level": 6,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 72.0,
+      "llm_calls": 7,
+      "final_answer": "Azure B-series are burstable and cost-efficient for variable workloads. Scaling rules can trigger on CPU utilization, memory pressure, or a custom metric published to Azure Monitor.\n\nSources: chapter_01_vms, chapter_02_scale_sets, chapter_03_app_service",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-015",
+      "level": 6,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.4,
+      "llm_calls": 2,
+      "final_answer": "An Azure Data Factory (ADF) pipeline groups one or more activities, such as a Copy activity, Data Flow activity, or Stored Procedure activity, into a single orchestrated unit that can accept parameters. Mapping Data Flows do not run inside a Databricks workspace.\n\nSources: chapter_01_overview, chapter_01_pipelines, chapter_03_data_flows, chapter_03_jobs",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-015",
+      "level": 6,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 43.1,
+      "llm_calls": 4,
+      "final_answer": "An Azure Data Factory (ADF) pipeline groups one or more activities, such as a Copy activity, Data Flow activity, or Stored Procedure activity, into a single orchestrated unit that can accept parameters. Mapping Data Flows do not run inside a Databricks workspace.\n\nSources: chapter_01_pipelines, chapter_02_triggers, chapter_03_data_flows",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-015",
+      "level": 6,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 77.6,
+      "llm_calls": 7,
+      "final_answer": "An Azure Data Factory (ADF) pipeline groups one or more activities, such as a Copy activity, Data Flow activity, or Stored Procedure activity, into a single orchestrated unit that can accept parameters. Mapping Data Flows do not run inside a Databricks workspace.\n\nSources: chapter_01_pipelines, chapter_02_triggers, chapter_03_data_flows",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-018",
+      "level": 6,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.1,
+      "llm_calls": 2,
+      "final_answer": "CPU-bound threads do not achieve true parallelism in standard CPython because of the Global Interpreter Lock (GIL), while multiprocessing gives true parallelism for CPU-bound work because it spawns separate OS processes, each with its own Python interpreter, GIL, and memory space.\n\nSources: chapter_01_threading, chapter_02_asyncio, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-018",
+      "level": 6,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 46.9,
+      "llm_calls": 4,
+      "final_answer": "CPU-bound threads do not achieve true parallelism in standard CPython because of the Global Interpreter Lock (GIL). In contrast, the multiprocessing module spawns separate OS processes, each with its own Python interpreter, GIL, and memory space, which gives true parallelism for CPU-bound work.\n\nSources: chapter_01_threading, chapter_02_asyncio, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-018",
+      "level": 6,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 80.6,
+      "llm_calls": 7,
+      "final_answer": "CPU-bound threads do not achieve true parallelism in standard CPython because of the Global Interpreter Lock (GIL). In contrast, the multiprocessing module spawns separate OS processes, each with its own Python interpreter, GIL, and memory space, which gives true parallelism for CPU-bound work.\n\nSources: chapter_01_threading, chapter_02_asyncio, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-021",
+      "level": 6,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 22.4,
+      "llm_calls": 2,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances. General guidance suggests keeping three to six months of essential expenses in an easily accessible, low-risk account as an emergency fund, separate from longer-term investments.\n\nSources: chapter_01_basics, chapter_01_interest, chapter_02_amortization, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-021",
+      "level": 6,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.4,
+      "llm_calls": 4,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances. General guidance suggests keeping three to six months of essential expenses in an easily accessible, low-risk account as an emergency fund, separate from longer-term investments.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L6-021",
+      "level": 6,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 70.7,
+      "llm_calls": 7,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances. General guidance suggests keeping three to six months of essential expenses in an easily accessible, low-risk account as an emergency fund, separate from longer-term investments.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-001",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.3,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-001",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.2,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-001",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 120.7,
+      "llm_calls": 12,
+      "final_answer": "The error code E21 on your WM-500 indicates a drainage problem. It is advisable to check the pump filter and drain hose for any blockages before concluding that there is a pump motor failure. Whether the repair is covered under warranty depends on the root cause of the fault and the purchase date of the machine, rather than solely on the error code. Typically, a drainage fault (E21) is considered a parts issue (related to the pump or hose) and is usually covered only under the standard warranty period.\n\nRegarding SmartHome's refund policy, customers can receive a full refund within 30 days of delivery for unopened and undamaged items. If a large appliance is opened and returned for a change-of-mind reason, a 15% restocking fee will apply; however, this fee does not apply if the item is faulty.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, chapter_01_policy, chapter_02_process, chapter_03_exceptions",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-009",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.9,
+      "llm_calls": 2,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_01_types, chapter_02_features",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-009",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 36.9,
+      "llm_calls": 4,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-009",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 66.0,
+      "llm_calls": 7,
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-010",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 21.5,
+      "llm_calls": 2,
+      "final_answer": "An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_01_policy, chapter_02_process, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-010",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 41.1,
+      "llm_calls": 4,
+      "final_answer": "An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-010",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 66.3,
+      "llm_calls": 7,
+      "final_answer": "An order can be cancelled free of charge any time before it reaches the Packed status. Once an order has been packed, a cancellation request is instead handled as a return once the item has been delivered.\n\nSources: chapter_01_placing, chapter_02_tracking, chapter_03_cancellation",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-011",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 45.8,
+      "llm_calls": 2,
+      "final_answer": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. Each rule specifies a source, destination, port range, protocol, and direction. Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-011",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 37.6,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-011",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 122.8,
+      "llm_calls": 12,
+      "final_answer": "A Network Security Group (NSG) in Azure filters inbound and outbound traffic to Azure resources using allow/deny rules. Additionally, the default number of partitions created after a shuffle in Spark is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg, chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-012",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.6,
+      "llm_calls": 2,
+      "final_answer": "A managed identity lets an Azure resource authenticate to other Azure services without storing credentials in code or configuration. System-assigned identities are tied to the resource's lifecycle; user-assigned identities are standalone resources that can be shared across multiple Azure resources.\n\nSources: chapter_01_rbac, chapter_01_vms, chapter_02_identity, chapter_02_table_partitions, chapter_03_app_service",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-012",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 41.6,
+      "llm_calls": 4,
+      "final_answer": "A managed identity lets an Azure resource authenticate to other Azure services without storing credentials in code or configuration. System-assigned identities are tied to the resource's lifecycle; user-assigned identities are standalone resources that can be shared across multiple Azure resources.\n\nSources: chapter_01_rbac, chapter_02_identity, chapter_03_key_vault",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-012",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 127.0,
+      "llm_calls": 12,
+      "final_answer": "In Azure, a managed identity allows an Azure resource to authenticate to other Azure services without the need to store credentials in code or configuration. There are two types of managed identities: system-assigned and user-assigned. System-assigned identities are tied to the lifecycle of the resource they are created for, meaning they are automatically created and deleted with that resource. In contrast, user-assigned identities are standalone resources that can be created independently and shared across multiple Azure resources.\n\nIn Python, the Global Interpreter Lock (GIL) is a mechanism that limits CPU-bound threads from achieving true parallelism in standard CPython. This means that even if multiple threads are running, only one thread can execute Python bytecode at a time, which can affect performance in CPU-intensive applications.\n\nSources: chapter_01_rbac, chapter_02_identity, chapter_03_key_vault, chapter_01_threading, chapter_02_asyncio, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-013",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.8,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-013",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 45.2,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-013",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 120.7,
+      "llm_calls": 12,
+      "final_answer": "Azure Blob Storage is designed to store unstructured data such as files and images in containers. It offers three access tiers: Hot, Cool, and Archive. These tiers allow users to trade off between storage costs and retrieval costs, as well as latency.\n\nIn personal finance, the 50/30/20 rule suggests that approximately 30% of after-tax income should be allocated toward wants.\n\nSources: chapter_01_blob, chapter_02_table_partitions, chapter_03_redundancy, chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-014",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.2,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-014",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 40.6,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-014",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 108.6,
+      "llm_calls": 12,
+      "final_answer": "In Databricks, there are two types of clusters: all-purpose clusters and job clusters. All-purpose clusters are long-running and designed for interactive notebook work, allowing users to run multiple jobs and interact with data continuously. In contrast, job clusters are ephemeral; they are created fresh for each scheduled job run and are torn down afterward, optimizing resource usage for specific tasks.\n\nIn Python, when creating decorators, using `functools.wraps` is essential as it preserves the wrapped function's `__name__` and docstring. Without this, the wrapper function would overwrite these attributes, making it difficult to identify the original function.\n\nSources: chapter_01_overview, chapter_02_delta_lake, chapter_03_jobs, chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-015",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 22.3,
+      "llm_calls": 2,
+      "final_answer": "Tumbling window triggers uniquely support dependency chains between consecutive time windows, re-running an earlier window automatically if it fails. Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-015",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 43.6,
+      "llm_calls": 4,
+      "final_answer": "Tumbling window triggers uniquely support dependency chains between consecutive time windows, re-running an earlier window automatically if it fails. Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-015",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 118.9,
+      "llm_calls": 12,
+      "final_answer": "Tumbling window triggers in Azure Data Factory uniquely support dependency chains between consecutive time windows, allowing for the automatic re-running of an earlier window if it fails. This feature ensures that data processing can continue smoothly despite individual failures.\n\nIn investing, CAGR stands for Compound Annual Growth Rate, which expresses the smoothed annual growth rate that would produce the same overall return across multiple years.\n\nSources: chapter_01_pipelines, chapter_02_triggers, chapter_03_data_flows, chapter_01_returns, chapter_02_risk, chapter_03_diversification",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-016",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.3,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-016",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 42.4,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": false,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L7-016",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 115.0,
+      "llm_calls": 12,
+      "final_answer": "Simple interest is calculated only on the original principal, while compound interest is calculated on the principal plus any interest that has already accrued. The Annual Percentage Rate (APR) reflects the stated yearly rate, whereas the Annual Percentage Yield (APY) accounts for the effect of compounding frequency.\n\nIn Python, the multiprocessing module provides true parallelism for CPU-bound work by spawning separate OS processes. Each process has its own Python interpreter, Global Interpreter Lock (GIL), and memory space. This approach allows for parallel execution but comes with higher memory usage and requires explicit sharing or pickling of data between processes.\n\nSources: chapter_01_interest, chapter_02_amortization, chapter_03_types, chapter_01_threading, chapter_02_asyncio, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-019",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 21.8,
+      "llm_calls": 2,
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_02_inheritance, chapter_03_dunder_methods, chapter_03_multiprocessing",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-019",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.0,
+      "llm_calls": 4,
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-019",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 74.1,
+      "llm_calls": 7,
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-020",
+      "level": 7,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 23.3,
+      "llm_calls": 2,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_amortization, chapter_02_tracking, chapter_03_diversification, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-020",
+      "level": 7,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 35.8,
+      "llm_calls": 4,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L7-020",
+      "level": 7,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 61.7,
+      "llm_calls": 7,
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L8-001",
+      "level": 8,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 38.7,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-001",
+      "level": 8,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 40.6,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-001",
+      "level": 8,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 76.0,
+      "llm_calls": 7,
+      "final_answer": "The price of the WM-900 washing machine is $1499 AUD. Sources: tool:sql_query.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L8-004",
+      "level": 8,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 21.6,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-004",
+      "level": 8,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 43.4,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-004",
+      "level": 8,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 73.3,
+      "llm_calls": 7,
+      "final_answer": "The average number of days for a SmartHome refund to process is 7.5 days. \n\nSources: tool:calculator, chapter_02_process\n\nSources: chapter_01_policy, chapter_02_process, chapter_03_exceptions, tool:calculator",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L8-011",
+      "level": 8,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.2,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-011",
+      "level": 8,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 40.9,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-011",
+      "level": 8,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 77.0,
+      "llm_calls": 7,
+      "final_answer": "The current CPU utilization is 25 percentage points below the scale-out threshold of 80%. \n\nSources: tool:calculator, chapter_02_scale_sets\n\nSources: chapter_01_vms, chapter_02_scale_sets, chapter_03_app_service, tool:calculator",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L8-012",
+      "level": 8,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.5,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-012",
+      "level": 8,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 41.7,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-012",
+      "level": 8,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 78.7,
+      "llm_calls": 7,
+      "final_answer": "The total is 45 minutes. \n\nSources: tool:calculator, chapter_03_jobs\n\nSources: chapter_01_overview, chapter_02_delta_lake, chapter_03_jobs, tool:calculator",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L8-013",
+      "level": 8,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 28.0,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-013",
+      "level": 8,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.3,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-013",
+      "level": 8,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 67.8,
+      "llm_calls": 7,
+      "final_answer": "The total memory used by the worker processes is 200 MB.\n\nSources: chapter_01_threading, chapter_02_asyncio, chapter_03_multiprocessing, tool:calculator",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L8-014",
+      "level": 8,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 26.3,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-014",
+      "level": 8,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 49.6,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": false
+    },
+    {
+      "case_id": "L8-014",
+      "level": 8,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 74.4,
+      "llm_calls": 7,
+      "final_answer": "The average of the APR range from 6% to 12% is 9.0%. \n\nSources: tool:calculator\n\nSources: chapter_01_interest, chapter_02_amortization, chapter_03_types, tool:calculator",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L9-001",
+      "level": 9,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 25.4,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "answer_correct": false
+    },
+    {
+      "case_id": "L9-001",
+      "level": 9,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 41.3,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "answer_correct": false
+    },
+    {
+      "case_id": "L9-001",
+      "level": 9,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 218.5,
+      "llm_calls": 15,
+      "final_answer": "The washing machine model with the largest capacity is the WM-900, which has a capacity of 11 kg. The price of the WM-900 is $1499 AUD.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+      "answer_correct": true
+    },
+    {
+      "case_id": "L9-009",
+      "level": 9,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 27.3,
+      "llm_calls": 2,
+      "final_answer": "E42: Door lock problem. Either the door is not detected as securely closed, or the door-locking solenoid has failed.\n\nSources: chapter_03_faults, chapter_03_troubleshooting",
+      "answer_correct": true
+    },
+    {
+      "case_id": "L9-009",
+      "level": 9,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 48.3,
+      "llm_calls": 4,
+      "final_answer": "E42: Door lock problem. Either the door is not detected as securely closed, or the door-locking solenoid has failed.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "answer_correct": true
+    },
+    {
+      "case_id": "L9-009",
+      "level": 9,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 74.6,
+      "llm_calls": 7,
+      "final_answer": "E42: Door lock problem. Either the door is not detected as securely closed, or the door-locking solenoid has failed.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-001",
+      "level": 10,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 20.7,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-001",
+      "level": 10,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 36.2,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-001",
+      "level": 10,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 244.2,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-003",
+      "level": 10,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 47.7,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-003",
+      "level": 10,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.8,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-003",
+      "level": 10,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 81.8,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-007",
+      "level": 10,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 24.3,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-007",
+      "level": 10,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 39.4,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-007",
+      "level": 10,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 94.2,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-008",
+      "level": 10,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 20.5,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-008",
+      "level": 10,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 40.7,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-008",
+      "level": 10,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 79.2,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-009",
+      "level": 10,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 24.4,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-009",
+      "level": 10,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 38.4,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-009",
+      "level": 10,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 78.8,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-010",
+      "level": 10,
+      "architecture": "A (LLM Router)",
+      "latency_ms": 22.7,
+      "llm_calls": 2,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-010",
+      "level": 10,
+      "architecture": "B (Hierarchical Router)",
+      "latency_ms": 47.8,
+      "llm_calls": 4,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    },
+    {
+      "case_id": "L10-010",
+      "level": 10,
+      "architecture": "C (Hybrid Router)",
+      "latency_ms": 79.5,
+      "llm_calls": 7,
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "topic_correct": true,
+      "answer_correct": true
+    }
+  ]
+}

@@ -81,6 +81,18 @@ def execute_multihop(state: RoutingState) -> dict:
         "final_answer": hop1_answer,
         "extracted_value": hop1_extracted,
     }
+    # Surface hop 1's own full sub-invocation trace (topic/subtopic/
+    # chapter routing, retrieval, tool selection, topic agent - the
+    # entire single-question pipeline it just ran), prefixed so it's
+    # distinguishable from this graph's own top-level nodes - without
+    # this, the parent trace would show only a single 0ms "execute_hop[1]"
+    # entry and silently hide every LLM call hop 1 actually made,
+    # undercounting true cost for any caller (e.g.
+    # scripts/compare_architectures.py) that measures cost from
+    # `execution_log`.
+    log_entries.extend(
+        {**entry, "node": f"hop1:{entry['node']}"} for entry in hop1_state["execution_log"]
+    )
     log_entries.append(
         {
             "node": "multihop_agent",
@@ -99,6 +111,9 @@ def execute_multihop(state: RoutingState) -> dict:
         "final_answer": hop2_answer,
         "extracted_value": None,
     }
+    log_entries.extend(
+        {**entry, "node": f"hop2:{entry['node']}"} for entry in hop2_state["execution_log"]
+    )
     log_entries.append(
         {
             "node": "multihop_agent",
