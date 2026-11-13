@@ -16,17 +16,15 @@ from [`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md)
 are now implemented and tested - see "Next step" at the bottom for the
 post-Level-10 backfill work that follows.
 
-**Scope note for Levels 5-10**: to control API cost while these levels'
-*routing mechanisms* were built and debugged (they test mechanism, not
-topic-specific knowledge - the knowledge base already covers all 6 topics
-from Level 1), test datasets for Levels 5-10 are scoped to **`appliances`
-+ `customer_support`** only. The other 4 topics (`azure_cloud`,
-`data_engineering`, `python`, `finance`) will now be backfilled with
-equivalent test coverage, now that Level 10 is complete and the full
-architecture is proven - this is purely additive test-data work, since
-the graph itself isn't topic-specific. Every graph-level change was still
-spot-checked (and, from Level 9 onward, fully regression-tested - see
-that level's finding below for why) against all 6 topics before being
+**Scope note for Levels 5-10**: while these levels' *routing mechanisms*
+were being built and debugged (they test mechanism, not topic-specific
+knowledge - the knowledge base already covers all 6 topics from Level 1),
+test datasets for Levels 5-10 were scoped to **`appliances` +
+`customer_support`** only, to control API cost. That backfill is now
+done - see "Backfill: Levels 5-10 across all 6 topics" below for what
+was added and what was found along the way. Every graph-level change was
+still spot-checked (and, from Level 9 onward, fully regression-tested -
+see that level's finding below for why) against all 6 topics before being
 committed, just not with a full per-topic dataset until the backfill.
 
 **Level 1 (simple topic routing):**
@@ -507,6 +505,72 @@ for what it builds.
   narrower failure this retry targets; broadening further would risk
   pulling in genuinely irrelevant passages from an unrelated topic.
 
+**Backfill: Levels 5-10 across all 6 topics:**
+- Added 63 new dataset rows extending every Level 5-10 question type to
+  the 4 topics the focus-topic scoping had deferred - `azure_cloud`,
+  `data_engineering`, `python`, `finance` - bringing the dataset from 165
+  to 228 rows. Purely additive test data; no graph/mechanism code
+  changed, since none of it was ever topic-specific.
+- **100% pass rate once stabilized**: all 63 new rows pass (Level 5: 16,
+  Level 6: 13, Level 7: 10, Level 8: 12, Level 9: 4, Level 10: 8), and a
+  full regression across the entire 228-row, 10-level suite afterward
+  came back clean (391 passed, the one exception again being the
+  pre-existing `L3-022` non-determinism flake, unrelated to the
+  backfill).
+- **Real finding - a second, independent confirmation of Level 9's core
+  lesson**: 3 of the new Level 6 (multi-chapter evidence) questions were
+  *genuinely* misclassified as Level 9 multi-hop by the Multi-Hop
+  Router, confirmed by direct probing (e.g. "What series of Azure VM is
+  recommended for variable, bursty workloads, and what metric can
+  trigger a Virtual Machine Scale Set to scale out?"). Their first
+  clause asked to *identify* an unnamed subject by a criterion ("what
+  series is recommended for workloads") - structurally identical to the
+  "which X has/is CRITERION, unknown winner" pattern the Multi-Hop
+  Router's prompt is deliberately tuned to catch, even though no
+  separate second-chapter *dependency* existed (the second fact doesn't
+  actually need the first one resolved first - that's what makes it
+  Level 6, not Level 9). Fixed, without touching the Multi-Hop Router's
+  prompt at all, by rewording clause 1 to name the subject directly
+  ("What is Azure's B-series VM good for, and what metric can trigger a
+  Virtual Machine Scale Set to scale out?") - matching the existing
+  Level 6/7 dataset's established pattern (every original row always
+  names its subject up front, e.g. "the WM-500", "the RF-700") that this
+  backfill had briefly drifted from. Caught before it reached the
+  committed dataset by proactively probing every new compound ("and"-
+  joined) question for `is_multi_hop` ahead of the full test run, rather
+  than only discovering it via a failing assertion.
+- **Design decision - no new positive Level 9 (multi-hop) test cases for
+  the 4 backfilled topics**: genuine multi-hop requires a "which X
+  has/is CRITERION" identification query whose unique winner then has a
+  *separate*, distinct fact in a different chapter - a structural
+  feature of `appliances`' named-model-plus-per-model-specs content
+  (e.g. WM-900's capacity in one chapter, its price in a CSV) that none
+  of `azure_cloud`, `data_engineering`, `python`, or `finance`'s
+  chapters have (each covers one self-contained concept, with no
+  comparable cross-chapter named-instance catalog) - and, notably,
+  `customer_support` doesn't have it either, which is why even the
+  *original* Level 9 dataset only ever used `appliances`. Forcing a
+  positive case into these topics would mean inventing new knowledge-base
+  content, not writing a test. Instead, 4 regression-check rows (one per
+  topic, reusing an ordinary Level 1 question each) were added, verifying
+  the Multi-Hop Router correctly does *not* false-positive on single-hop
+  questions from topics it had never been tested against before - itself
+  a meaningful check given the false-positive history above.
+- **Design decision - no `sql_query` Level 8 backfill for the 4 new
+  topics**: `sql_query` only applies to a `specifications.csv` file,
+  which only `appliances/washing_machines` and
+  `appliances/refrigerators` have; none of the 4 backfilled topics have
+  one (`finance/loans/loan_rates.csv` exists but isn't named
+  `specifications.csv` and, per L4-022, isn't RAG-indexed either). The
+  backfill uses `calculator` and `metadata_lookup` only, following the
+  same "don't force a tool that doesn't fit the content" precedent as
+  `document_search` being left unimplemented.
+- Verified with `pytest tests/test_ambiguous_questions.py
+  tests/test_multichapter_evidence.py tests/test_multitopic_routing.py
+  tests/test_tool_selection.py tests/test_multihop_reasoning.py
+  tests/test_error_recovery.py` (265 tests, all passing), then the full
+  suite (`pytest tests/`, 392 tests: 391 passed, 1 pre-existing flake).
+
 ## Architecture (current)
 
 ```
@@ -605,7 +669,7 @@ routing/
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10, L8: 10, L9: 10, L10: 6 questions)
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 32, L6: 23, L7: 20, L8: 22, L9: 14, L10: 14 questions - 228 total, all 6 topics)
 ├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9), test_error_recovery.py (L10)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
 ├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
@@ -637,7 +701,8 @@ routing/
 # Ask a single question through the graph
 ..\.venv\Scripts\python.exe -m app.main "What is a Python decorator?"
 
-# Run all pytest suites (takes 25-40 minutes - real LLM + embedding calls)
+# Run all pytest suites (takes 35-55 minutes on a cold cache - real LLM +
+# embedding calls; much faster on a warm cache, see app/cache.py)
 ..\.venv\Scripts\python.exe -m pytest tests\ -v
 
 # Run just the newest level's tests (recommended during active development,
@@ -671,18 +736,12 @@ question text).
 
 All 10 levels from
 [`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md) are
-now implemented and tested. The next step is the backfill promised back
-in Level 5: extend the Levels 5-10 test datasets (currently scoped to
-`appliances` + `customer_support` only, to control cost while these
-levels' *routing mechanisms* were being built and debugged) with
-equivalent coverage for the 4 deferred topics - `azure_cloud`,
-`data_engineering`, `python`, `finance` - now that the full architecture
-is proven stable across a 266-test regression. This is purely additive
-test-data work (new ground-truth questions per topic, following each
-level's established question patterns) since the graph itself was never
-topic-specific; no new mechanism needs to be built. After the backfill,
-a natural further step is the "compare three routing architectures"
-experiment named in
+implemented and tested, and the Level 5-10 backfill across all 6 topics
+(see "Backfill: Levels 5-10 across all 6 topics" above) is also done -
+the project's originally-planned scope is complete, with a 228-row,
+10-level dataset passing cleanly except for the one pre-existing
+`L3-022` non-determinism flake. A natural further step is the "compare
+three routing architectures" experiment named in
 [`6_routing_design.md`](../instructions/Langgraph_routing/6_routing_design.md)
 (a single LLM router vs. a hierarchical router vs. this project's hybrid
 router, on the same full dataset) to quantify whether the added
