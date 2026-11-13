@@ -24,7 +24,7 @@ from langchain_chroma import Chroma
 
 from app.config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR, RETRIEVAL_TOP_K
 from app.rag.embeddings import get_embeddings_client
-from app.state import RoutingState
+from app.state import RoutingState, get_topic_question
 
 
 @lru_cache(maxsize=1)
@@ -67,14 +67,16 @@ def retrieve_evidence(state: RoutingState) -> dict:
     """RAG Retriever graph node: for each selected topic, retrieve the
     top-k passages from that topic's chosen subtopic and record them in
     `retrieved_passages`, keyed by topic - same per-topic-loop pattern as
-    `subtopic_router.classify_subtopic` and `chapter_selector.select_chapter`."""
+    `subtopic_router.classify_subtopic` and `chapter_selector.select_chapter`,
+    including using `get_topic_question()` (not the full multi-topic
+    question) as the embedding query for a Level 7 question."""
     retrieved_passages: dict = {}
     log_entries: list[dict] = []
 
     for topic in state["selected_topics"]:
         subtopic = state["selected_subtopics"].get(topic)
         start = time.perf_counter()
-        passages = retrieve(state["question"], topic=topic, subtopic=subtopic)
+        passages = retrieve(get_topic_question(state, topic), topic=topic, subtopic=subtopic)
         duration_ms = (time.perf_counter() - start) * 1000
 
         retrieved_passages[topic] = passages

@@ -19,7 +19,7 @@ import time
 from langchain_openai import ChatOpenAI
 
 from app.config import AGENT_MODEL, TOPIC_SUBTOPICS
-from app.state import RoutingState
+from app.state import RoutingState, get_topic_question
 
 INSUFFICIENT_INFO_MARKER = "Insufficient information in the knowledge base to answer this question."
 
@@ -65,9 +65,24 @@ def run_topic_agent(topic: str, state: RoutingState) -> dict:
     ONLY the passages retrieved for this topic, falling back to
     INSUFFICIENT_INFO_MARKER when they don't actually support an answer,
     and record the result (with appended source citations) under
-    `agent_responses[topic]`."""
+    `agent_responses[topic]`.
+
+    For a multi-topic question (Level 7), the agent answers
+    `topic_decision.topic_questions[topic]` - the Topic Router's own
+    restatement containing only this topic's relevant part - rather than
+    the full original question. An earlier approach kept the full
+    question and merely *instructed* the agent to "answer only your part,
+    ignore the rest"; direct testing showed that was unreliable (the
+    agent sometimes declined its own part entirely once it could see the
+    other topic's fragment was unaddressed by its excerpts), even with an
+    added worked example. Restating the question per topic removes the
+    other topic's fragment from what this agent ever sees, which is more
+    robust than instructing the model to ignore text it can still see -
+    and keeps this function's prompt byte-identical to Levels 1-6 for the
+    single-topic case, since there's nothing to restate."""
     start = time.perf_counter()
     passages = state.get("retrieved_passages", {}).get(topic, [])
+    question = get_topic_question(state, topic)
 
     llm = ChatOpenAI(model=AGENT_MODEL, temperature=0)
     system_prompt = (
@@ -83,7 +98,7 @@ def run_topic_agent(topic: str, state: RoutingState) -> dict:
     response = llm.invoke(
         [
             ("system", system_prompt),
-            ("human", state["question"]),
+            ("human", question),
         ]
     )
     answer = response.content.strip()

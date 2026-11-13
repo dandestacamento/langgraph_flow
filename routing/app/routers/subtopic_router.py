@@ -9,8 +9,10 @@ constrained (via a dynamically built Pydantic model) to that topic's own
 subtopic list - this keeps the output space small and unambiguous instead
 of asking the model to pick from all ~19 subtopics across every topic at
 once. Level 1-6 only ever select a single topic, so this is one LLM call
-per question; Level 7 (multi-topic) will make one call per selected
-topic, run in sequence here since each is cheap and independent.
+per question; Level 7 (multi-topic) makes one call per selected topic,
+each using `app.state.get_topic_question()` (that topic's own restated
+question, not the full multi-topic one - see that function's docstring
+for why), run in sequence here since each is cheap and independent.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import Field, create_model
 
 from app.config import ROUTER_MODEL, SUBTOPIC_DESCRIPTIONS, TOPIC_SUBTOPICS
-from app.state import RoutingState
+from app.state import RoutingState, get_topic_question
 
 
 def _subtopic_system_prompt(topic: str) -> str:
@@ -66,7 +68,7 @@ def classify_subtopic(state: RoutingState) -> dict:
         result = llm.invoke(
             [
                 ("system", _subtopic_system_prompt(topic)),
-                ("human", state["question"]),
+                ("human", get_topic_question(state, topic)),
             ]
         )
         duration_ms = (time.perf_counter() - start) * 1000

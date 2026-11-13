@@ -25,6 +25,15 @@ topic, keyed by topic in `retrieved_passages`, scoped to that topic's
 subtopic (not narrowed to the single chapter_selector guess - see
 `app/rag/retrieval.py` for why) and consumed by the topic agents to
 ground their answers instead of answering from the LLM's own knowledge.
+
+Level 7 adds `TopicDecision.topic_questions`: for a multi-topic question,
+a per-topic restatement containing only that topic's relevant part. Every
+per-topic classifier/agent (`subtopic_router`, `chapter_selector`,
+`rag_retriever`, and the topic agents) uses `get_topic_question()` below
+instead of the raw `state["question"]`, so none of them ever sees another
+topic's fragment (see `get_topic_question`'s docstring for why that's
+more robust than instructing a classifier/agent to ignore text it can
+still see).
 """
 
 from __future__ import annotations
@@ -59,6 +68,7 @@ class ComplexityDecision(TypedDict):
 class TopicDecision(TypedDict):
     topics: list[Topic]
     is_ambiguous: bool
+    topic_questions: dict[str, str]
     confidence: float
     reasoning: str
 
@@ -129,3 +139,27 @@ def initial_state(question: str) -> dict:
         "retrieved_passages": {},
         "execution_log": [],
     }
+
+
+def get_topic_question(state: RoutingState, topic: str) -> str:
+    """The question text a per-topic classifier/agent should actually use
+    for `topic`: the full original question for a single-topic question
+    (byte-identical to Levels 1-6, zero risk of behavior change there),
+    or the Topic Router's own per-topic restatement
+    (`topic_decision.topic_questions[topic]`) for a multi-topic question
+    (Level 7+).
+
+    Used by `subtopic_router`, `chapter_selector`, `rag_retriever`, and
+    every topic agent - direct testing showed that handing any of these a
+    multi-topic question's *other* topic's fragment (even unintentionally,
+    via the shared full `state["question"]`) could bleed into its
+    decision: `subtopic_router` once misrouted a customer_support
+    question's subtopic to 'delivery' instead of 'orders' purely because
+    an unrelated washing-machine fragment was still present in the text
+    it classified. Restating the question per topic removes that
+    fragment entirely, which is more robust than instructing a
+    classifier/agent to ignore text it can still see."""
+    selected_topics = state.get("selected_topics", [])
+    if len(selected_topics) <= 1:
+        return state["question"]
+    return state.get("topic_decision", {}).get("topic_questions", {}).get(topic, state["question"])

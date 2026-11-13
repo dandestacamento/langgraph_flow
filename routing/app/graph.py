@@ -1,6 +1,6 @@
 """Builds the LangGraph `StateGraph` for the Routing Accuracy Lab.
 
-Current (Level 5) graph shape:
+Current (Level 7) graph shape:
 
     START -> complexity_router -> topic_router -> {conditional}
       - if is_ambiguous: -> clarification_agent -> END
@@ -8,11 +8,11 @@ Current (Level 5) graph shape:
         {one agent per selected topic, via Send fan-out} ->
         synthesis_agent -> END
 
-Level 1 only ever selects a single topic, so exactly one agent node runs
+Levels 1-6 only ever select a single topic, so exactly one agent node runs
 per question - but using `Send` for the fan-out (rather than a single
-conditional edge) means Level 7 (multi-topic parallel routing) can select
-more than one topic later without changing this wiring, only the topic
-router's output.
+conditional edge) meant Level 7 (multi-topic parallel routing) could
+select more than one topic without changing this wiring at all, only the
+topic router's output and the synthesis agent's merge logic.
 
 `subtopic_router` (Level 2) classifies each selected topic's question into
 one of that topic's subtopics. `chapter_selector` (Level 3) then narrows
@@ -34,6 +34,15 @@ catch this case, since the retrieved passages for a wrong-but-plausible
 topic guess aren't obviously irrelevant. `clarification_agent` routes
 directly to END, bypassing `synthesis_agent` (which would otherwise
 overwrite `final_answer` with an empty string, since no topic agent ran).
+
+`synthesis_agent` (Level 7) now does real multi-topic merging: when
+`topic_router` selects more than one topic, every selected topic's agent
+runs in parallel via `route_to_agents`' `Send` fan-out, and
+`synthesis_agent` makes one extra LLM call to merge their already-grounded,
+already-cited answers into a single coherent response - for the
+single-topic case (still the overwhelming majority of questions) it
+remains a free pass-through with no extra call, so Level 7 adds cost only
+for genuinely multi-topic questions.
 
 `complexity_decision` is recorded but doesn't yet change the path taken;
 the branch it will drive (RAG for intermediate, multi-agent planning for
@@ -83,9 +92,9 @@ _TOPIC_AGENT_FUNCS = {
 
 def route_to_agents(state: RoutingState) -> list[Send]:
     """Conditional edge from rag_retriever: fan out to one Send per
-    selected topic. A single-topic question (Level 1-6) produces exactly
-    one Send; a multi-topic question (Level 7+) produces several, which
-    LangGraph executes in parallel."""
+    selected topic. A single-topic question (the common case through
+    Level 6) produces exactly one Send; a multi-topic question (Level 7)
+    produces several, which LangGraph executes in parallel."""
     return [Send(_TOPIC_AGENT_NODES[topic], state) for topic in state["selected_topics"]]
 
 

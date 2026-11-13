@@ -20,7 +20,7 @@ from pydantic import Field, create_model
 
 from app.config import ROUTER_MODEL
 from app.rag.ingestion import list_chapter_metadata
-from app.state import RoutingState
+from app.state import RoutingState, get_topic_question
 
 
 def _chapter_system_prompt(topic: str, subtopic: str, chapters: list[dict]) -> str:
@@ -69,7 +69,7 @@ def select_chapter(state: RoutingState) -> dict:
         result = llm.invoke(
             [
                 ("system", _chapter_system_prompt(topic, subtopic, chapters)),
-                ("human", state["question"]),
+                ("human", get_topic_question(state, topic)),
             ]
         )
         duration_ms = (time.perf_counter() - start) * 1000

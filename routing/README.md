@@ -7,7 +7,7 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 6 complete ✅
+## Status: Level 7 complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
@@ -117,10 +117,10 @@ finding below), just not with a full per-topic dataset yet.
   3/4 pipeline stages, confirming no regression, instead of a full
   6-topic re-run.
 
-Levels 7-10 (multi-topic parallel routing, tool selection, multi-hop
-reasoning, error recovery) are **scaffolded but not yet implemented** -
-see the `NotImplementedError` stubs in `app/tools/` and
-`app/routers/tool_router.py`, each pointing at the level that builds it.
+Levels 8-10 (tool selection, multi-hop reasoning, error recovery) are
+**scaffolded but not yet implemented** - see the `NotImplementedError`
+stubs in `app/tools/` and `app/routers/tool_router.py`, each pointing at
+the level that builds it.
 
 **Level 6 (multi-chapter evidence aggregation):**
 - **10/10 Level 6 questions recall every chapter needed to answer a
@@ -129,8 +129,8 @@ see the `NotImplementedError` stubs in `app/tools/` and
   accuracy)** - each question deliberately needs two chapters within the
   same subtopic (e.g. the washing-machine E21 example from
   [`4_to_5_obserability.md`](../instructions/Langgraph_routing/4_to_5_obserability.md):
-  "what does E21 mean on the WM-500, and is the repair covered under
-  warranty?" needs both the fault-code chapter *and* the model-specific
+  "what does E21 mean on the WM-500, and what is its standard warranty
+  term?" needs both the fault-code chapter *and* the model-specific
   warranty-terms chapter).
 - Verified with `pytest tests/test_multichapter_evidence.py` (22 tests,
   all passing).
@@ -149,22 +149,6 @@ see the `NotImplementedError` stubs in `app/tools/` and
   and set aside - see "Design decisions" below). Re-verified all 43
   Level 4 tests still pass at `top_k=5` (no regression from the added
   context).
-- **Real finding, not fixed (by design)**: for the WM-500/E21 question
-  specifically, the agent reliably retrieves and cites `chapter_01_types`
-  but consistently chooses to explain *which type* of warranty applies
-  (parts vs. motor, reasoned from the general guidance in
-  `chapter_02_operation`) rather than restating the WM-500's literal
-  "2-year" duration from `chapter_01_types` - even after two rounds of
-  added prompt instructions ("state the number explicitly", then "you
-  MUST state the number") that didn't change the model's answer at
-  `temperature=0`. This is arguably a *better* answer (duration alone
-  would wrongly imply unconditional coverage), so the test's expected
-  facts were recalibrated to match what the agent actually and correctly
-  says, instead of forcing verbatim figure recitation - a concrete
-  example of deterministic substring-based fact checking being too rigid
-  for a genuinely good, nuanced answer, a limitation the project's own
-  instructions call out and recommend supplementing with an LLM judge for
-  (not implemented, to keep this level's scope and cost down).
 - **Design decision**: `chapter_selector` still returns a single
   `chapter_id` (used for Level 3 evaluation and the dashboard), not a
   list - Level 6's fix is entirely in the retrieval layer (`top_k`), not
@@ -176,6 +160,120 @@ see the `NotImplementedError` stubs in `app/tools/` and
   chapters. This may need revisiting once the 4 backfill topics
   (including `azure_cloud`, which has larger/more numerous subtopics) are
   added back in after Level 10.
+- **Wording-sensitivity finding (superseded during Level 7)**: the
+  WM-500/E21 question originally asked "...is the repair covered under
+  warranty?" - a service-request phrasing that (1) reliably elicited
+  qualitative warranty-TYPE reasoning instead of the literal "2-year"
+  figure, and (2), once Level 7's Topic Router changes were in place,
+  started getting misrouted into needing `customer_support` too (see the
+  Level 7 "over-splitting" finding below). Rewording to a plain
+  spec-lookup phrasing ("...and what is its standard warranty term?")
+  fixed both at once.
+
+**Level 7 (multiple topics - parallel agent routing):**
+- **10/10 Level 7 questions select exactly the expected topic set (100%
+  topic accuracy, including 2 single-topic regression checks that must
+  NOT be over-split), every expected topic's agent actually runs in
+  parallel via the `Send` fan-out, and the synthesized final answer
+  contains the expected facts from every topic involved (100% answer
+  accuracy)** - e.g. "my WM-500 is showing error E21 - is that covered
+  under warranty, and what's SmartHome's standard refund policy?" needs
+  both the `appliances` fault-code chapter and the `customer_support`
+  refund-policy chapter, synthesized into one coherent reply.
+- Verified with `pytest tests/test_multitopic_routing.py` (30 tests, all
+  passing), plus a full regression across all of Levels 1-6 (195/196
+  tests passing - the one exception is pre-existing `temperature=0`
+  non-determinism in Level 3's Chapter Selector, unrelated to Level 7;
+  see "Non-regression" below).
+- **`synthesis_agent` now does real multi-topic merging**: one extra LLM
+  call (only when `len(selected_topics) > 1`, so every single-topic
+  question - still the overwhelming majority - is unaffected in cost or
+  behavior) combines the already-grounded, already-cited per-topic
+  answers into one coherent reply with a single merged `Sources:` line.
+- **Real finding, fixed - cross-topic bleed in per-topic generation**:
+  the first approach kept each topic agent's prompt structurally
+  unchanged and simply *instructed* it to "answer only your part, ignore
+  the rest" of the full multi-part question. Direct testing showed this
+  was unreliable - a topic agent would sometimes decline its own
+  well-supported part entirely, apparently because merely *seeing* the
+  other topic's unaddressed fragment in the same prompt made "the
+  question" read as only partially answerable. Fixed architecturally,
+  not just by prompt wording: `topic_router`'s structured output now also
+  produces `topic_questions` - a per-topic restatement containing ONLY
+  that topic's relevant part - and every downstream per-topic step
+  (`subtopic_router`, `chapter_selector`, `rag_retriever`, and the topic
+  agents, via the new `app.state.get_topic_question()` helper) uses that
+  restatement instead of the raw multi-topic question. Removing the
+  other topic's fragment entirely proved far more robust than instructing
+  a model to ignore text it can still see - and since
+  `get_topic_question()` returns the original question unchanged for the
+  single-topic case, this added zero risk to Levels 1-6's prompts.
+- **Real finding, fixed - OpenAI strict structured-output schema
+  limitation**: `topic_questions` was first typed as `dict[str, str]`
+  (one entry per topic); this fails with "Invalid schema for
+  response_format" because OpenAI's strict structured-output mode
+  doesn't support free-form-keyed objects. Switched to a
+  `list[TopicQuestionItem]` (fixed `{topic, question}` shape), which is
+  strict-schema compatible.
+- **Real finding, fixed - cached-response/schema-evolution hazard**:
+  adding `topic_questions` to the Pydantic output model without also
+  changing the prompt text caused the persistent LLM cache (`app/cache.py`)
+  to replay old cached JSON lacking the new field for any question
+  already exercised earlier in the same session, silently falling back
+  to the pre-fix behavior. Adding an explicit prompt-text instruction for
+  `topic_questions` (needed anyway, for model compliance) also forced a
+  fresh cache key, incidentally resolving this - a case worth remembering
+  if a future schema field is ever added without a matching prompt change.
+- **Real finding, fixed - over-splitting regression from the
+  `topic_questions` instruction itself**: introducing the "when you
+  include more than one topic, fill in `topic_questions`" instruction
+  measurably biased the Topic Router toward finding reasons to split
+  single-topic questions - including inventing an unasked second question
+  ("what is the warranty policy for the DW-400 dishwasher?" for a
+  question that only asked about place settings) just to justify adding
+  `customer_support`, and misrouting a product's own warranty/fault-code
+  question into needing `customer_support` merely because words like
+  "covered" or "repair" appeared. Fixed with a more forceful,
+  example-grounded "most questions need exactly one topic; never invent
+  an unasked question just to justify a second topic" instruction, plus
+  concrete near-literal worked examples for the two failure patterns
+  actually observed (a warehouse/inventory question staying entirely
+  `customer_support` instead of bleeding into `data_engineering`; a
+  product warranty question staying entirely `appliances` instead of
+  bleeding into `customer_support`) - abstract rules alone were not
+  reliably followed, consistent with the similar worked-example finding
+  above.
+- **Real finding, fixed - `is_ambiguous` regression from the same prompt
+  changes**: the same editing pass also caused a previously-correct
+  Level 5 case ("can I get a refund or replacement?") to stop being
+  flagged ambiguous. Root cause: the instruction distinguishing "a policy
+  QUESTION" (never ambiguous) from "a personal REQUEST" (ambiguous when
+  it depends on unstated specifics) was too coarse - it let "refund"
+  phrasing pattern-match the wrong bucket. Replaced with a precise,
+  general test: is_ambiguous=true only when the SAME question about two
+  different products/orders would have two DIFFERENT correct answers;
+  "what is the refund policy" and "can I cancel after it's packed" both
+  have ONE deterministic answer regardless of which product/order is
+  meant (not ambiguous), while "can I get a refund or replacement?" and
+  "how long is the warranty?" genuinely depend on unstated specifics
+  (ambiguous) - regardless of how each is phrased (request vs. question).
+- **Non-regression**: a full regression across every prior level's test
+  file (196 tests: Levels 1-6 plus this level's own 30) was run after
+  these fixes, specifically because this level's changes touched shared
+  code (`topic_router`, `subtopic_router`, `chapter_selector`,
+  `rag_retriever`, `_shared.py`) used by every level - 195/196 passed;
+  the one exception (`L3-022`, Level 3) was confirmed via 3 independent
+  fresh calls to be pre-existing `temperature=0` non-determinism in the
+  Chapter Selector for a genuinely boundary-ambiguous Python question
+  (mutable default arguments touch both the "functions" and "data types"
+  chapters), not a Level 7 regression - this exact class of issue is
+  already documented as a known limitation in the Level 4 section above.
+- **Design decision**: `synthesis_agent`'s merge prompt labels each
+  topic's answer with a `--- TOPIC: <name> ---` header rather than a
+  `[topic]`-style bracket - an earlier bracket-style label was
+  indistinguishable from the `[chapter_id]` citation format topic agents
+  use, and the synthesis LLM once literally copied the label text itself
+  into its merged `Sources:` line as a fake citation.
 
 ## Architecture (current)
 
@@ -190,11 +288,16 @@ START -> complexity_router -> topic_router -> {conditional}
 - **`complexity_router`**: classifies simple/intermediate/complex (recorded,
   not yet branched on - no scenario needs the branch until later levels).
 - **`topic_router`**: classifies into one or more of
-  `appliances | azure_cloud | data_engineering | python | finance | customer_support`,
-  and flags `is_ambiguous` when the question has no identifiable subject
-  or depends on an unspecified product/model/order/error code (see the
-  Level 5 finding above for why this isn't based on the `confidence`
-  field).
+  `appliances | azure_cloud | data_engineering | python | finance | customer_support`
+  (most questions need exactly one), flags `is_ambiguous` when the
+  question has no identifiable subject or has unstated specifics that
+  would change the answer (see the Level 5 finding above for why this
+  isn't based on the `confidence` field, and the Level 7 finding above
+  for the precise "would the answer differ" test), and for a multi-topic
+  question also produces `topic_questions` - a per-topic restatement
+  containing only that topic's relevant part (see the Level 7 finding
+  above on why this exists and `app.state.get_topic_question()` for how
+  it's consumed downstream).
 - **`clarification_agent`**: runs instead of the rest of the pipeline when
   `is_ambiguous` is true - asks a short clarifying question and routes
   straight to END, skipping `synthesis_agent` entirely (which would
@@ -218,9 +321,14 @@ START -> complexity_router -> topic_router -> {conditional}
   monopolizing all the top-k slots (see the Level 6 finding above).
 - **Topic agents**: one per topic, answer *only* from the passages
   `rag_retriever` found for that topic, with appended source citations,
-  or explicitly report insufficient information.
-- **`synthesis_agent`**: pass-through for the single-topic case; will do
-  real multi-topic merging once Level 7 exists to test it.
+  or explicitly report insufficient information. For a multi-topic
+  question, each agent answers its own `get_topic_question()` restatement
+  rather than the full question (see the Level 7 finding above).
+- **`synthesis_agent`**: a free pass-through for the single-topic case
+  (the overwhelming majority of questions - no extra cost or behavior
+  change); for a multi-topic question (Level 7), makes one extra LLM
+  call to merge the already-grounded, already-cited per-topic answers
+  into a single coherent reply with one merged `Sources:` line.
 
 Run `python -m app.main "<question>"` to see this end to end, or open the
 Streamlit dashboard for a rendered graph diagram.
@@ -231,15 +339,15 @@ Streamlit dashboard for a rendered graph diagram.
 routing/
 ├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
 ├── app/                     # LangGraph application code
-│   ├── routers/             # complexity, topic (+ambiguity flag), subtopic, chapter_selector (done); tool_router (stub)
+│   ├── routers/             # complexity, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector (done); tool_router (stub)
 │   ├── agents/               # one agent per topic (RAG-grounded) + clarification_agent + synthesis_agent
 │   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
 │   ├── tools/                # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10 questions)
-├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6)
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10 questions)
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
 ├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
@@ -302,13 +410,12 @@ question text).
 
 ## Next step
 
-Implement Level 7 (multi-topic parallel routing): questions whose correct
-answer requires routing to and synthesizing responses from more than one
-topic agent simultaneously (e.g. a question spanning both `appliances`
-and `customer_support`), exercising the `Send`-based fan-out that
-`route_to_agents` already supports (one `Send` per selected topic, no
-graph rewiring needed) and giving `synthesis_agent` real multi-topic
-merging to do instead of its current single-topic pass-through, plus
-extending `datasets/routing_ground_truth.jsonl` with Level 7 cases (still
-scoped to `appliances` + `customer_support`) and adding
-`tests/test_multitopic_routing.py`.
+Implement Level 8 (tool selection): questions that require choosing and
+invoking the right tool (e.g. `calculator` for a loan amortization
+calculation, `sql_query` for structured order data, `metadata_lookup` for
+chapter metadata) rather than only answering from retrieved prose,
+replacing the `NotImplementedError` stubs in `app/tools/` and
+`app/routers/tool_router.py`, wiring a tool-router stage into the graph,
+extending `datasets/routing_ground_truth.jsonl` with Level 8 cases (still
+scoped to `appliances` + `customer_support`), and adding
+`tests/test_tool_selection.py`.
