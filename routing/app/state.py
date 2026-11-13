@@ -34,6 +34,13 @@ instead of the raw `state["question"]`, so none of them ever sees another
 topic's fragment (see `get_topic_question`'s docstring for why that's
 more robust than instructing a classifier/agent to ignore text it can
 still see).
+
+Level 8 adds `tool_decisions`/`tool_results`: one tool decision (and its
+executed result, if any) per selected topic, keyed by topic in
+`tool_decisions`/`tool_results`, following the same per-topic-dict
+pattern as every stage above. Most questions still need no tool at all
+(`needs_tool=False`) - `tool_results` only has an entry for a topic when
+`select_tools` (`app/routers/tool_router.py`) actually ran one.
 """
 
 from __future__ import annotations
@@ -51,6 +58,7 @@ Topic = Literal[
 ]
 
 Complexity = Literal["simple", "intermediate", "complex"]
+ToolName = Literal["calculator", "sql_query", "metadata_lookup"]
 
 
 def merge_dicts(left: dict, right: dict) -> dict:
@@ -85,6 +93,20 @@ class ChapterDecision(TypedDict):
     reasoning: str
 
 
+class ToolDecision(TypedDict):
+    needs_tool: bool
+    tool_name: ToolName | None
+    tool_input: str | None
+    reasoning: str
+
+
+class ToolResult(TypedDict):
+    tool_name: ToolName
+    tool_input: str
+    output: str | None
+    error: str | None
+
+
 class RoutingState(TypedDict):
     # Input
     question: str
@@ -107,6 +129,11 @@ class RoutingState(TypedDict):
     # Stage 3 (rag_retriever): one list of retrieved passages per selected
     # topic, each a dict with text/chapter_id/document_id/subtopic/score.
     retrieved_passages: Annotated[dict[str, list[dict]], merge_dicts]
+
+    # Stage 3b (tool_router): one tool decision (and, if a tool actually
+    # ran, its result) per selected topic.
+    tool_decisions: Annotated[dict[str, ToolDecision], merge_dicts]
+    tool_results: Annotated[dict[str, ToolResult], merge_dicts]
 
     # One entry per topic agent that ran, merged via reducer so multiple
     # agents can run in parallel (Level 7+) without overwriting each other.
@@ -137,6 +164,8 @@ def initial_state(question: str) -> dict:
         "chapter_decisions": {},
         "selected_chapters": {},
         "retrieved_passages": {},
+        "tool_decisions": {},
+        "tool_results": {},
         "execution_log": [],
     }
 

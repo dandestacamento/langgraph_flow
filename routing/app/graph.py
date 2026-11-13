@@ -1,11 +1,11 @@
 """Builds the LangGraph `StateGraph` for the Routing Accuracy Lab.
 
-Current (Level 7) graph shape:
+Current (Level 8) graph shape:
 
     START -> complexity_router -> topic_router -> {conditional}
       - if is_ambiguous: -> clarification_agent -> END
       - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
-        {one agent per selected topic, via Send fan-out} ->
+        tool_router -> {one agent per selected topic, via Send fan-out} ->
         synthesis_agent -> END
 
 Levels 1-6 only ever select a single topic, so exactly one agent node runs
@@ -44,6 +44,14 @@ single-topic case (still the overwhelming majority of questions) it
 remains a free pass-through with no extra call, so Level 7 adds cost only
 for genuinely multi-topic questions.
 
+`tool_router` (Level 8) decides, per selected topic, whether answering
+needs `calculator`, `sql_query`, or `metadata_lookup` beyond what
+`rag_retriever` already found - and if so, executes it immediately so the
+topic agent can incorporate the result. Placed after `rag_retriever` since
+it needs `selected_subtopics` (for the `sql_query` schema) but not the
+retrieved passages themselves; most questions still need no tool at all,
+so this adds cost only when a tool is genuinely selected.
+
 `complexity_decision` is recorded but doesn't yet change the path taken;
 the branch it will drive (RAG for intermediate, multi-agent planning for
 complex) is added in later levels once those scenarios exist to test it.
@@ -68,6 +76,7 @@ from app.rag.retrieval import retrieve_evidence
 from app.routers.chapter_selector import select_chapter
 from app.routers.complexity_router import classify_complexity
 from app.routers.subtopic_router import classify_subtopic
+from app.routers.tool_router import select_tools
 from app.routers.topic_router import classify_topic
 from app.state import RoutingState
 
@@ -91,7 +100,7 @@ _TOPIC_AGENT_FUNCS = {
 
 
 def route_to_agents(state: RoutingState) -> list[Send]:
-    """Conditional edge from rag_retriever: fan out to one Send per
+    """Conditional edge from tool_router: fan out to one Send per
     selected topic. A single-topic question (the common case through
     Level 6) produces exactly one Send; a multi-topic question (Level 7)
     produces several, which LangGraph executes in parallel."""
@@ -116,6 +125,7 @@ def build_graph():
     graph.add_node("subtopic_router", classify_subtopic)
     graph.add_node("chapter_selector", select_chapter)
     graph.add_node("rag_retriever", retrieve_evidence)
+    graph.add_node("tool_router", select_tools)
     for topic, node_name in _TOPIC_AGENT_NODES.items():
         graph.add_node(node_name, _TOPIC_AGENT_FUNCS[topic])
     graph.add_node("synthesis_agent", synthesize)
@@ -128,7 +138,8 @@ def build_graph():
     graph.add_edge("clarification_agent", END)
     graph.add_edge("subtopic_router", "chapter_selector")
     graph.add_edge("chapter_selector", "rag_retriever")
-    graph.add_conditional_edges("rag_retriever", route_to_agents, list(_TOPIC_AGENT_NODES.values()))
+    graph.add_edge("rag_retriever", "tool_router")
+    graph.add_conditional_edges("tool_router", route_to_agents, list(_TOPIC_AGENT_NODES.values()))
     for node_name in _TOPIC_AGENT_NODES.values():
         graph.add_edge(node_name, "synthesis_agent")
     graph.add_edge("synthesis_agent", END)

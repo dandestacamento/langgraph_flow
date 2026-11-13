@@ -7,7 +7,7 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 7 complete ✅
+## Status: Level 8 complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
@@ -117,10 +117,12 @@ finding below), just not with a full per-topic dataset yet.
   3/4 pipeline stages, confirming no regression, instead of a full
   6-topic re-run.
 
-Levels 8-10 (tool selection, multi-hop reasoning, error recovery) are
+Levels 9-10 (complex multi-hop reasoning, error recovery) are
 **scaffolded but not yet implemented** - see the `NotImplementedError`
-stubs in `app/tools/` and `app/routers/tool_router.py`, each pointing at
-the level that builds it.
+stub in `app/rag/reranking.py` (not needed by Level 8) and the overall
+node list in
+[`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md)
+for what each remaining level builds.
 
 **Level 6 (multi-chapter evidence aggregation):**
 - **10/10 Level 6 questions recall every chapter needed to answer a
@@ -275,13 +277,98 @@ the level that builds it.
   use, and the synthesis LLM once literally copied the label text itself
   into its merged `Sources:` line as a fake citation.
 
+**Level 8 (tool selection and execution):**
+- **10/10 Level 8 questions get the correct tool decision - including
+  correctly deciding NO tool was needed for 2 regression-check questions
+  (100% tool-selection accuracy) - every genuinely-needed tool executes
+  without error, and the final answer contains the expected fact (100%
+  answer accuracy)**, across 3 tools: `calculator` (pure arithmetic,
+  e.g. a day-range midpoint), `sql_query` (exact spec/price lookups
+  against `specifications.csv`, including a price difference computed
+  entirely inside one SQL query), and `metadata_lookup` (knowledge-base
+  structure questions like chapter counts and document versions).
+- Verified with `pytest tests/test_tool_selection.py` (30 tests, all
+  passing), plus a full regression across Levels 1-7 (196 tests: 195
+  passed, the one exception being the same pre-existing `L3-022`
+  non-determinism documented in the Level 7 section above, unrelated to
+  Level 8).
+- **Key design hook**: `price_aud` exists only in
+  `specifications.csv`, deliberately absent from every chapter's prose -
+  a price question is therefore answerable *only* via `sql_query`, not
+  by a lucky RAG retrieval, making tool necessity unambiguous and
+  genuinely testable (rather than a tool being merely "nice to have").
+- **`tool_router` runs after `rag_retriever`** and is shown the passages
+  already retrieved for the question, specifically so it can judge
+  whether a tool is genuinely needed rather than guessing blind - an
+  earlier version without this context repeatedly invoked `sql_query`
+  for facts (like a model's standard warranty term) that were already
+  sitting in the retrieved Markdown prose, because it had no way to know
+  that.
+- **`document_search` deliberately left unimplemented**: the
+  architecture docs list it as a 4th selectable tool, but every
+  Level 8 question is answerable via the other three tools precisely
+  *because* `rag_retriever` already runs automatically for every
+  question regardless of tool selection - an explicit document-search
+  tool call would be redundant with that, not a new capability, for any
+  scenario this project's knowledge base actually needs.
+- **Real finding, fixed - SQL engine choice**: used Python's standard
+  library `sqlite3` (loading each `specifications.csv` into an in-memory
+  table) rather than adding a DuckDB/pandas dependency, since the CSVs
+  here are only 3 rows each.
+- **Real finding, fixed - numeric column affinity**: `CREATE TABLE`
+  without declared column types gives SQLite no-affinity/BLOB columns,
+  so numeric CSV values get stored as the literal TEXT the CSV reader
+  produced - `ORDER BY price_aud` then sorted "1499" before "699"
+  lexicographically, picking the wrong "cheapest" model. Fixed by
+  inferring each column's SQLite type (INTEGER/REAL/TEXT) from its
+  values before `CREATE TABLE`.
+- **Real finding, fixed - the Tool Router's own query correctness**: for
+  "which model is cheapest?", the LLM initially wrote `SELECT price_aud
+  FROM specifications ORDER BY price_aud ASC LIMIT 1` - a query that
+  correctly finds the lowest price but doesn't select the `model` column
+  needed to say *which* model that is. Fixed with a concrete worked
+  example in the tool's prompt description contrasting the two queries.
+- **Real finding, fixed - mental math bypassing the tool**: giving
+  `tool_router` the retrieved passages (to fix the warranty-term
+  over-triggering above) had a side effect: for arithmetic/metadata
+  questions, the LLM sometimes did the computation itself in its
+  `reasoning` field and reported `needs_tool=false`, since technically
+  "the passages don't need a tool, I can just work it out" - defeating
+  the purpose of using a verifiable tool instead of unverified LLM
+  mental math. Fixed by scoping the "check passages first, prefer no
+  tool" guidance explicitly to `sql_query` only, with `calculator` and
+  `metadata_lookup` now instructed to always be used for their kind of
+  question regardless of what the Tool Router could work out itself.
+- **Real finding, fixed - tool result ignored, then echoed literally**:
+  getting the topic agent to actually *use* a successful tool result
+  took two iterations. First, the agent sometimes still answered
+  "insufficient information" despite a correct, clearly-labeled tool
+  result being right there in its prompt - fixed with a worked example
+  showing the tool result directly answers the question when it's
+  asking exactly what the tool computed. That introduced a second bug:
+  the agent then sometimes echoed the example's literal `"Tool result
+  (<name> on input <input>): <output>"` sentence structure back as its
+  own answer verbatim, rather than phrasing the number into a natural
+  sentence - fixed by rewording the example to show natural phrasing
+  ("The total is 4.") and explicitly instructing the agent not to copy
+  that line format into its answer.
+- **Real finding, fixed - a math-framed question misrouted to `finance`**:
+  "...what is the midpoint of that range?" was classified as `finance`
+  instead of `customer_support`, even with the word "refund" in the
+  question - the model fixated on the abstract math-style framing
+  ("midpoint of a range") over the domain content. Reworded to keep the
+  refund-processing framing throughout ("...what's the average number of
+  days?") rather than adding yet another topic_router prompt patch -
+  consistent with how Levels 1-7 resolved similar wording-sensitivity
+  findings.
+
 ## Architecture (current)
 
 ```
 START -> complexity_router -> topic_router -> {conditional}
   - if is_ambiguous: -> clarification_agent -> END
   - else: -> subtopic_router -> chapter_selector -> rag_retriever ->
-    {one agent per selected topic, via Send fan-out} ->
+    tool_router -> {one agent per selected topic, via Send fan-out} ->
     synthesis_agent -> END
 ```
 
@@ -320,10 +407,19 @@ START -> complexity_router -> topic_router -> {conditional}
   the same subtopic isn't starved by a single dominant chapter
   monopolizing all the top-k slots (see the Level 6 finding above).
 - **Topic agents**: one per topic, answer *only* from the passages
-  `rag_retriever` found for that topic, with appended source citations,
-  or explicitly report insufficient information. For a multi-topic
-  question, each agent answers its own `get_topic_question()` restatement
-  rather than the full question (see the Level 7 finding above).
+  `rag_retriever` found for that topic (plus a tool result, if
+  `tool_router` ran one for this topic - Level 8), with appended source
+  citations, or explicitly report insufficient information. For a
+  multi-topic question, each agent answers its own
+  `get_topic_question()` restatement rather than the full question (see
+  the Level 7 finding above).
+- **`tool_router`**: for each selected topic, decides whether
+  `calculator`, `sql_query`, or `metadata_lookup` is genuinely needed
+  beyond the already-retrieved passages (shown to it explicitly, so it
+  can judge rather than guess - see the Level 8 finding above), and
+  executes the chosen tool immediately if so. Most questions still need
+  no tool at all - RAG retrieval alone already answers them, exactly as
+  in Levels 1-7.
 - **`synthesis_agent`**: a free pass-through for the single-topic case
   (the overwhelming majority of questions - no extra cost or behavior
   change); for a multi-topic question (Level 7), makes one extra LLM
@@ -339,15 +435,15 @@ Streamlit dashboard for a rendered graph diagram.
 routing/
 ├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
 ├── app/                     # LangGraph application code
-│   ├── routers/             # complexity, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector (done); tool_router (stub)
-│   ├── agents/               # one agent per topic (RAG-grounded) + clarification_agent + synthesis_agent
+│   ├── routers/             # complexity, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
+│   ├── agents/               # one agent per topic (RAG-grounded, +tool results) + clarification_agent + synthesis_agent
 │   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
-│   ├── tools/                # document_search/calculator/sql_query/metadata_lookup (Level 8 stubs)
+│   ├── tools/                # calculator/sql_query/metadata_lookup (done, Level 8); document_search (deliberately unimplemented - see Level 8 README section)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10 questions)
-├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7)
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10, L8: 10 questions)
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
 ├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
@@ -410,12 +506,16 @@ question text).
 
 ## Next step
 
-Implement Level 8 (tool selection): questions that require choosing and
-invoking the right tool (e.g. `calculator` for a loan amortization
-calculation, `sql_query` for structured order data, `metadata_lookup` for
-chapter metadata) rather than only answering from retrieved prose,
-replacing the `NotImplementedError` stubs in `app/tools/` and
-`app/routers/tool_router.py`, wiring a tool-router stage into the graph,
-extending `datasets/routing_ground_truth.jsonl` with Level 8 cases (still
-scoped to `appliances` + `customer_support`), and adding
-`tests/test_tool_selection.py`.
+Implement Level 9 (complex multi-hop reasoning): questions that require
+planning and dependency-aware execution across several sequential
+sub-questions, where a later step's retrieval/tool input depends on an
+earlier step's result (e.g. "which washing machine model has the
+longest motor warranty, and what's its price?" - needing the model
+identified in step one before step two's lookup can even be formed),
+exercising a genuine Multi-Agent Planner node (named but not yet built,
+per
+[`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md)'s
+node list) rather than the independent per-topic parallelism Level 7
+already covers, extending `datasets/routing_ground_truth.jsonl` with
+Level 9 cases (still scoped to `appliances` + `customer_support`), and
+adding `tests/test_multihop_reasoning.py`.

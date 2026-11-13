@@ -196,3 +196,48 @@ def summarize_clarification(results: list[ClarificationResult]) -> dict[str, flo
         "correct": sum(1 for r in results if r.is_correct),
         "clarification_accuracy": round(clarification_accuracy(results), 4),
     }
+
+
+@dataclass
+class ToolSelectionResult:
+    """One scored Level 8 test case: did the Tool Router make the
+    correct tool decision for one topic?
+
+    `expected_tool` is `None` for a question that should be answered from
+    retrieved passages alone (`needs_tool=False`) - matching that
+    correctly (not just picking the right tool name when one IS needed)
+    is just as important a part of Level 8 accuracy, since an
+    unnecessary tool call is itself a routing mistake (see the
+    "Efficiency" evaluation question in
+    instructions/Langgraph_routing/1_architecture.md: "did the system use
+    the minimum necessary agents and tools?")."""
+
+    question_id: str
+    expected_tool: str | None
+    actual_needs_tool: bool
+    actual_tool: str | None
+    is_correct: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        if self.expected_tool is None:
+            self.is_correct = not self.actual_needs_tool
+        else:
+            self.is_correct = self.actual_needs_tool and self.actual_tool == self.expected_tool
+
+
+def tool_selection_accuracy(results: list[ToolSelectionResult]) -> float:
+    """Fraction of test cases where the tool decision (including
+    correctly deciding no tool was needed) matched expected. Returns 0.0
+    for an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_correct) / len(results)
+
+
+def summarize_tool_selection(results: list[ToolSelectionResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 8 test reports."""
+    return {
+        "total": len(results),
+        "correct": sum(1 for r in results if r.is_correct),
+        "tool_selection_accuracy": round(tool_selection_accuracy(results), 4),
+    }
