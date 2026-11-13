@@ -7,23 +7,27 @@ subtopics, chapters, and specialist agents. See
 the full design rationale; this README covers what's actually built and
 how to run it.
 
-## Status: Level 9 complete ✅
+## Status: All 10 levels complete ✅
 
 Per the staged implementation plan
 ([`7_to_8_routing_configuration.md`](../instructions/Langgraph_routing/7_to_8_routing_configuration.md),
-section 9), levels are built and verified one at a time.
+section 9), levels are built and verified one at a time. All 10 levels
+from [`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md)
+are now implemented and tested - see "Next step" at the bottom for the
+post-Level-10 backfill work that follows.
 
 **Scope note for Levels 5-10**: to control API cost while these levels'
-*routing mechanisms* are built and debugged (they test mechanism, not
+*routing mechanisms* were built and debugged (they test mechanism, not
 topic-specific knowledge - the knowledge base already covers all 6 topics
 from Level 1), test datasets for Levels 5-10 are scoped to **`appliances`
 + `customer_support`** only. The other 4 topics (`azure_cloud`,
-`data_engineering`, `python`, `finance`) will be backfilled with
-equivalent test coverage once Level 10 is complete and the full
+`data_engineering`, `python`, `finance`) will now be backfilled with
+equivalent test coverage, now that Level 10 is complete and the full
 architecture is proven - this is purely additive test-data work, since
-the graph itself isn't topic-specific. Every graph-level change is still
-spot-checked against all 6 topics before being committed (see the Level 5
-finding below), just not with a full per-topic dataset yet.
+the graph itself isn't topic-specific. Every graph-level change was still
+spot-checked (and, from Level 9 onward, fully regression-tested - see
+that level's finding below for why) against all 6 topics before being
+committed, just not with a full per-topic dataset until the backfill.
 
 **Level 1 (simple topic routing):**
 - **24/24 Level 1 questions route to the correct topic (100% topic accuracy)**,
@@ -443,6 +447,66 @@ for what it builds.
   a substitute for a full regression before considering a shared-prompt
   change done.
 
+**Level 10 (error recovery and fallback):**
+- **6/6 Level 10 dataset questions get the correct recovery decision
+  (100% recovery-decision accuracy) - recovery correctly attempted for
+  3 genuinely unanswerable questions (even though it's expected to still
+  fail afterward) and correctly NOT attempted for 3 ordinary questions
+  that succeed on the first try - and every question's final answer is
+  still correct or still correctly declines (100% answer accuracy),
+  proving recovery never fabricates**, plus 4 additional direct
+  mechanism tests (2 wrong-subtopic recoveries, 2 tool-error
+  self-corrections) verifying the retry logic itself.
+- Verified with `pytest tests/test_error_recovery.py` (18 tests, all
+  passing), plus a full regression across Levels 1-9 (266 tests: 265
+  passed, the one exception being the same pre-existing `L3-022`
+  non-determinism documented since Level 7, unrelated to Level 10).
+- **Mechanism**: `app.agents._shared.run_topic_agent` now makes one
+  *bounded* retry (never more than one, per
+  [`6_routing_design.md`](../instructions/Langgraph_routing/6_routing_design.md)'s
+  Stage 5: "retry retrieval when appropriate, with a strict retry
+  limit") when its first attempt declines, or when a selected tool
+  failed. The retry (a) asks the LLM to self-correct a failed tool's
+  input given the actual error message, and (b) broadens retrieval to
+  the whole topic (dropping the subtopic filter) in case the original
+  subtopic guess was wrong - then regenerates the answer once more.
+  Recorded in the new `recovery_attempts[topic]` state field regardless
+  of outcome, so "no recovery was needed" (the overwhelming common case)
+  is a visible, positive fact in the trace, not an absence to infer.
+- **Why direct mechanism tests, not just reused live questions**: every
+  prior level reused real end-to-end questions for every test case, but
+  nine levels of fixing exactly these kinds of mistakes (wrong subtopic
+  guesses, malformed tool queries) means the live pipeline rarely makes
+  them anymore - a test that depends on the pipeline *happening* to fail
+  a specific way would be brittle and hard to keep passing. Instead, 4
+  of the 10 Level 10 test cases construct the failure directly (a
+  deliberately wrong `selected_subtopics` entry; a deliberately
+  malformed SQL query) and call `run_topic_agent`/`_retry_tool`
+  directly - the same "test the deterministic mechanism directly"
+  approach already used for the calculator's injection safety and the
+  SQL tool's column-type handling in Level 8.
+- **Real finding (not a bug - a demonstration the mechanism works)**:
+  the two reused Level 4 "deliberately unanswerable" questions ("RF-900
+  compressor amperage", "WM-500 spin speed") turned out to *naturally*
+  trigger the tool-error recovery path for a genuine reason: the Tool
+  Router hallucinates a plausible-sounding but nonexistent column name
+  (e.g. `compressor_amperage`) for a fact that was never in
+  `specifications.csv` to begin with, causing a real SQLite "no such
+  column" error. Recovery correctly attempts a self-corrected retry,
+  which correctly also fails (the fact genuinely doesn't exist anywhere
+  to be queried), so the final answer still correctly reports
+  insufficient information - exactly the "exhaust the bounded retry,
+  then give up gracefully" behavior this level is about, discovered
+  rather than engineered.
+- **Design decision - why broadening scope is "whole topic", not "whole
+  knowledge base"**: retrying with `subtopic=None` searches every
+  subtopic within the already-selected topic (e.g. all of `appliances`),
+  not across topics - a topic misclassification is a separate, already
+  well-tested failure mode (Levels 1 and 7), whereas a *subtopic*
+  misclassification within an already-correct topic is the specific,
+  narrower failure this retry targets; broadening further would risk
+  pulling in genuinely irrelevant passages from an unrelated topic.
+
 ## Architecture (current)
 
 ```
@@ -508,7 +572,10 @@ START -> complexity_router -> multihop_router -> {conditional}
   citations, or explicitly report insufficient information. For a
   multi-topic question, each agent answers its own
   `get_topic_question()` restatement rather than the full question (see
-  the Level 7 finding above).
+  the Level 7 finding above). Since Level 10, if the first attempt
+  declines or a selected tool failed, makes one bounded retry (self-
+  corrected tool input, and/or retrieval broadened to the whole topic)
+  before giving up - see the Level 10 section above.
 - **`tool_router`**: for each selected topic, decides whether
   `calculator`, `sql_query`, or `metadata_lookup` is genuinely needed
   beyond the already-retrieved passages (shown to it explicitly, so it
@@ -532,14 +599,14 @@ routing/
 ├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
 ├── app/                     # LangGraph application code
 │   ├── routers/             # complexity, multihop_router, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
-│   ├── agents/               # one agent per topic (RAG-grounded, +tool results) + clarification_agent + multihop_agent + synthesis_agent
+│   ├── agents/               # one agent per topic (RAG-grounded, +tool results, +bounded recovery retry) + clarification_agent + multihop_agent + synthesis_agent
 │   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
 │   ├── tools/                # calculator/sql_query/metadata_lookup (done, Level 8); document_search (deliberately unimplemented - see Level 8 README section)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
-├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10, L8: 10, L9: 10 questions)
-├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9)
+├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 16, L6: 10, L7: 10, L8: 10, L9: 10, L10: 6 questions)
+├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9), test_error_recovery.py (L10)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
 ├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py (all done)
 └── requirements.txt
@@ -602,20 +669,21 @@ question text).
 
 ## Next step
 
-Implement Level 10 (error recovery and fallback): questions that
-deliberately trigger a failure somewhere in the pipeline (a tool
-executing with invalid input, a retrieval returning nothing useful, an
-LLM producing malformed structured output) and exercise retry/rerouting/
-fallback behavior rather than surfacing the raw failure - e.g. a
-`sql_query` with a typo'd column name should retry with a corrected
-query or fall back to RAG, not crash the whole request; an
-`Insufficient information` answer for a question that actually has an
-answer elsewhere should trigger a broader retrieval retry before giving
-up. This is the last of the 10 levels in
-[`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md),
-closing out the originally-planned test suite before the post-Level-10
-backfill of the 4 deferred topics (`azure_cloud`, `data_engineering`,
-`python`, `finance`) begins. Extend
-`datasets/routing_ground_truth.jsonl` with Level 10 cases (still scoped
-to `appliances` + `customer_support`) and add
-`tests/test_error_recovery.py`.
+All 10 levels from
+[`3_scenarios.md`](../instructions/Langgraph_routing/3_scenarios.md) are
+now implemented and tested. The next step is the backfill promised back
+in Level 5: extend the Levels 5-10 test datasets (currently scoped to
+`appliances` + `customer_support` only, to control cost while these
+levels' *routing mechanisms* were being built and debugged) with
+equivalent coverage for the 4 deferred topics - `azure_cloud`,
+`data_engineering`, `python`, `finance` - now that the full architecture
+is proven stable across a 266-test regression. This is purely additive
+test-data work (new ground-truth questions per topic, following each
+level's established question patterns) since the graph itself was never
+topic-specific; no new mechanism needs to be built. After the backfill,
+a natural further step is the "compare three routing architectures"
+experiment named in
+[`6_routing_design.md`](../instructions/Langgraph_routing/6_routing_design.md)
+(a single LLM router vs. a hierarchical router vs. this project's hybrid
+router, on the same full dataset) to quantify whether the added
+complexity actually earns its latency and cost.

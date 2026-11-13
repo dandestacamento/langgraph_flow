@@ -290,3 +290,45 @@ def summarize_multihop(results: list[MultiHopResult]) -> dict[str, float | int]:
         "correct": sum(1 for r in results if r.is_correct),
         "multihop_accuracy": round(multihop_accuracy(results), 4),
     }
+
+
+@dataclass
+class RecoveryResult:
+    """One scored Level 10 test case: did the topic agent attempt
+    recovery exactly when it should have?
+
+    `expected_recovery_attempted` is `True` for a question that should
+    fail its first attempt (a genuinely unanswerable question, or one
+    whose first attempt would naturally decline) - recovery SHOULD be
+    attempted even though it's expected to still ultimately fail, since
+    "did we try" is the thing Level 10 tests, not "did it succeed" (a
+    genuinely unanswerable question can never succeed, retry or not).
+    `False` for an ordinary question that should answer correctly on the
+    first attempt - an unnecessary retry there would itself be a mistake
+    (wasted cost for no reason), consistent with Level 8's tool-selection
+    "efficiency" reasoning."""
+
+    question_id: str
+    expected_recovery_attempted: bool
+    actual_recovery_attempted: bool
+    is_correct: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.is_correct = self.expected_recovery_attempted == self.actual_recovery_attempted
+
+
+def recovery_decision_accuracy(results: list[RecoveryResult]) -> float:
+    """Fraction of test cases where recovery was correctly attempted or
+    correctly not attempted. Returns 0.0 for an empty result list."""
+    if not results:
+        return 0.0
+    return sum(1 for r in results if r.is_correct) / len(results)
+
+
+def summarize_recovery(results: list[RecoveryResult]) -> dict[str, float | int]:
+    """One-stop summary dict for Level 10 test reports."""
+    return {
+        "total": len(results),
+        "correct": sum(1 for r in results if r.is_correct),
+        "recovery_decision_accuracy": round(recovery_decision_accuracy(results), 4),
+    }

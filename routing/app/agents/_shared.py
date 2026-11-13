@@ -10,6 +10,9 @@ request clarification or explicitly report insufficient information.").
 Citations are appended by this code (listing every retrieved chapter_id),
 not self-reported by the LLM, so a citation is never hallucinated - it
 always reflects what was actually retrieved.
+
+Level 10 adds one bounded recovery retry (see `run_topic_agent`'s
+docstring) when the first attempt declines or a selected tool failed.
 """
 
 from __future__ import annotations
@@ -17,9 +20,13 @@ from __future__ import annotations
 import time
 
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 
 from app.config import AGENT_MODEL, TOPIC_SUBTOPICS
+from app.rag.retrieval import retrieve
+from app.routers.tool_router import _execute_tool
 from app.state import RoutingState, get_topic_question
+from app.tools.sql_query import get_specifications_schema
 
 INSUFFICIENT_INFO_MARKER = "Insufficient information in the knowledge base to answer this question."
 
@@ -60,32 +67,12 @@ def _build_context_block(passages: list[dict]) -> str:
     return "\n\n".join(f"[{p['chapter_id']}] {p['text']}" for p in passages)
 
 
-def run_topic_agent(topic: str, state: RoutingState) -> dict:
-    """Shared node body for every topic agent: answer the question using
-    ONLY the passages retrieved for this topic (plus a tool result, if
-    `tool_router.select_tools` ran one for this topic - Level 8), falling
-    back to INSUFFICIENT_INFO_MARKER when neither actually supports an
-    answer, and record the result (with appended source citations,
-    including a `tool:<name>` citation when a tool result was used) under
-    `agent_responses[topic]`.
-
-    For a multi-topic question (Level 7), the agent answers
-    `topic_decision.topic_questions[topic]` - the Topic Router's own
-    restatement containing only this topic's relevant part - rather than
-    the full original question. An earlier approach kept the full
-    question and merely *instructed* the agent to "answer only your part,
-    ignore the rest"; direct testing showed that was unreliable (the
-    agent sometimes declined its own part entirely once it could see the
-    other topic's fragment was unaddressed by its excerpts), even with an
-    added worked example. Restating the question per topic removes the
-    other topic's fragment from what this agent ever sees, which is more
-    robust than instructing the model to ignore text it can still see -
-    and keeps this function's prompt byte-identical to Levels 1-6 for the
-    single-topic case, since there's nothing to restate."""
-    start = time.perf_counter()
-    passages = state.get("retrieved_passages", {}).get(topic, [])
-    question = get_topic_question(state, topic)
-    tool_result = state.get("tool_results", {}).get(topic)
+def _generate_answer(topic: str, question: str, passages: list[dict], tool_result: dict | None) -> tuple[str, bool]:
+    """One answer-generation attempt: build the prompt from `passages`
+    and `tool_result`, invoke the LLM once, and return `(answer, is_insufficient)`.
+    Pulled out of `run_topic_agent` so Level 10's retry can call this a
+    second time with improved `passages`/`tool_result` without
+    duplicating the prompt-construction logic."""
     # Only a *successful* tool result is surfaced to the agent - a failed
     # tool call (tool_result["error"] set) falls back to passages alone,
     # exactly as if no tool had run, rather than showing the agent a
@@ -145,10 +132,118 @@ def run_topic_agent(topic: str, state: RoutingState) -> dict:
             cited_chapters.append(f"tool:{tool_result['tool_name']}")
         answer = f"{answer}\n\nSources: {', '.join(cited_chapters)}"
 
+    return answer, is_insufficient
+
+
+class _CorrectedToolInput(BaseModel):
+    """Structured output for the Level 10 tool-error retry."""
+
+    corrected_input: str = Field(description="A corrected input for the same tool, fixing the error.")
+
+
+def _retry_tool(topic: str, subtopic: str, tool_name: str, original_input: str, error: str) -> tuple[str | None, str | None]:
+    """Level 10: ask the LLM to self-correct a failed tool call's input
+    given the error message, then execute the corrected input once.
+    Returns `(output, error)`, matching `_execute_tool`'s shape - the
+    caller treats a non-None `error` here as "recovery did not fix it",
+    not as a reason to retry again (a single bounded retry only)."""
+    lines = [
+        f"A {tool_name} call failed. Given the original input and the error, produce a corrected "
+        "input for the SAME tool that fixes the error.",
+        f"Original input: {original_input!r}",
+        f"Error: {error}",
+    ]
+    if tool_name == "sql_query":
+        schema = get_specifications_schema(topic, subtopic)
+        if schema:
+            lines.append(f"The 'specifications' table's actual columns are: {', '.join(schema)}.")
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0).with_structured_output(_CorrectedToolInput)
+    result: _CorrectedToolInput = llm.invoke([("system", "\n".join(lines)), ("human", "Correct the input.")])
+    return _execute_tool(tool_name, result.corrected_input, topic, subtopic)
+
+
+def run_topic_agent(topic: str, state: RoutingState) -> dict:
+    """Shared node body for every topic agent: answer the question using
+    ONLY the passages retrieved for this topic (plus a tool result, if
+    `tool_router.select_tools` ran one for this topic - Level 8), falling
+    back to INSUFFICIENT_INFO_MARKER when neither actually supports an
+    answer, and record the result (with appended source citations,
+    including a `tool:<name>` citation when a tool result was used) under
+    `agent_responses[topic]`.
+
+    For a multi-topic question (Level 7), the agent answers
+    `topic_decision.topic_questions[topic]` - the Topic Router's own
+    restatement containing only this topic's relevant part - rather than
+    the full original question. An earlier approach kept the full
+    question and merely *instructed* the agent to "answer only your part,
+    ignore the rest"; direct testing showed that was unreliable (the
+    agent sometimes declined its own part entirely once it could see the
+    other topic's fragment was unaddressed by its excerpts), even with an
+    added worked example. Restating the question per topic removes the
+    other topic's fragment from what this agent ever sees, which is more
+    robust than instructing the model to ignore text it can still see -
+    and keeps this function's prompt byte-identical to Levels 1-6 for the
+    single-topic case, since there's nothing to restate.
+
+    Level 10 adds one bounded recovery retry: if the first attempt
+    declines (or a selected tool failed), retries exactly once with a
+    self-corrected tool input (if a tool failed) and retrieval broadened
+    to the whole topic (dropping the subtopic filter, in case the
+    original subtopic guess was wrong) before regenerating the answer.
+    Recorded in `recovery_attempts[topic]` regardless of outcome, so "no
+    recovery was needed" (the common case) is a visible fact, not an
+    absence to infer."""
+    start = time.perf_counter()
+    passages = state.get("retrieved_passages", {}).get(topic, [])
+    question = get_topic_question(state, topic)
+    tool_result = state.get("tool_results", {}).get(topic)
+    tool_decision = state.get("tool_decisions", {}).get(topic, {})
+
+    answer, is_insufficient = _generate_answer(topic, question, passages, tool_result)
+
+    # Level 10: one bounded recovery retry, only when the first attempt
+    # actually needed one - a failed tool call, or a decline despite
+    # having *some* evidence to reconsider (broadening retrieval can
+    # recover from e.g. a wrong subtopic guess). A single attempt only,
+    # per Stage 5's "strict retry limit" - no further retries after this,
+    # even if it also fails, so a genuinely unanswerable question still
+    # correctly reports insufficient information rather than looping.
+    tool_failed = bool(tool_decision.get("needs_tool") and tool_result and tool_result.get("error"))
+    recovery: dict = {"attempted": False, "reason": None, "succeeded": None}
+
+    if tool_failed or is_insufficient:
+        recovery["attempted"] = True
+        recovery["reason"] = "tool_error" if tool_failed else "insufficient_info"
+
+        if tool_failed:
+            subtopic = state.get("selected_subtopics", {}).get(topic)
+            corrected_output, corrected_error = _retry_tool(
+                topic, subtopic, tool_decision["tool_name"], tool_decision["tool_input"], tool_result["error"]
+            )
+            if corrected_error is None:
+                tool_result = {
+                    "tool_name": tool_decision["tool_name"],
+                    "tool_input": tool_decision["tool_input"],
+                    "output": corrected_output,
+                    "error": None,
+                }
+
+        # Broaden retrieval to the whole topic (dropping the subtopic
+        # filter) - recovers from a possibly-wrong subtopic guess without
+        # needing to know whether that's actually what went wrong.
+        broadened_passages = retrieve(question, topic=topic, subtopic=None)
+        if broadened_passages:
+            passages = broadened_passages
+
+        answer, is_insufficient = _generate_answer(topic, question, passages, tool_result)
+        recovery["succeeded"] = not is_insufficient
+
     duration_ms = (time.perf_counter() - start) * 1000
+    has_tool_result = bool(tool_result and tool_result.get("error") is None)
 
     return {
         "agent_responses": {topic: answer},
+        "recovery_attempts": {topic: recovery},
         "execution_log": [
             {
                 "node": f"{topic}_agent",
@@ -158,8 +253,10 @@ def run_topic_agent(topic: str, state: RoutingState) -> dict:
                     "insufficient_info": is_insufficient,
                     "retrieved_chapters": [p["chapter_id"] for p in passages],
                     "used_tool_result": has_tool_result,
+                    "recovery": recovery,
                 },
                 "duration_ms": round(duration_ms, 1),
             }
         ],
     }
+

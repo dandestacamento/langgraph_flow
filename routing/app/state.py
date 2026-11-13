@@ -58,6 +58,19 @@ unchanged) rather than adding a second routing mechanism. A dedicated
 `complexity_router` and conditionally routes to this path only when
 `is_multi_hop` is true; every other question's existing pipeline
 (`topic_router` onward) is completely untouched by Level 9.
+
+Level 10 adds `recovery_attempts`: one `RecoveryAttempt` per topic agent
+that ran, recording whether `app.agents._shared.run_topic_agent` tried a
+single bounded retry after its first answer attempt declined or a
+selected tool failed - and if so, whether the retry fixed it. The retry
+itself (not a separate graph node) broadens retrieval to the whole topic
+(dropping the subtopic filter, recovering from a possible wrong subtopic
+guess) and, for a failed tool, asks the LLM to self-correct the tool
+input given the error message, then regenerates the answer once more -
+a single attempt only (`7_to_8_routing_configuration.md`'s Stage 5:
+"Retry retrieval when appropriate, with a strict retry limit"), so a
+genuinely unanswerable question still correctly reports insufficient
+information afterward rather than looping or fabricating.
 """
 
 from __future__ import annotations
@@ -122,6 +135,19 @@ class ToolResult(TypedDict):
     tool_input: str
     output: str | None
     error: str | None
+
+
+class RecoveryAttempt(TypedDict):
+    """Level 10 (error recovery and fallback): one topic agent's recovery
+    record - whether a retry was attempted, why, and whether it actually
+    fixed the problem. Present for every topic a topic agent ran for
+    (even when `attempted` is False), so "no recovery was needed" is
+    always a visible, positive fact in the trace rather than an absence
+    one has to infer."""
+
+    attempted: bool
+    reason: str | None  # "insufficient_info" | "tool_error" | None
+    succeeded: bool | None
 
 
 class HopPlan(TypedDict):
@@ -201,6 +227,12 @@ class RoutingState(TypedDict):
     # agents can run in parallel (Level 7+) without overwriting each other.
     agent_responses: Annotated[dict[str, str], merge_dicts]
 
+    # Stage 4 (Level 10 - error recovery): one recovery record per topic
+    # agent that ran, recording whether a retry was attempted (and why,
+    # and whether it fixed the problem) - see
+    # `app.agents._shared.run_topic_agent` for the retry logic itself.
+    recovery_attempts: Annotated[dict[str, RecoveryAttempt], merge_dicts]
+
     # Final answer surfaced to the user (identical to the single agent
     # response until the synthesis agent does real multi-topic merging).
     final_answer: str
@@ -234,6 +266,7 @@ def initial_state(question: str, is_hop_subquestion: bool = False) -> dict:
         "retrieved_passages": {},
         "tool_decisions": {},
         "tool_results": {},
+        "recovery_attempts": {},
         "hop_results": [],
         "execution_log": [],
     }
