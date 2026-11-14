@@ -4,6 +4,9 @@ mlflow.db
 *.stderr.log
 *.stdout.log
 
+# Local course reference projects (not part of this project's own code).
+reference/
+
 # Routing Accuracy Lab: local Chroma vector store (rebuild with
 # routing/scripts/build_index.py; not committed since it's regenerable
 # and would otherwise commit raw OpenAI embedding vectors).
