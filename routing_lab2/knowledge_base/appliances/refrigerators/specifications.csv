@@ -1,0 +1,4 @@
+model,type,capacity_l,standard_warranty_years,compressor_warranty_years,price_aud
+RF-200,compact,180,2,10,599
+RF-450,standard,450,2,10,999
+RF-700,french-door,700,2,10,1799

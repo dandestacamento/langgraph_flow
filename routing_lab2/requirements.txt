@@ -1,0 +1,33 @@
+# Already installed in the shared ../.venv for this repo (langgraph,
+# langchain-openai, mlflow, streamlit, pytest, python-dotenv, pydantic).
+# Pin here anyway so `routing_lab/` is runnable as a standalone project.
+langgraph>=1.2
+langchain-openai>=1.7
+mlflow>=3.18
+streamlit>=1.67
+pytest>=9.2
+python-dotenv>=1.2
+pydantic>=2.14
+pyyaml>=6.0
+
+# Level 4 (RAG retrieval): local Chroma vector store + OpenAI embeddings.
+chromadb>=1.5
+langchain-chroma>=1.1
+
+# Hybrid retrieval (routing-lab2, app/rag/retrieval.py's "hybrid" mode -
+# BM25 keyword search + vector search via EnsembleRetriever). Lightweight,
+# pure-Python, no extra download - unlike reranking below.
+rank-bm25>=0.2
+
+# Cross-encoder reranking (routing-lab2, app/rag/reranking.py) - optional:
+# only required if ROUTING_LAB_RERANK_ENABLED=1 or use_reranking=True is
+# passed explicitly. Pulls in torch (CPU wheel) and downloads a small
+# (~80MB) cross-encoder model on first use. Not installed by default in
+# shared environments that don't need reranking; see
+# instructions/learnings/routing-lab2-learnings.md section 4 (P1).
+sentence-transformers>=3.0
+
+# Response caching (app/cache.py): avoids re-billing identical repeated
+# LLM calls across development/test iterations. langchain-community is
+# used only for its SQLiteCache - no other integrations from it are used.
+langchain-community>=0.4

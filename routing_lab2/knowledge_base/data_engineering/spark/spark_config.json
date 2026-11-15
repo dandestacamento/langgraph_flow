@@ -1,0 +1,6 @@
+{
+  "spark.sql.shuffle.partitions": 200,
+  "spark.sql.adaptive.enabled": true,
+  "spark.sql.adaptive.coalescePartitions.enabled": true,
+  "notes": "Default shuffle partition count; tune down for small clusters/datasets."
+}
