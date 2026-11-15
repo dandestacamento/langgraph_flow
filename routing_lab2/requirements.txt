@@ -14,6 +14,19 @@ pyyaml>=6.0
 chromadb>=1.5
 langchain-chroma>=1.1
 
+# Hybrid retrieval (routing-lab2, app/rag/retrieval.py's "hybrid" mode -
+# BM25 keyword search + vector search via EnsembleRetriever). Lightweight,
+# pure-Python, no extra download - unlike reranking below.
+rank-bm25>=0.2
+
+# Cross-encoder reranking (routing-lab2, app/rag/reranking.py) - optional:
+# only required if ROUTING_LAB_RERANK_ENABLED=1 or use_reranking=True is
+# passed explicitly. Pulls in torch (CPU wheel) and downloads a small
+# (~80MB) cross-encoder model on first use. Not installed by default in
+# shared environments that don't need reranking; see
+# instructions/learnings/routing-lab2-learnings.md section 4 (P1).
+sentence-transformers>=3.0
+
 # Response caching (app/cache.py): avoids re-billing identical repeated
 # LLM calls across development/test iterations. langchain-community is
 # used only for its SQLiteCache - no other integrations from it are used.

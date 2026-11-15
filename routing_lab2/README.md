@@ -731,6 +731,69 @@ the specific question types that premium is meant to handle, not a
 marginal improvement - which is the answer `6_routing_design.md` asked
 this experiment to find.
 
+## Experiment: comparing retrieval modes (routing-lab2)
+
+Following up on `instructions/learnings/routing-lab2-learnings.md`
+(lessons mined from `reference/rag_krish`): before porting that project's
+hybrid retrieval (BM25 + vector) and cross-encoder reranking, benchmark
+them against this project's own Level 4/6 evaluation harness instead of
+assuming they help - Level 4's baseline is already 100% Retrieval
+Recall@K on plain Chroma similarity search.
+
+**Method**: `scripts/compare_retrieval_modes.py` calls
+`app.rag.retrieval.retrieve()` directly (bypassing the graph - retrieval
+quality in isolation is what's being measured) for every Level 4 (22
+questions) and Level 6 (23 questions) ground-truth row, under three
+modes, scored with the same `RetrievalResult`/`MultiChapterRetrievalResult`
+classes the Level 4/6 pytest suites use:
+
+| Mode | What it does |
+|---|---|
+| `similarity` | Current default - Chroma vector search only. |
+| `hybrid` | Vector search + BM25 keyword search, combined via reciprocal rank fusion (`EnsembleRetriever`), scoped per (topic, subtopic) so hybrid retrieval respects the same filtering as plain similarity search. |
+| `hybrid+rerank` | `hybrid`'s larger candidate pool, re-scored by a small CPU cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) and narrowed back down. |
+
+**Results** (22 L4 + 23 L6 questions, full results in
+`experiments/retrieval_mode_comparison.json`):
+
+| Mode | L4 Recall@K | L6 Full Coverage | L6 Avg Coverage | Avg latency |
+|---|---|---|---|---|
+| similarity | 100% | 100% | 100% | ~12ms |
+| hybrid | 100% | 100% | 100% | ~8ms |
+| hybrid+rerank | 100% | 100% | 100% | ~450ms |
+
+**Finding: no measurable improvement from either hybrid retrieval or
+reranking on the current knowledge base** - all three modes tie at 100%
+on both metrics, exactly as the learnings doc predicted from the
+existing Level 4/6 baselines. This makes sense at this knowledge base's
+current scale: every subtopic only has 3-4 chapters, `RETRIEVAL_TOP_K=5`
+already reliably spans all of them (see the Level 6 top_k=3->5 finding
+elsewhere in this README), so there's little room for either technique
+to correct a ranking mistake that's already not happening. `hybrid+rerank`
+is also ~35-55x slower per retrieval than plain similarity, for no
+accuracy gain at this scale - not worth its latency cost today.
+
+**Decision: keep `similarity` as the default.** Both `hybrid` and
+`hybrid+rerank` are fully implemented and available on demand
+(`app.rag.retrieval.retrieve(..., retrieval_mode="hybrid",
+use_reranking=True)`, or `ROUTING_LAB_RETRIEVAL_MODE=hybrid` /
+`ROUTING_LAB_RERANK_ENABLED=1` to change the process-wide default) -
+genuinely useful capabilities to have in reserve for a larger or
+messier future knowledge base (hybrid retrieval in particular should
+help once exact-term content - fault codes, model numbers, acronyms -
+isn't already well-covered by `RETRIEVAL_TOP_K`), but not something to
+default to without evidence. Rerun this script (ideally against a larger
+or harder knowledge base) if that changes.
+
+**Incremental indexing**: `scripts/build_index.py` is also now
+incremental by default (see `app/rag/manifest.py`) - only chapters that
+were actually added, modified, or deleted since the last run are
+re-chunked and re-embedded (verified: a single edited chapter triggers
+exactly that chapter's chunks being replaced; a rerun with no content
+changes is a true no-op). Use `--rebuild` to force a full rebuild (e.g.
+after changing the chunking strategy or embedding model - this also
+happens automatically via `INGEST_SIGNATURE`).
+
 ## Architecture (current)
 
 ```
@@ -825,18 +888,18 @@ routing_lab/
 │   ├── routers/             # complexity, multihop_router, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
 │   ├── agents/               # one agent per topic (RAG-grounded, +tool results, +bounded recovery retry) + clarification_agent + multihop_agent + synthesis_agent
 │   ├── architectures/         # arch_a_llm_router, arch_b_hierarchical_router - simpler architectures for the 3-way comparison experiment (app/graph.py itself is Architecture C)
-│   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done); reranking (stub)
+│   ├── rag/                  # ingestion/chunking/embeddings/retrieval (done, +hybrid/rerank modes); manifest (incremental indexing)
 │   ├── tools/                # calculator/sql_query/metadata_lookup (done, Level 8); document_search (deliberately unimplemented - see Level 8 README section)
 │   ├── evaluation/            # routing_metrics, retrieval_metrics, answer_metrics (all done)
 │   └── observability/        # mlflow_tracing, graph_visualizer, execution_logger
 ├── knowledge_base/           # 57 Markdown chapters + CSV/JSON/TXT, across 6 topics / 19 subtopics
 ├── datasets/                  # routing_ground_truth.jsonl (L1: 24, L2: 19, L3: 38, L4: 22, L5: 32, L6: 23, L7: 20, L8: 22, L9: 14, L10: 14 questions - 228 total, all 6 topics)
 │                               # batch_test_questions.json - 20 editable questions for scripts/run_batch_tests.py (see "Batch Routing Test Runner" below)
-├── experiments/                # architecture_comparison_results.json - raw per-question results from scripts/compare_architectures.py
+├── experiments/                # architecture_comparison_results.json (scripts/compare_architectures.py) + retrieval_mode_comparison.json (scripts/compare_retrieval_modes.py)
 ├── outputs/                    # batch_results.csv / batch_details.json / batch_report.md / manual_review.csv / routing_graph.mmd - generated by scripts/run_batch_tests.py
 ├── tests/                     # test_basic_routing.py (L1), test_subtopic_routing.py (L2), test_chapter_routing.py (L3), test_rag_retrieval.py (L4), test_ambiguous_questions.py (L5), test_multichapter_evidence.py (L6), test_multitopic_routing.py (L7), test_tool_selection.py (L8), test_multihop_reasoning.py (L9), test_error_recovery.py (L10), test_architecture_comparison.py (A/B/C experiment)
 ├── dashboard/                  # Streamlit app (level selector covers L1-L3; ask tab shows retrieval+citations)
-├── scripts/                    # generate_knowledge_base.py, build_index.py, run_evaluations.py, compare_architectures.py, run_batch_tests.py (all done)
+├── scripts/                    # generate_knowledge_base.py, build_index.py (incremental), run_evaluations.py, compare_architectures.py, compare_retrieval_modes.py, run_batch_tests.py (all done)
 └── requirements.txt
 ```
 
