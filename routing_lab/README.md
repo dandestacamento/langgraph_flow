@@ -70,7 +70,7 @@ committed, just not with a full per-topic dataset until the backfill.
 - Real document ingestion (YAML front matter + body), paragraph-level
   chunking (57 chapters -> 68 chunks), OpenAI `text-embedding-3-small`
   embeddings, and a local Chroma vector store
-  (`scripts/build_index.py` -> `routing/.chroma/`) - no stubs left in
+  (`scripts/build_index.py` -> `routing_lab/.chroma/`) - no stubs left in
   `app/rag/` except `reranking.py`.
 - Topic agents no longer answer from the LLM's own general knowledge -
   they answer *only* from passages retrieved for their (topic, subtopic),
@@ -819,7 +819,7 @@ Streamlit dashboard for a rendered graph diagram.
 ## Project layout
 
 ```
-routing/
+routing_lab/
 ├── .chroma/                 # Local Chroma vector store (gitignored; rebuild with scripts/build_index.py)
 ├── app/                     # LangGraph application code
 │   ├── routers/             # complexity, multihop_router, topic (+ambiguity flag, +topic_questions), subtopic, chapter_selector, tool_router (all done)
@@ -847,7 +847,7 @@ routing/
    `.env` file. Copy `.env.example` to `../.env` if you haven't already
    configured `OPENAI_API_KEY` there.
 2. Select `../.venv/Scripts/python.exe` as the VS Code Python interpreter.
-3. Open a terminal in `routing/` (not the repo root) before running the
+3. Open a terminal in `routing_lab/` (not the repo root) before running the
    commands below, so relative paths resolve correctly.
 
 ## Running things
@@ -919,20 +919,20 @@ question text).
 
 ```powershell
 # Edit the input questions
-routing\datasets\batch_test_questions.json
+routing_lab\datasets\batch_test_questions.json
 
-# Run it (from inside routing\)
+# Run it (from inside routing_lab\)
 ..\.venv\Scripts\python.exe scripts\run_batch_tests.py
 ..\.venv\Scripts\python.exe scripts\run_batch_tests.py --ids T001 T015 T020   # subset only
 
 # Read the results
-routing\outputs\batch_report.md       # readable per-question report - start here
-routing\outputs\batch_results.csv     # spreadsheet summary (pass/fail, latency, cost)
-routing\outputs\batch_details.json    # full routing chain + execution trace per test
-routing\outputs\routing_graph.mmd     # Mermaid diagram of the compiled graph
+routing_lab\outputs\batch_report.md       # readable per-question report - start here
+routing_lab\outputs\batch_results.csv     # spreadsheet summary (pass/fail, latency, cost)
+routing_lab\outputs\batch_details.json    # full routing chain + execution trace per test
+routing_lab\outputs\routing_graph.mmd     # Mermaid diagram of the compiled graph
 
 # Add your own verdict (preserved across reruns by test_id)
-routing\outputs\manual_review.csv
+routing_lab\outputs\manual_review.csv
 ```
 
 Per `instructions/Langgraph_routing/9_batch_routing.md`: an editable,

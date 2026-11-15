@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-# Ensure `routing/` (the project root, one level above this file's parent)
+# Ensure `routing_lab/` (the project root, one level above this file's parent)
 # is importable as `app.*` regardless of the directory pytest is invoked
 # from.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -18,7 +18,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from dotenv import find_dotenv, load_dotenv  # noqa: E402
 
 # find_dotenv() walks upward from this file, so it locates the repo-root
-# .env (routing/ has no .env of its own) regardless of the pytest cwd.
+# .env (routing_lab/ has no .env of its own) regardless of the pytest cwd.
 load_dotenv(find_dotenv())
 
 from app.cache import enable_llm_cache  # noqa: E402

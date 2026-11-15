@@ -122,7 +122,7 @@ Lesson: when LLM calls drive control flow, test the *deciders* directly with con
 - Module-level singletons (`llm = ChatOpenAI(...)` at import time) make configuration/mocking harder; factory functions or dependency injection scale better.
 - Web search results are collapsed into **one** `Document` (joined contents) — loses source attribution; keep per-result Documents with URL metadata if citations matter.
 
-## 8. Ideas applicable to `routing/` and `smarthome-csr/`
+## 8. Ideas applicable to `routing_lab/` and `smarthome-csr/`
 
 1. **Conditional entry point** for intent routing — route before doing any work, using structured output with `Literal` branch names.
 2. **Grade-then-fallback (Corrective) pattern**: after any retrieval/tool step, grade the output's usefulness and branch to an alternate source instead of answering from bad context.

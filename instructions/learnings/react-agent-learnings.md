@@ -98,7 +98,7 @@ The test prompt ("get weather, then triple it") deliberately forces **sequential
 
 ---
 
-## 5. Ideas applicable to `routing/` and `smarthome-csr/`
+## 5. Ideas applicable to `routing_lab/` and `smarthome-csr/`
 
 1. **Use ToolNode + bind_tools** for any agent that picks among tools (e.g., smart-home device actions): let `tool_calls` drive the act/finish decision instead of writing a custom dispatcher.
 2. **MessagesState with append semantics** for conversational CSR flows — the full dialogue history is the state, no manual history bookkeeping.

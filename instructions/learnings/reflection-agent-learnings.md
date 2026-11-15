@@ -87,7 +87,7 @@ Together these three form a spectrum from "loop until budget exhausted" → "loo
 
 ---
 
-## 5. Ideas applicable to `routing/` and `smarthome-csr/`
+## 5. Ideas applicable to `routing_lab/` and `smarthome-csr/`
 
 1. **Reflection as a quality-improvement node**: wrap any single-shot generation step (e.g., a customer-facing reply) with a generate→reflect→regenerate loop before returning the final answer, especially for user-facing copy (notifications, summaries, routed responses).
 2. **Role-reversal trick**: when feeding model-generated feedback back into another model call, format it as the role the *recipient* expects (e.g., as a `HumanMessage`) rather than inventing new message types or system-prompt branches.

@@ -8,19 +8,19 @@ mlflow.db
 reference/
 
 # Routing Accuracy Lab: local Chroma vector store (rebuild with
-# routing/scripts/build_index.py; not committed since it's regenerable
+# routing_lab/scripts/build_index.py; not committed since it's regenerable
 # and would otherwise commit raw OpenAI embedding vectors).
-routing/.chroma/
+routing_lab/.chroma/
 
 # Routing Accuracy Lab: persistent LLM/embedding response cache (see
-# routing/app/cache.py) - development cost-control only, not meant to be
+# routing_lab/app/cache.py) - development cost-control only, not meant to be
 # shared/committed.
-routing/.llm_cache.db
+routing_lab/.llm_cache.db
 
 # Routing Accuracy Lab: ad-hoc MLflow trace export (scripts/export_mlflow_traces.py) -
 # a snapshot of whatever was tested locally and in-session, not a
 # reproducible artifact like experiments/architecture_comparison_results.json.
-routing/experiments/mlflow_trace_export.json
+routing_lab/experiments/mlflow_trace_export.json
 
 # Python
 __pycache__/

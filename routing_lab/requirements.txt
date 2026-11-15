@@ -1,6 +1,6 @@
 # Already installed in the shared ../.venv for this repo (langgraph,
 # langchain-openai, mlflow, streamlit, pytest, python-dotenv, pydantic).
-# Pin here anyway so `routing/` is runnable as a standalone project.
+# Pin here anyway so `routing_lab/` is runnable as a standalone project.
 langgraph>=1.2
 langchain-openai>=1.7
 mlflow>=3.18

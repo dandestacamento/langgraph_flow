@@ -3,7 +3,7 @@
 Loads every chapter via `app.rag.ingestion.load_knowledge_base_documents`,
 splits them into chunks via `app.rag.chunking.chunk_all_documents`,
 embeds them, and persists the result to a local Chroma collection under
-`routing/.chroma/` (see `app.config.CHROMA_PERSIST_DIR`).
+`routing_lab/.chroma/` (see `app.config.CHROMA_PERSIST_DIR`).
 
 Idempotent: deletes and recreates the collection each run, so re-running
 after editing `scripts/generate_knowledge_base.py` + regenerating the

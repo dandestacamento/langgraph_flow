@@ -1,8 +1,8 @@
-# Learnings from `routing/` (self-review)
+# Learnings from `routing_lab/` (self-review)
 
-Source: [routing/](../../routing/) — this is **our own project** (the "Routing Accuracy Lab"), not a third-party reference. This document is a technical self-review of its own architecture, written the same way as the other `instructions/learnings/*.md` files, so it can be read alongside them: what the project already does well, what it borrowed (consciously or not) from the patterns seen in [agentic-rag](./agentic-rag-learnings.md), [ReAct agent](./react-agent-learnings.md), [reflection agent](./reflection-agent-learnings.md), and [rag_krish](./rag-krish-learnings.md), and what gaps remain.
+Source: [routing_lab/](../../routing_lab/) — this is **our own project** (the "Routing Accuracy Lab"), not a third-party reference. This document is a technical self-review of its own architecture, written the same way as the other `instructions/learnings/*.md` files, so it can be read alongside them: what the project already does well, what it borrowed (consciously or not) from the patterns seen in [agentic-rag](./agentic-rag-learnings.md), [ReAct agent](./react-agent-learnings.md), [reflection agent](./reflection-agent-learnings.md), and [rag_krish](./rag-krish-learnings.md), and what gaps remain.
 
-Read via three parallel deep-dives covering [app/graph.py + agents/ + architectures/ + routers/](../../routing/app/), [app/rag/ + app/tools/ + knowledge_base/ + datasets/](../../routing/app/rag/), and [app/evaluation/ + app/observability/ + tests/ + scripts/ + dashboard/](../../routing/app/evaluation/).
+Read via three parallel deep-dives covering [app/graph.py + agents/ + architectures/ + routers/](../../routing_lab/app/), [app/rag/ + app/tools/ + knowledge_base/ + datasets/](../../routing_lab/app/rag/), and [app/evaluation/ + app/observability/ + tests/ + scripts/ + dashboard/](../../routing_lab/app/evaluation/).
 
 ---
 
@@ -12,7 +12,7 @@ A LangGraph "Routing Accuracy Lab": route a question across six knowledge domain
 
 ---
 
-## 2. Graph architecture ([app/graph.py](../../routing/app/graph.py), [app/state.py](../../routing/app/state.py))
+## 2. Graph architecture ([app/graph.py](../../routing_lab/app/graph.py), [app/state.py](../../routing_lab/app/state.py))
 
 ```
 START → complexity_router
@@ -38,7 +38,7 @@ START → complexity_router
 
 ---
 
-## 3. Domain agents ([app/agents/](../../routing/app/agents/))
+## 3. Domain agents ([app/agents/](../../routing_lab/app/agents/))
 
 The six domain agent files (`appliance_agent.py`, `azure_agent.py`, `customer_support_agent.py`, `data_engineering_agent.py`, `finance_agent.py`, `python_agent.py`) are **one-line wrappers**: each `run(state)` just calls `run_topic_agent("<topic>", state)` in `_shared.py`. All substantive logic — prompt construction, citation handling, tool-result incorporation, retry-on-failure — lives in one shared module.
 
@@ -50,7 +50,7 @@ This pattern — shared node logic + thin per-domain name-only wrappers + determ
 
 ---
 
-## 4. Routers ([app/routers/](../../routing/app/routers/))
+## 4. Routers ([app/routers/](../../routing_lab/app/routers/))
 
 Every router uses `temperature=0` structured-output LLM calls (Pydantic models, `Literal` types) — consistent with the "every decision point should be typed" discipline seen across all the other reference projects:
 
@@ -67,11 +67,11 @@ Every router uses `temperature=0` structured-output LLM calls (Pydantic models, 
 
 ---
 
-## 5. RAG pipeline ([app/rag/](../../routing/app/rag/)) — contrast with rag_krish
+## 5. RAG pipeline ([app/rag/](../../routing_lab/app/rag/)) — contrast with rag_krish
 
 This is a **much simpler** RAG pipeline than `rag_krish`'s, and comparing them directly is instructive:
 
-| | `routing/app/rag/` | `rag_krish/rag/` |
+| | `routing_lab/app/rag/` | `rag_krish/rag/` |
 |---|---|---|
 | Formats ingested | Markdown chapters only (YAML front-matter + H1 + prose); CSV/JSON/TXT exist as supporting fixtures but aren't passed through general RAG ingestion | txt, pdf, docx, json, jsonl, sqlite, csv, xlsx — all through RAG |
 | Chunking | one strategy: split on blank-line paragraph boundaries, no size/overlap target | four pluggable strategies (recursive/character/token/semantic) |
@@ -80,11 +80,11 @@ This is a **much simpler** RAG pipeline than `rag_krish`'s, and comparing them d
 | Reranking | `reranking.py` is an explicit `NotImplementedError` stub | implemented (`ContextualCompressionRetriever`/`CrossEncoderReranker`) |
 | Store | one shared Chroma collection, topic/subtopic as metadata filters | per-topic FAISS indexes (in `rag_krish`'s agent tools) or one shared store, depending on app |
 
-**This is the clearest actionable gap to borrow from `rag_krish`'s learnings**: `routing/`'s own chunk-ID scheme (`document_id:chapter_id:chunk_index`) already has everything needed to do manifest-based incremental rebuild (§3 of the rag_krish learnings doc) instead of delete-and-rebuild-everything on every `build_index.py` run — this would matter once the knowledge base grows past today's 57 chapters. Hybrid retrieval and reranking are also implemented and battle-tested in `rag_krish` and could be ported if answer quality (not just routing accuracy) becomes a higher priority.
+**This is the clearest actionable gap to borrow from `rag_krish`'s learnings**: `routing_lab/`'s own chunk-ID scheme (`document_id:chapter_id:chunk_index`) already has everything needed to do manifest-based incremental rebuild (§3 of the rag_krish learnings doc) instead of delete-and-rebuild-everything on every `build_index.py` run — this would matter once the knowledge base grows past today's 57 chapters. Hybrid retrieval and reranking are also implemented and battle-tested in `rag_krish` and could be ported if answer quality (not just routing accuracy) becomes a higher priority.
 
 ---
 
-## 6. Tools ([app/tools/](../../routing/app/tools/))
+## 6. Tools ([app/tools/](../../routing_lab/app/tools/))
 
 None of the four tools use LangChain's `@tool` decorator — they're plain Python functions invoked directly from `tool_router.py` after structured-output selection, rather than being bound to an LLM via `bind_tools`/`ToolNode` (contrast with the ReAct-agent and rag_krish flagship-agent patterns, which let the model itself decide to call a tool). This is a **deliberate control-flow difference**: here, tool *selection* is itself a graded routing decision (evaluated for accuracy as "Level 8"), not something delegated to the model's own tool-calling judgment.
 
@@ -94,7 +94,7 @@ None of the four tools use LangChain's `@tool` decorator — they're plain Pytho
 
 ---
 
-## 7. Evaluation ([app/evaluation/](../../routing/app/evaluation/)) — the project's standout strength
+## 7. Evaluation ([app/evaluation/](../../routing_lab/app/evaluation/)) — the project's standout strength
 
 Three metric modules are all **deterministic** (no LLM-as-judge anywhere), which is a notable contrast to `rag_krish`'s agentic test suite (which used an LLM judge against `REFERENCE_ANSWERS`):
 
@@ -112,9 +112,9 @@ This is a deliberate, well-documented trade-off: cheap, fast, deterministic, rep
 
 ---
 
-## 8. Testing ([tests/](../../routing/tests/)) — dataset-driven, like rag_krish's README-driven tests, but cleaner
+## 8. Testing ([tests/](../../routing_lab/tests/)) — dataset-driven, like rag_krish's README-driven tests, but cleaner
 
-`routing/tests/` is **dataset-driven and parametrized from `datasets/routing_ground_truth.jsonl`** (loaded via `conftest.py`'s `load_ground_truth(level=None)`), with one test file per difficulty level (Level 1 basic routing → Level 10 error recovery). This is structurally the same idea as `rag_krish`'s README-driven test questions (§6 of that learnings doc: parse a human-curated source of truth into parametrized pytest cases) — but **more robust**, because JSONL with explicit typed fields (`id`, `level`, `question`, expected topic/subtopic/chapter, notes) is far less brittle to reparse than regex-matching Markdown bullet formatting. **This is a concrete improvement worth recognizing and keeping**: if `rag_krish`'s README-parsing pattern is ever adopted elsewhere, prefer a structured file (JSONL/JSON) over parsing prose Markdown, exactly as this project already does.
+`routing_lab/tests/` is **dataset-driven and parametrized from `datasets/routing_ground_truth.jsonl`** (loaded via `conftest.py`'s `load_ground_truth(level=None)`), with one test file per difficulty level (Level 1 basic routing → Level 10 error recovery). This is structurally the same idea as `rag_krish`'s README-driven test questions (§6 of that learnings doc: parse a human-curated source of truth into parametrized pytest cases) — but **more robust**, because JSONL with explicit typed fields (`id`, `level`, `question`, expected topic/subtopic/chapter, notes) is far less brittle to reparse than regex-matching Markdown bullet formatting. **This is a concrete improvement worth recognizing and keeping**: if `rag_krish`'s README-parsing pattern is ever adopted elsewhere, prefer a structured file (JSONL/JSON) over parsing prose Markdown, exactly as this project already does.
 
 - Session-scoped fixtures (`compiled_graph` built once per session; an autouse fixture builds the Chroma index only if missing) keep the suite fast without sacrificing realism — same "build the expensive thing once" discipline as `rag_krish`'s session-scoped `rag` fixture.
 - `test_error_recovery.py` has both dataset-driven cases *and* hand-constructed direct tests that force rare failure modes (wrong-subtopic retrieval, malformed SQL input) — a good complement, since recovery/error paths are inherently hard to trigger reliably from end-to-end dataset cases alone. This mirrors the `test_memory_pii_redaction.py` lesson from rag_krish: **pure/deterministic failure-path logic deserves direct, non-end-to-end unit tests**, not just integration coverage.
@@ -125,7 +125,7 @@ This is a deliberate, well-documented trade-off: cheap, fast, deterministic, rep
 
 ---
 
-## 9. Observability ([app/observability/](../../routing/app/observability/))
+## 9. Observability ([app/observability/](../../routing_lab/app/observability/))
 
 - **MLflow is optional and on-demand**: `enable_mlflow_tracing_if_available()` probes the tracking server's host/port reachability with a short socket timeout before enabling `mlflow.langchain.autolog()`; scripts/dashboard silently skip tracing if the server isn't up. This matches the user's own stated preference (and the project's `start_mlflow.ps1`/`stop_mlflow.ps1` scripts) of running MLflow only while actively testing, never as an always-on background service — and is a cleaner implementation of the same "optional, separately-launched observability" philosophy flagged as a strength in rag_krish's Prometheus/Neo4j compose separation.
 - **Execution logging is structured and queryable after the fact**: `execution_logger.py` provides `get_node_sequence()`, `get_log_for_node()`, `total_duration_ms()` over a list of `{node, action, output, duration_ms}` entries that graph nodes append to during execution — this is the same "free architecture documentation" idea as `draw_mermaid_png`/`print_ascii()` in the course projects, but for *runtime* behavior instead of static graph topology.
@@ -135,14 +135,14 @@ This is a deliberate, well-documented trade-off: cheap, fast, deterministic, rep
 
 ## 10. Cross-project comparison summary
 
-| Concern | `routing/` (this project) | Best-in-class elsewhere |
+| Concern | `routing_lab/` (this project) | Best-in-class elsewhere |
 |---|---|---|
 | Multi-domain fan-out | `Send`-based, reducer-merged state | rag_krish orchestrator-worker (`Send` + `add` reducer) — same technique |
 | Tool selection | graded routing decision, not model-driven | ReAct agent / rag_krish flagship agent: model decides via `bind_tools` |
 | Self-correction | one bounded retry on tool/retrieval failure | rag_krish flagship agent: three distinct capped loops (relevance, hallucination, completeness) |
 | Index rebuild | full rebuild every run | rag_krish: manifest-based incremental rebuild — **adopt this** |
 | Retrieval modes | similarity only | rag_krish: similarity/mmr/hybrid + reranking — **candidate to adopt if answer quality becomes a priority** |
-| Test-case source of truth | structured JSONL, parametrized | rag_krish: README prose, regex-parsed — `routing/`'s approach is *more* robust, worth exporting back |
+| Test-case source of truth | structured JSONL, parametrized | rag_krish: README prose, regex-parsed — `routing_lab/`'s approach is *more* robust, worth exporting back |
 | Evaluation philosophy | deterministic substring/overlap metrics | rag_krish: LLM-as-judge — different tools for different goals (routing accuracy vs. answer quality) |
 | Observability | on-demand MLflow autolog + structured execution log | rag_krish: Prometheus counters via callback handler — comparable "instrument once centrally" discipline |
 

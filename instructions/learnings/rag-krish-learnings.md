@@ -72,7 +72,7 @@ def chunk_id(source: str, chunk_text: str) -> str:
 - The manifest (`index/manifest.json`) records, per source file: `mtime` (nanoseconds), `size`, `chunk_ids`, and a whole-file `content_hash`.
 - A top-level `ingest_signature` (`"recursive:800:120:text-embedding-3-small"` = splitter:chunk_size:chunk_overlap:embedding_model) triggers a **full rebuild** if any of those config values change — the index is always consistent with how it was built, never silently stale.
 - Otherwise, `update_index()` diffs current files against the manifest by mtime+size, re-embeds only changed/added sources, and **reuses existing vectors** for unchanged ones. It even detects renames via a content-hash match between a deleted and an added path.
-- **This is the single most valuable idea in the whole repo for your `routing/` project**: any FAISS/Chroma-backed index that gets rebuilt on a schedule or on-demand should use a manifest like this instead of blind full re-ingestion, especially once the corpus grows.
+- **This is the single most valuable idea in the whole repo for your `routing_lab/` project**: any FAISS/Chroma-backed index that gets rebuilt on a schedule or on-demand should use a manifest like this instead of blind full re-ingestion, especially once the corpus grows.
 - **Flagged weakness**: mtime+size change detection can miss an edit that preserves both (rare but possible); rename detection depends on extracted *document* content, not raw bytes, so extraction differences can break it.
 
 ### b) Pluggable splitter strategies, selected by one factory
@@ -192,10 +192,10 @@ Separately, [test_memory_pii_redaction.py](../../reference/rag_krish/tests/test_
 
 ---
 
-## 9. Ideas directly applicable to `routing/` and `smarthome-csr/`
+## 9. Ideas directly applicable to `routing_lab/` and `smarthome-csr/`
 
-1. **Adopt the manifest-based incremental indexing pattern** for any vector index in `routing/` that's rebuilt from files — avoids re-embedding unchanged content and detects config drift (splitter/embedding-model changes) automatically.
-2. **README-driven test questions**: if `routing/` or `smarthome-csr/` has user-facing docs listing example queries/scenarios, parse them into parametrized tests the same way — keeps docs and tests from drifting, and turns "add an example to the README" into "add a test case" for free.
+1. **Adopt the manifest-based incremental indexing pattern** for any vector index in `routing_lab/` that's rebuilt from files — avoids re-embedding unchanged content and detects config drift (splitter/embedding-model changes) automatically.
+2. **README-driven test questions**: if `routing_lab/` or `smarthome-csr/` has user-facing docs listing example queries/scenarios, parse them into parametrized tests the same way — keeps docs and tests from drifting, and turns "add an example to the README" into "add a test case" for free.
 3. **Orchestrator-worker via `Send()`** is the right tool whenever a routing task needs to fan out to a *variable* number of sub-queries/sub-agents determined at runtime (e.g., splitting a multi-intent customer message into per-intent workers).
 4. **SKILL.md-style domain guidance files** for any sub-agent/persona in `smarthome-csr/`, kept separate from the Python graph wiring.
 5. **Three-loop self-correction** (corrective retrieval + hallucination check + completeness/reflection check, each capped at one retry, with explicit per-turn counter resets) as the gold-standard reliability pattern to adopt for any customer-facing answer generation.
