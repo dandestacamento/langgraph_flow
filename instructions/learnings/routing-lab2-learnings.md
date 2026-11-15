@@ -4,10 +4,47 @@
 > `feature/routing-lab2` branch, based on reading `routing_lab/` before the user copied it to
 > `routing_lab2/` for this branch's work - all code examples and links below point to
 > `routing_lab2/`, where the implementation actually happened (`routing_lab/` itself was never
-> modified). See §7 for what was actually built, what the benchmark found, and what was decided -
-> plus a second round of fixes (from a different self-review document) that this plan never
-> covered. Commits: `5fd6a46` (P1 hybrid/rerank + P2 incremental indexing), `aa38803`
-> (run_evaluations.py/SQL guard/synthesis-citation fixes).
+> modified). See §7 for full details, with commit-level verification notes. Commits: `5fd6a46`
+> (P1 hybrid/rerank + P2 incremental indexing), `aa38803` (run_evaluations.py/SQL
+> guard/synthesis-citation fixes), `653a9c6` (this document updated to match).
+
+## At a glance: what changed in `routing_lab2/`
+
+**New capabilities (opt-in, off by default)**
+
+| Feature | What it does | Status |
+|---|---|---|
+| **Hybrid retrieval** | `retrieve()` can combine Chroma vector search with BM25 keyword search (scoped per topic/subtopic via `EnsembleRetriever`) - catches exact terms like fault codes/acronyms that embeddings sometimes miss | Implemented, tested, **off by default** |
+| **Cross-encoder reranking** | `app/rag/reranking.py` was previously a `NotImplementedError` stub - now re-scores a larger candidate pool with a CPU cross-encoder before narrowing to top-k | Implemented, tested, **off by default** |
+| **Incremental indexing** | `scripts/build_index.py` no longer does a full delete-and-rebuild every run - a manifest tracks per-chapter mtime/size, so only added/changed/deleted chapters are re-chunked/re-embedded | Implemented, **on by default**, verified (no-op rerun, single-chapter edit test) |
+
+Why hybrid/rerank are off by default: `scripts/compare_retrieval_modes.py` benchmarked all three
+modes against the Level 4/6 ground truth - they tied at **100%** Recall@K/coverage, with
+hybrid+rerank costing ~35-55x more latency for zero accuracy gain. So they're fully built and
+available (`retrieve(..., retrieval_mode="hybrid", use_reranking=True)` or env vars), but not
+switched on without evidence they help. Full benchmark table in §7.1.
+
+**Bug fixes**
+
+| Fix | Problem it solved |
+|---|---|
+| **`run_evaluations.py`** | Genuinely crashed with `KeyError` on Level 6+ despite claiming to support "all levels" - rewritten to score each level correctly; now all 10 levels run cleanly and match documented results |
+| **`sql_query.py`** | Added a SELECT-only guard before executing LLM-generated SQL - defense-in-depth against the tool ever running a non-read-only statement |
+| **`synthesis_agent.py`** | Multi-topic synthesis prompt now explicitly preserves `tool:<name>` citations (previously only mentioned chapter_id citations, risking dropped tool citations when merging multi-topic answers) |
+
+**Accuracy validation - zero regressions, in every configuration tested:**
+
+- Default (similarity, no rerank): **409/410 passed**
+- Hybrid retrieval, full 10-level suite end-to-end: **409/410 passed** (identical)
+- Hybrid + reranking, Levels 4 & 6 end-to-end: **91/91 passed**
+
+The single consistent failure (`test_chapter_routing.py::L3-022`) is confirmed **pre-existing and
+unrelated** - it fails identically on the untouched `routing_lab/` sibling, before any of these
+changes.
+
+**Documentation**: `routing_lab2/README.md` got two new sections ("Experiment: comparing
+retrieval modes" and "Other fixes from this self-review"); this document (§7) was updated from a
+pre-implementation plan into an accurate record of what was actually built, found, and decided.
 
 This document is the design/triage brief for the `feature/routing-lab2` branch: it re-reads
 [rag-krish-learnings.md](./rag-krish-learnings.md) and the actual source in
