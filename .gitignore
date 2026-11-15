@@ -22,6 +22,13 @@ routing_lab/.llm_cache.db
 # reproducible artifact like experiments/architecture_comparison_results.json.
 routing_lab/experiments/mlflow_trace_export.json
 
+# routing_lab2/: a working copy of routing_lab/ for the feature/routing-lab2
+# experiment (see instructions/learnings/routing-lab2-learnings.md) - same
+# regenerable local artifacts as routing_lab/ above, same reasons.
+routing_lab2/.chroma/
+routing_lab2/.llm_cache.db
+routing_lab2/experiments/mlflow_trace_export.json
+
 # Python
 __pycache__/
 *.py[cod]
@@ -33,6 +40,7 @@ venv/
 ENV/
 *.egg-info/
 .eggs/
+.pytest_cache/
 
 # IDE
 .vscode/

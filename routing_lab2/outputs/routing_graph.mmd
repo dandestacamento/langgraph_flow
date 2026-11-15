@@ -1,0 +1,52 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	complexity_router(complexity_router)
+	multihop_router(multihop_router)
+	multihop_agent(multihop_agent)
+	topic_router(topic_router)
+	clarification_agent(clarification_agent)
+	subtopic_router(subtopic_router)
+	chapter_selector(chapter_selector)
+	rag_retriever(rag_retriever)
+	tool_router(tool_router)
+	appliances_agent(appliances_agent)
+	azure_cloud_agent(azure_cloud_agent)
+	data_engineering_agent(data_engineering_agent)
+	python_agent(python_agent)
+	finance_agent(finance_agent)
+	customer_support_agent(customer_support_agent)
+	synthesis_agent(synthesis_agent)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> complexity_router;
+	appliances_agent --> synthesis_agent;
+	azure_cloud_agent --> synthesis_agent;
+	chapter_selector --> rag_retriever;
+	complexity_router -.-> multihop_router;
+	complexity_router -.-> topic_router;
+	customer_support_agent --> synthesis_agent;
+	data_engineering_agent --> synthesis_agent;
+	finance_agent --> synthesis_agent;
+	multihop_router -.-> multihop_agent;
+	multihop_router -.-> topic_router;
+	python_agent --> synthesis_agent;
+	rag_retriever --> tool_router;
+	subtopic_router --> chapter_selector;
+	tool_router -.-> appliances_agent;
+	tool_router -.-> azure_cloud_agent;
+	tool_router -.-> customer_support_agent;
+	tool_router -.-> data_engineering_agent;
+	tool_router -.-> finance_agent;
+	tool_router -.-> python_agent;
+	topic_router -.-> clarification_agent;
+	topic_router -.-> subtopic_router;
+	clarification_agent --> __end__;
+	multihop_agent --> __end__;
+	synthesis_agent --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
