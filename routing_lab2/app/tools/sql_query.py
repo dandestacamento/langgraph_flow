@@ -68,11 +68,35 @@ def run_sql_query(query: str, topic: str, subtopic: str) -> list[dict]:
     """Load `specifications.csv` for (topic, subtopic) into an in-memory
     SQLite table named `specifications` and run `query` against it,
     returning one dict per result row. Raises `ValueError` if that
-    subtopic has no specifications data, or `sqlite3.Error` if `query`
-    is invalid SQL."""
+    subtopic has no specifications data, the query isn't a read-only
+    `SELECT`, or `query` is otherwise invalid SQL (`sqlite3.Error`).
+
+    The read-only guard is defense-in-depth, not a response to an
+    observed problem: `query` is LLM-generated (via `tool_router`'s
+    structured output) and executed against an in-memory, per-call,
+    throwaway SQLite database built fresh from this process's own CSV, so
+    the actual blast radius of a non-SELECT statement here is already
+    minimal - but cheap to rule out entirely rather than rely on that,
+    consistent with the identical "LLM-authored SQL executed directly"
+    pattern flagged as worth hardening in
+    instructions/learnings/routing-lab2-learnings.md / rag-krish-learnings.md."""
     path = get_specifications_csv_path(topic, subtopic)
     if path is None:
         raise ValueError(f"No specifications.csv for {topic}/{subtopic} - sql_query isn't applicable here.")
+
+    stripped = query.strip()
+    if not stripped.lower().startswith(("select", "with")):
+        raise ValueError(
+            f"Only read-only SELECT (or WITH ... SELECT) queries are allowed - got: {query!r}"
+        )
+    # Reject any statement that would modify the schema/data even if it
+    # somehow passed the SELECT/WITH prefix check (e.g. a WITH clause
+    # followed by an INSERT) or is chained via a semicolon - sqlite3's
+    # Cursor.execute() only runs a single statement, but this is
+    # belt-and-suspenders against a crafted multi-statement string.
+    forbidden = ("insert", "update", "delete", "drop", "alter", "attach", "pragma", "create")
+    if any(f" {word} " in f" {stripped.lower()} " for word in forbidden):
+        raise ValueError(f"Query contains a disallowed (non-read-only) keyword: {query!r}")
 
     with path.open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))

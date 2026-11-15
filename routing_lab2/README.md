@@ -794,6 +794,30 @@ changes is a true no-op). Use `--rebuild` to force a full rebuild (e.g.
 after changing the chunking strategy or embedding model - this also
 happens automatically via `INGEST_SIGNATURE`).
 
+**Other fixes from this self-review** (`instructions/learnings/routing-project-learnings.md`
+section 11):
+
+- **`scripts/run_evaluations.py` now actually supports all 10 levels** -
+  it previously crashed with a `KeyError` on Level 6+ (confirmed: it
+  assumed every level's ground-truth rows have an `expected_chapter` key,
+  which only Levels 1/3/4 do) despite its own usage text claiming "all
+  levels". It now dispatches on the exact level number and reuses the
+  same metric classes (and output-field derivation logic) as each
+  level's own pytest file - verified by running all 228 questions through
+  it end to end; the per-level numbers it reports match this README's
+  documented results exactly, including surfacing the same L3-022 flake.
+- **`sql_query.py` now rejects non-`SELECT` SQL** before executing an
+  LLM-generated query, even though the actual risk was already low (an
+  in-memory, per-call, throwaway database built fresh from this
+  project's own CSV) - cheap defense-in-depth, verified against both a
+  direct `DROP TABLE` attempt and a chained `SELECT ...; DELETE ...`
+  attempt, with no change to any of Level 8/10's existing passing tests.
+- **`synthesis_agent.py`'s multi-topic synthesis prompt now explicitly
+  preserves `tool:<name>` citations**, matching what `multihop_agent.py`'s
+  synthesis prompt already did - previously, only chapter_id citations
+  were called out, so a tool-backed answer folded into a multi-topic
+  synthesis risked losing its tool citation.
+
 ## Architecture (current)
 
 ```

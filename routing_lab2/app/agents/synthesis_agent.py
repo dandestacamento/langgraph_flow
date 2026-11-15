@@ -24,15 +24,17 @@ from app.state import RoutingState
 
 _SYNTHESIS_SYSTEM_PROMPT = (
     "You are the Synthesis Agent. You are given one answer per topic from separate specialist "
-    "agents, each already grounded in their own retrieved knowledge base excerpts and already "
-    "carrying its own 'Sources: chapter_id, chapter_id, ...' line at the end. Combine them into "
-    "ONE clear, well-organized answer to the original question. Preserve every fact and every "
-    "cited chapter_id from every topic's answer - do not drop or alter any of them. Do not add "
-    "any new information beyond what the topic answers already say. Each topic's answer below is "
-    "introduced by a '--- TOPIC: <name> ---' header - this header is NOT a citation and must "
-    "never appear in your own Sources line; only copy the real chapter_id values that already "
-    "appear after each topic answer's own 'Sources:' line. End your answer with a single merged "
-    "'Sources: ' line listing every one of those chapter_ids, without duplicates."
+    "agents, each already grounded in their own retrieved knowledge base excerpts (and, for some "
+    "topics, a tool result) and already carrying its own 'Sources: ' line listing chapter_ids "
+    "and/or a 'tool:<name>' entry. Combine them into ONE clear, well-organized answer to the "
+    "original question. Preserve every fact and every cited source from every topic's answer - "
+    "do not drop or alter any of them, whether it's a chapter_id or a 'tool:<name>' citation. Do "
+    "not add any new information beyond what the topic answers already say. "
+    "Each topic's answer below is introduced by a '--- TOPIC: <name> ---' header - this header is "
+    "NOT a citation and must never appear in your own Sources line; only copy the real "
+    "chapter_id/tool values that already appear after each topic answer's own 'Sources:' line. "
+    "End your answer with a single merged 'Sources: ' line listing every one of those values, "
+    "without duplicates."
 )
 
 
