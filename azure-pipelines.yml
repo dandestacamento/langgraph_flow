@@ -46,17 +46,32 @@ pr:
       - routing_lab3/datasets/*
       - azure-pipelines.yml
 
-pool:
-  vmImage: "ubuntu-latest"
+# Runs on the self-hosted Windows agent registered to the "Default"
+# pool (this developer's own machine) rather than a Microsoft-hosted
+# vmImage - Microsoft-hosted parallel jobs now require billing to be
+# set up on the organization even for the free tier (confirmed against
+# the live organization while implementing this, not assumed from
+# docs); self-hosted parallel jobs remain genuinely free with no
+# billing requirement, so that's what this targets instead.
+pool: "Default"
 
 variables:
   PIP_CACHE_DIR: $(Pipeline.Workspace)/.pip-cache
+  # A pipeline-local virtual environment, not this machine's own
+  # interactively-used routing_lab3/../.venv - keeps CI dependency
+  # installs isolated from whatever's installed in that dev venv for
+  # everyday work, even though both run on the same physical machine.
+  CI_VENV: $(Agent.TempDirectory)/ci-venv
 
 steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: "3.13"
-    displayName: "Use Python 3.13"
+  # No UsePythonVersion@0 task here - that task relies on a tool cache
+  # Microsoft-hosted images pre-populate; on a self-hosted agent it
+  # would need Python registered into Agent.ToolsDirectory separately.
+  # Simpler and already verified: this machine's system `python` already
+  # resolves to 3.13 (confirmed via `python --version` before adding
+  # this pipeline), so a plain venv built from it is used directly.
+  - script: python -m venv "$(CI_VENV)"
+    displayName: "Create isolated virtual environment"
 
   # Keyed on requirements.txt's own hash - a change to it invalidates
   # the cache automatically; otherwise reused across runs to skip
@@ -70,8 +85,8 @@ steps:
     displayName: "Cache pip packages"
 
   - script: |
-      python -m pip install --cache-dir $(PIP_CACHE_DIR) --upgrade pip
-      python -m pip install --cache-dir $(PIP_CACHE_DIR) -r routing_lab3/requirements.txt
+      "$(CI_VENV)\Scripts\python.exe" -m pip install --cache-dir $(PIP_CACHE_DIR) --upgrade pip
+      "$(CI_VENV)\Scripts\python.exe" -m pip install --cache-dir $(PIP_CACHE_DIR) -r routing_lab3/requirements.txt
     displayName: "Install backend dependencies"
 
   # The Chroma index is deterministic from knowledge_base/ (see
@@ -86,7 +101,7 @@ steps:
       path: routing_lab3/.chroma
     displayName: "Cache Chroma vector index"
 
-  - script: python -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
+  - script: "$(CI_VENV)\Scripts\python.exe" -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
     workingDirectory: routing_lab3
     displayName: "Run backend test suite (pytest)"
     env:
