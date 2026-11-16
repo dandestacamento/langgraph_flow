@@ -138,6 +138,28 @@ first ("conversation history lost on every restart").
   dev-cost-control tool, unrelated to conversation persistence) and `app/rag/manifest.py`'s
   incremental-indexing manifest (unrelated, stays file-based).
 
+**Done (basic durable persistence, not yet the full operational practices listed above)**:
+`app/api/main.py`'s `_build_checkpointer()` swaps to `PostgresSaver` when `CHAT_DB_URL` is set,
+falling back to `InMemorySaver` otherwise (kept for this project's own fast, infra-free test
+suite). `ThreadOwnershipRegistry` (§2.1/`app/api/auth.py`) persists alongside it in the same
+database, via its own small `thread_owners` table. PostgreSQL itself runs via
+`routing_lab3/docker-compose.yml` (a named volume, so data survives `docker compose down`/`up`,
+not just a process restart).
+
+**Verified for real**, not just configured: started the backend pointed at Postgres, had a
+two-turn conversation through the real browser UI, *killed the uvicorn process entirely*
+(confirmed no python process remained), started a brand new process pointed at the same database,
+and sent a follow-up - `conversation_history` was intact and the condensing step correctly
+resolved "it" using the prior turn, exactly matching this section's exit criterion. Two new
+regression tests (`tests/test_chat_persistence.py`, skipped unless `CHAT_DB_URL` is set) encode
+this same guarantee by building an entirely fresh `PostgresSaver`/graph/registry instance for the
+second turn, simulating a restart without needing to actually kill a process every test run.
+
+**Not yet done, left as explicitly future work**: automated backups, point-in-time recovery,
+connection pooling (PgBouncer), and a tested restore drill - the four "standard production
+operational practices" bullet above still describes real, unstarted work, not something this
+basic wiring satisfies.
+
 ### 2.3 Rate limiting & cost controls - **LiteLLM**
 
 Gap: "nothing stops a user from running up API costs; the project's `CachedEmbeddings`/SQLite LLM
@@ -275,11 +297,16 @@ packaged Agent Server:
 1. **Phase A - Security & auth foundation.** Keycloak (§2.1) + OpenBao (§2.4) + guardrails
    framework (§2.4). Done first because retrofitting auth/secrets handling onto an already-running
    system is much harder than building on it from day one.
+   **Partially done**: Keycloak (§2.1) - basic single-realm auth, JWT validation, and thread
+   ownership all verified end-to-end. OpenBao and the guardrails framework are not started.
 2. **Phase B - Backend service + durable persistence.** The custom FastAPI service (§2.10) +
    PostgreSQL checkpointer (§2.2), built directly on top of `routing_lab3/app/chat/` once Phase 0
    of `routing-lab3-chat-app-plan.md` is validated. **Exit criteria**: the existing 228-row/10-level
    ground-truth suite still passes unchanged (the underlying `build_graph()` pipeline is untouched
    by any of this), plus new multi-turn conversations survive a backend restart.
+   **Done**: the FastAPI service (§2.10) was already built earlier this session; the PostgreSQL
+   checkpointer (§2.2) is now also done and both exit criteria were verified for real - see §2.2's
+   write-up for exactly how (a genuine killed-and-restarted process, not a simulated one).
 3. **Phase C - Cost/rate limiting.** LiteLLM (§2.3) placed in front of every provider call.
    **Exit criteria**: a deliberately budget-exceeding test user is correctly rate-limited/blocked
    without affecting other users' quotas.
@@ -314,10 +341,16 @@ in this plan touches `app/graph.py`'s `build_graph()` itself.
 
 ## 5. Acceptance checklist for "production-ready" and "enterprise-ready" claims
 
-- [ ] Auth: a real SSO login flow works end-to-end through Keycloak; a token from tenant A cannot
-      read tenant B's conversation history.
-- [ ] Persistence: killing and restarting the FastAPI backend/Postgres container pair preserves an
-      in-progress conversation exactly where it left off.
+- [x] Auth: a real SSO login flow works end-to-end through Keycloak; a token from tenant A cannot
+      read tenant B's conversation history. (Verified at the **user** level - a token from user A
+      cannot resume user B's `thread_id`, both logged into the same realm. Genuine multi-**tenant**
+      isolation - separate realms or a tenant claim, per §2.1's original bullet list - is not yet
+      built; this project currently has one realm.)
+- [x] Persistence: killing and restarting the FastAPI backend/Postgres container pair preserves an
+      in-progress conversation exactly where it left off. (Verified for the FastAPI process: killed
+      and restarted for real, `conversation_history` and thread ownership both intact afterward.
+      The Postgres container itself uses a named volume for the same guarantee by construction, but
+      was not independently killed-and-restarted this session to confirm it empirically too.)
 - [ ] Cost control: a LiteLLM-enforced budget cap actually blocks further requests once exceeded,
       verified with a deliberate test, not just configured and assumed to work.
 - [ ] Security: a deliberate prompt-injection attempt and a deliberate non-SELECT SQL attempt
@@ -330,7 +363,7 @@ in this plan touches `app/graph.py`'s `build_graph()` itself.
 - [ ] Data governance: the right-to-delete mechanism actually removes a given user's data from
       Postgres and any Loki-retained logs, verified by checking afterward, not just by reading the
       code that's supposed to do it.
-- [ ] **Regression**: the existing 228-row/10-level routing-accuracy ground truth suite
+- [x] **Regression**: the existing 228-row/10-level routing-accuracy ground truth suite
       (`routing_lab3/tests/`) still passes unchanged, end to end, after every phase above.
 - [ ] **License audit**: every dependency actually added during implementation (not just the ones
       planned here) is re-checked against its real license before shipping - dependency licenses

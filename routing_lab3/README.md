@@ -1025,9 +1025,14 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   [`routing-lab-prod-plan.md`](../instructions/learnings/routing-lab-prod-plan.md)
   section 2.1).
 - `infra/keycloak/` + `docker-compose.yml` - a self-hosted Keycloak realm
-  (declarative `realm-export.json` import, two demo users) for local
-  authentication - **development only**, see `infra/keycloak/README.md`
-  for exactly what a real deployment still needs.
+  (declarative `realm-export.json` import, two demo users) **and** a
+  Postgres instance backing durable conversation persistence (see
+  `app/api/main.py`'s `CHAT_DB_URL`) for local development -
+  **development only**, see `infra/keycloak/README.md` for exactly what
+  a real deployment still needs.
+- `tests/test_chat_persistence.py` - skipped unless `CHAT_DB_URL` is set
+  to a reachable Postgres instance; verifies conversation history and
+  thread ownership both survive a simulated fresh process.
 - `frontend/` - a minimal Vite + React + TypeScript + Tailwind chat UI
   that talks only to `app/api/main.py`'s own endpoints (no LangGraph
   Server protocol dependency, unlike the official
@@ -1040,12 +1045,18 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   testing without starting the API/frontend.
 
 ```powershell
-# Terminal 0 (first run, and any time Keycloak needs to be running - see
-# infra/keycloak/README.md): Keycloak, required since /chat and
-# /chat/stream now require a login (chat-ui-plan1.md section 4's Phase D)
+# Terminal 0 (first run, and any time Keycloak/Postgres need to be
+# running - see infra/keycloak/README.md): Keycloak is required since
+# /chat and /chat/stream now require a login (chat-ui-plan1.md section
+# 4's Phase D); Postgres is optional - without it the backend falls back
+# to InMemorySaver (lost on restart) automatically.
 docker compose up -d
 
-# Terminal 1: the chat API (from routing_lab3\)
+# Terminal 1: the chat API (from routing_lab3\). Set CHAT_DB_URL to use
+# the Postgres container above for durable persistence (section 2.2 of
+# routing-lab-prod-plan.md) - conversations then survive a backend
+# restart; omit it to use the faster, non-durable InMemorySaver instead.
+$env:CHAT_DB_URL = "postgresql://routing_lab3:routing-lab3-dev-password@localhost:5433/routing_lab3_chat"
 ..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
 
 # Terminal 2: the frontend (from routing_lab3\frontend\, first run only:

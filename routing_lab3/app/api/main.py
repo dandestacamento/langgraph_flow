@@ -18,6 +18,13 @@ Streamlit's `st.session_state`).
 by the user who first used it (`ThreadOwnershipRegistry`) - closing the
 gap flagged in instructions/learnings/chat-ui-plan1.md section 6.
 
+Conversation history is durable (survives a process/container restart)
+when `CHAT_DB_URL` is set - see `_build_checkpointer()` below and
+instructions/learnings/routing-lab-prod-plan.md section 2.2. Without it,
+falls back to `InMemorySaver` (lost on restart), which is what this
+project's own tests use, to stay fast/deterministic without requiring a
+live Postgres instance for every test run.
+
 Exposes two endpoints:
 - `POST /chat` - synchronous, returns the full turn's result as JSON.
 - `POST /chat/stream` - Server-Sent Events, one `status` event per graph
@@ -76,15 +83,53 @@ app.add_middleware(
 )
 
 # A single shared checkpointer for the process lifetime - see module
-# docstring. Swap InMemorySaver() for a PostgresSaver per
-# instructions/learnings/routing-lab-prod-plan.md section 2.2 once
-# durable, multi-replica persistence is needed - no other code here
-# changes, build_chat_graph() just takes a different checkpointer.
-_chat_graph = build_chat_graph(checkpointer=InMemorySaver())
+# docstring and _build_checkpointer() below for the InMemorySaver vs.
+# PostgresSaver decision. build_chat_graph() just takes whichever
+# checkpointer is built - no other code here needs to change based on
+# which one is active.
+_CHAT_DB_URL = os.environ.get("CHAT_DB_URL")
 
-# In-memory only, same non-durability caveat as the checkpointer above -
-# see ThreadOwnershipRegistry's own docstring (app/api/auth.py).
-_thread_ownership = ThreadOwnershipRegistry()
+# Holds a reference to PostgresSaver.from_conn_string(...)'s own context
+# manager object (not just the PostgresSaver it yields) for the whole
+# process lifetime - without this, nothing keeps that object alive once
+# _build_checkpointer() returns, so Python garbage-collects it, which
+# closes the (paused-mid-generator) underlying connection via an
+# implicit GeneratorExit - a real bug hit and fixed during this phase's
+# own testing (manifested as `psycopg.OperationalError: the connection
+# is closed` the moment the first query ran). Unused directly - its
+# mere existence as a live reference is what matters.
+_postgres_checkpointer_cm = None
+
+
+def _build_checkpointer():
+    """Durable (PostgresSaver) if CHAT_DB_URL is set, otherwise
+    in-memory (lost on restart) - instructions/learnings/
+    routing-lab-prod-plan.md section 2.2. The connection is opened once
+    here and kept open for the process lifetime (not explicitly closed
+    on shutdown - acceptable for this phase, since the OS reclaims the
+    socket when the process exits either way; a cleaner lifespan-based
+    teardown is a reasonable future improvement, not done here to keep
+    this change bounded)."""
+    global _postgres_checkpointer_cm
+
+    if not _CHAT_DB_URL:
+        return InMemorySaver()
+
+    from langgraph.checkpoint.postgres import PostgresSaver
+
+    _postgres_checkpointer_cm = PostgresSaver.from_conn_string(_CHAT_DB_URL)
+    checkpointer = _postgres_checkpointer_cm.__enter__()
+    checkpointer.setup()
+    return checkpointer
+
+
+_chat_graph = build_chat_graph(checkpointer=_build_checkpointer())
+
+# Persists alongside conversation history in the same Postgres database
+# when CHAT_DB_URL is set (see ThreadOwnershipRegistry's own docstring,
+# app/api/auth.py); in-memory (and lost together with conversation
+# history on restart) otherwise.
+_thread_ownership = ThreadOwnershipRegistry(conn_string=_CHAT_DB_URL)
 
 
 class ChatRequest(BaseModel):

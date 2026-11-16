@@ -47,3 +47,11 @@ httpx>=0.27
 # 2.1) via its JWKS endpoint. MIT-licensed; `[crypto]` pulls in the
 # cryptography package needed to verify RS256-signed tokens.
 pyjwt[crypto]>=2.9
+
+# Durable persistence (routing-lab3, app/api/main.py) - swaps
+# InMemorySaver for PostgresSaver when CHAT_DB_URL is set
+# (instructions/learnings/routing-lab-prod-plan.md section 2.2). Both
+# MIT-licensed; psycopg itself is LGPL-3.0 (the client library, not
+# PostgreSQL - the server above is the OSI-approved PostgreSQL License).
+langgraph-checkpoint-postgres>=2.0
+psycopg[binary,pool]>=3.2

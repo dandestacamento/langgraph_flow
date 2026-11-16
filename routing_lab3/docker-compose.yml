@@ -7,6 +7,15 @@
 # from realm-export.json at every startup (`--import-realm`) - git-
 # committable, reproducible configuration, no manual admin-console
 # clicking required to get a working local auth flow.
+#
+# PostgreSQL, self-hosted (PostgreSQL License, OSI-approved permissive) -
+# per routing-lab-prod-plan.md section 2.2. Backs
+# `langgraph.checkpoint.postgres.PostgresSaver` (app/api/main.py) and the
+# thread_id-ownership table (app/api/auth.py) - unlike Keycloak above,
+# this one uses a named volume specifically so conversation history
+# genuinely survives `docker compose down`/`up` (not just a process
+# restart), matching routing-lab-prod-plan.md section 3's Phase B exit
+# criterion ("new multi-turn conversations survive a backend restart").
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7
@@ -18,3 +27,28 @@ services:
       - "8081:8080"
     volumes:
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: routing_lab3
+      POSTGRES_PASSWORD: routing-lab3-dev-password
+      POSTGRES_DB: routing_lab3_chat
+    ports:
+      # Host-side 5433, not Postgres's usual 5432 - avoids silently
+      # colliding with any pre-existing native Postgres installation
+      # already running on the host (confirmed to happen on this exact
+      # machine during this phase's validation: a host-level postgres.exe
+      # was already listening on 5432, and connections intended for this
+      # container were reaching that unrelated server instead).
+      - "5433:5432"
+    volumes:
+      - routing_lab3_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U routing_lab3 -d routing_lab3_chat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  routing_lab3_postgres_data:

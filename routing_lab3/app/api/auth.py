@@ -82,17 +82,58 @@ class ThreadOwnershipRegistry:
     Records which user first used each thread_id and rejects (403) a
     later request for that thread_id from anyone else.
 
-    In-memory only, matching the current InMemorySaver checkpointer's
-    own non-durability (app/api/main.py) - both need to move to a
+    In-memory by default. Pass a Postgres connection string (the same
+    `CHAT_DB_URL` app/api/main.py uses for `PostgresSaver`) to persist
+    ownership records alongside conversation history - both moved to a
     persistent backend together (routing-lab-prod-plan.md section 2.2),
-    not this registry alone."""
+    as this class's own earlier docstring noted they needed to."""
 
-    def __init__(self) -> None:
+    def __init__(self, conn_string: str | None = None) -> None:
         self._owners: dict[str, str] = {}
+        self._conn_string = conn_string
+        if conn_string:
+            import psycopg
+
+            with psycopg.connect(conn_string, autocommit=True) as conn:
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS thread_owners ("
+                    "thread_id TEXT PRIMARY KEY, user_sub TEXT NOT NULL)"
+                )
 
     def check_and_record(self, thread_id: str, user: str) -> None:
+        if self._conn_string:
+            self._check_and_record_db(thread_id, user)
+        else:
+            self._check_and_record_memory(thread_id, user)
+
+    def _check_and_record_memory(self, thread_id: str, user: str) -> None:
         owner = self._owners.setdefault(thread_id, user)
         if owner != user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This conversation belongs to a different user.",
+            )
+
+    def _check_and_record_db(self, thread_id: str, user: str) -> None:
+        import psycopg
+
+        # ON CONFLICT DO NOTHING makes "insert the owner if this
+        # thread_id is new" atomic and race-safe across concurrent
+        # requests - a single round trip, no separate
+        # check-then-insert that could race between two replicas (a
+        # real possibility once app/api/main.py is horizontally scaled,
+        # per routing-lab-prod-plan.md section 2.6).
+        with psycopg.connect(self._conn_string, autocommit=True) as conn:
+            conn.execute(
+                "INSERT INTO thread_owners (thread_id, user_sub) VALUES (%s, %s) "
+                "ON CONFLICT (thread_id) DO NOTHING",
+                (thread_id, user),
+            )
+            row = conn.execute(
+                "SELECT user_sub FROM thread_owners WHERE thread_id = %s", (thread_id,)
+            ).fetchone()
+
+        if row is not None and row[0] != user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This conversation belongs to a different user.",
