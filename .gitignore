@@ -29,6 +29,13 @@ routing_lab2/.chroma/
 routing_lab2/.llm_cache.db
 routing_lab2/experiments/mlflow_trace_export.json
 
+# routing_lab3/: a working copy for the chat-app migration plan (see
+# instructions/learnings/routing-lab3-chat-app-plan.md) - same regenerable
+# local artifacts as routing_lab/routing_lab2 above, same reasons.
+routing_lab3/.chroma/
+routing_lab3/.llm_cache.db
+routing_lab3/experiments/mlflow_trace_export.json
+
 # Python
 __pycache__/
 *.py[cod]

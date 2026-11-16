@@ -1,0 +1,4376 @@
+[
+  {
+    "test_id": "T001",
+    "level": 1,
+    "question": "What is a Python decorator?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-013).",
+    "expected": {
+      "topics": [
+        "python"
+      ],
+      "subtopic": "fundamentals",
+      "chapter": "chapter_02_decorators",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "functools.wraps"
+      ],
+      "answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for func = decorator(func). Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "python_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "python"
+      ],
+      "selected_subtopics": {
+        "python": "fundamentals"
+      },
+      "selected_chapters": {
+        "python": "chapter_02_decorators"
+      },
+      "retrieved_chapters_by_topic": {
+        "python": [
+          "chapter_02_decorators",
+          "chapter_01_functions",
+          "chapter_03_data_types"
+        ]
+      },
+      "tool_decisions": {
+        "python": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage already defines a Python decorator as a function that wraps another function to extend or modify its behavior."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "python": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.wraps inside a decorator preserves the wrapped function's __name__ and docstring, which would otherwise be overwritten by the wrapper.\n\nSources: chapter_01_functions, chapter_02_decorators, chapter_03_data_types",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "A Python decorator is a specific type of function that modifies the behavior of another function, which can be explained with a single concept."
+          },
+          "duration_ms": 183.5
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a definition, not a multi-hop query."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "python"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "python": "What is a Python decorator?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about a concept in Python programming, which falls under the Python topic."
+          },
+          "duration_ms": 7.4
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[python]",
+          "output": {
+            "subtopic": "fundamentals",
+            "confidence": 0.95,
+            "reasoning": "A Python decorator is a function that modifies the behavior of another function, which falls under the fundamentals of functions and built-in data types."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[python/fundamentals]",
+          "output": {
+            "chapter_id": "chapter_02_decorators",
+            "confidence": 1.0,
+            "reasoning": "A Python decorator is specifically defined in the chapter about decorators, which explains how they wrap functions to modify their behavior."
+          },
+          "duration_ms": 7.5
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[python/fundamentals]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_02_decorators",
+              "chapter_01_functions",
+              "chapter_03_data_types"
+            ],
+            "scores": [
+              0.7462,
+              1.2923,
+              1.7245
+            ]
+          },
+          "duration_ms": 212.8
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[python/fundamentals]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage already defines a Python decorator as a function that wraps another function to extend or modify its behavior."
+            }
+          },
+          "duration_ms": 8.4
+        },
+        {
+          "node": "python_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "A decorator is a function that wraps another function to extend or modify its behaviour without changing its source code. The @decorator syntax is sugar for `func = decorator(func)`. Using functools.w",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_02_decorators",
+              "chapter_01_functions",
+              "chapter_03_data_types"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.3
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "python"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9583,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 3852.5,
+    "total_tokens": 5776,
+    "prompt_tokens": 5442,
+    "completion_tokens": 334,
+    "cost_usd": 0.000786,
+    "error": null
+  },
+  {
+    "test_id": "T002",
+    "level": 1,
+    "question": "What is Method Resolution Order in Python?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-014).",
+    "expected": {
+      "topics": [
+        "python"
+      ],
+      "subtopic": "oop",
+      "chapter": "chapter_02_inheritance",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "C3 linearization"
+      ],
+      "answer": "Method Resolution Order (MRO) is the order Python follows when looking up attributes and methods under multiple inheritance. It is computed using the C3 linearization algorithm, and super() returns a proxy that follows the MRO from the current class onward."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "python_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "python"
+      ],
+      "selected_subtopics": {
+        "python": "oop"
+      },
+      "selected_chapters": {
+        "python": "chapter_02_inheritance"
+      },
+      "retrieved_chapters_by_topic": {
+        "python": [
+          "chapter_02_inheritance",
+          "chapter_03_dunder_methods",
+          "chapter_01_classes"
+        ]
+      },
+      "tool_decisions": {
+        "python": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage already explains that Method Resolution Order (MRO) in Python is computed using the C3 linearization algorithm and is related to multiple inheritance."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "python": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Method Resolution Order (MRO) is the order in which attributes and methods are looked up in the case of multiple inheritance, and it is computed using the C3 linearization algorithm.\n\nSources: chapter_01_classes, chapter_02_inheritance, chapter_03_dunder_methods",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific concept in Python that can be answered with a straightforward definition."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a definition, not a multi-hop query."
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "python"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "python": "What is Method Resolution Order in Python?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a concept in Python, which falls under the Python topic."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[python]",
+          "output": {
+            "subtopic": "oop",
+            "confidence": 0.95,
+            "reasoning": "Method Resolution Order (MRO) is a concept related to classes and inheritance in object-oriented programming, specifically in Python."
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[python/oop]",
+          "output": {
+            "chapter_id": "chapter_02_inheritance",
+            "confidence": 0.9,
+            "reasoning": "Method Resolution Order (MRO) is specifically discussed in the context of inheritance, detailing how Python determines the order in which classes are searched for methods and attributes."
+          },
+          "duration_ms": 7.7
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[python/oop]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_02_inheritance",
+              "chapter_03_dunder_methods",
+              "chapter_01_classes"
+            ],
+            "scores": [
+              1.029,
+              1.3556,
+              1.5487
+            ]
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[python/oop]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage already explains that Method Resolution Order (MRO) in Python is computed using the C3 linearization algorithm and is related to multiple inheritance."
+            }
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "python_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Method Resolution Order (MRO) is the order in which attributes and methods are looked up in the case of multiple inheritance, and it is computed using the C3 linearization algorithm.\n\nSources: chapter",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_02_inheritance",
+              "chapter_03_dunder_methods",
+              "chapter_01_classes"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.9
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "python"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 64.4,
+    "total_tokens": 5634,
+    "prompt_tokens": 5318,
+    "completion_tokens": 316,
+    "cost_usd": 0.000757,
+    "error": null
+  },
+  {
+    "test_id": "T003",
+    "level": 1,
+    "question": "What is a Network Security Group used for in Azure?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-005).",
+    "expected": {
+      "topics": [
+        "azure_cloud"
+      ],
+      "subtopic": "networking",
+      "chapter": "chapter_03_nsg",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "priority"
+      ],
+      "answer": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. Each rule specifies a source, destination, port range, protocol, and direction."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "azure_cloud_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "azure_cloud"
+      ],
+      "selected_subtopics": {
+        "azure_cloud": "networking"
+      },
+      "selected_chapters": {
+        "azure_cloud": "chapter_03_nsg"
+      },
+      "retrieved_chapters_by_topic": {
+        "azure_cloud": [
+          "chapter_03_nsg",
+          "chapter_02_subnets",
+          "chapter_01_vnet"
+        ]
+      },
+      "tool_decisions": {
+        "azure_cloud": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages explain that a Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "azure_cloud": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. Each rule specifies a source, destination, port range, protocol, and direction.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question asks for a specific definition of a single concept within Azure, which qualifies it as a simple lookup."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about a subject already given by name, not an identification query."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "azure_cloud"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "azure_cloud": "What is a Network Security Group used for in Azure?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a feature related to Azure networking, which falls under the azure_cloud topic."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[azure_cloud]",
+          "output": {
+            "subtopic": "networking",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about Network Security Groups, which are a key component of Azure networking."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[azure_cloud/networking]",
+          "output": {
+            "chapter_id": "chapter_03_nsg",
+            "confidence": 1.0,
+            "reasoning": "A Network Security Group (NSG) is specifically designed to filter inbound and outbound traffic to Azure resources using allow/deny rules."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[azure_cloud/networking]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_03_nsg",
+              "chapter_02_subnets",
+              "chapter_01_vnet"
+            ],
+            "scores": [
+              0.5865,
+              0.9455,
+              1.0355
+            ]
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[azure_cloud/networking]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages explain that a Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules."
+            }
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "azure_cloud_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "A Network Security Group (NSG) filters inbound and outbound traffic to Azure resources using allow/deny rules. Rules are evaluated in priority order, where a lower priority number is evaluated first. ",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_03_nsg",
+              "chapter_02_subnets",
+              "chapter_01_vnet"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.8
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "azure_cloud"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 1.0,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 60.2,
+    "total_tokens": 5859,
+    "prompt_tokens": 5527,
+    "completion_tokens": 332,
+    "cost_usd": 0.000798,
+    "error": null
+  },
+  {
+    "test_id": "T004",
+    "level": 1,
+    "question": "What is a PartitionKey used for in Azure Table Storage?",
+    "notes": "Level 1: overlapping-terminology test - 'partition' must route to azure_cloud, not data_engineering or customer_support. Reused from routing_ground_truth.jsonl (L1-007).",
+    "expected": {
+      "topics": [
+        "azure_cloud"
+      ],
+      "subtopic": "storage",
+      "chapter": "chapter_02_table_partitions",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "PartitionKey",
+        "hotspot"
+      ],
+      "answer": "Azure Table Storage scales by distributing rows across partitions, identified by a PartitionKey value. Rows that share a PartitionKey are stored together and can be queried efficiently as a batch. Choosing a high-cardinality PartitionKey avoids a single partition becoming a scalability hotspot under heavy load."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "azure_cloud_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "azure_cloud"
+      ],
+      "selected_subtopics": {
+        "azure_cloud": "storage"
+      },
+      "selected_chapters": {
+        "azure_cloud": "chapter_02_table_partitions"
+      },
+      "retrieved_chapters_by_topic": {
+        "azure_cloud": [
+          "chapter_02_table_partitions",
+          "chapter_02_table_partitions",
+          "chapter_01_blob",
+          "chapter_03_redundancy"
+        ]
+      },
+      "tool_decisions": {
+        "azure_cloud": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages explain that a PartitionKey is used to distribute rows across partitions in Azure Table Storage, allowing for efficient batch querying of rows that share the same key."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "azure_cloud": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Azure Table Storage scales by distributing rows across partitions, identified by a PartitionKey value. Rows that share a PartitionKey are stored together and can be queried efficiently as a batch. Choosing a high-cardinality PartitionKey avoids a single partition becoming a scalability hotspot under heavy load.\n\nSources: chapter_01_blob, chapter_02_table_partitions, chapter_03_redundancy",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question asks for a specific definition related to Azure Table Storage, which is a single, self-contained concept."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about a specific term and does not contain an explicit 'and' joining two clauses."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "azure_cloud"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "azure_cloud": "What is a PartitionKey used for in Azure Table Storage?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the PartitionKey in the context of Azure Table Storage, which falls under the azure_cloud topic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[azure_cloud]",
+          "output": {
+            "subtopic": "storage",
+            "confidence": 0.95,
+            "reasoning": "The question specifically pertains to Azure Table Storage, which falls under the storage subtopic."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[azure_cloud/storage]",
+          "output": {
+            "chapter_id": "chapter_02_table_partitions",
+            "confidence": 1.0,
+            "reasoning": "The PartitionKey is specifically mentioned in the context of Azure Table Storage as a means to distribute rows across partitions for efficient querying."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[azure_cloud/storage]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_02_table_partitions",
+              "chapter_02_table_partitions",
+              "chapter_01_blob",
+              "chapter_03_redundancy"
+            ],
+            "scores": [
+              0.5317,
+              0.9332,
+              1.3006,
+              1.3757
+            ]
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[azure_cloud/storage]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages explain that a PartitionKey is used to distribute rows across partitions in Azure Table Storage, allowing for efficient batch querying of rows that share the same key."
+            }
+          },
+          "duration_ms": 12.6
+        },
+        {
+          "node": "azure_cloud_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Azure Table Storage scales by distributing rows across partitions, identified by a PartitionKey value. Rows that share a PartitionKey are stored together and can be queried efficiently as a batch. Cho",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_02_table_partitions",
+              "chapter_02_table_partitions",
+              "chapter_01_blob",
+              "chapter_03_redundancy"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 5.5
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "azure_cloud"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.963,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 70.6,
+    "total_tokens": 5869,
+    "prompt_tokens": 5524,
+    "completion_tokens": 345,
+    "cost_usd": 0.000805,
+    "error": null
+  },
+  {
+    "test_id": "T005",
+    "level": 1,
+    "question": "What is Delta Lake time travel?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-010).",
+    "expected": {
+      "topics": [
+        "data_engineering"
+      ],
+      "subtopic": "databricks",
+      "chapter": "chapter_02_delta_lake",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "VERSION AS OF"
+      ],
+      "answer": "Delta Lake time travel lets you query an older version of a table using VERSION AS OF or TIMESTAMP AS OF, made possible by Delta Lake's ACID transactions and schema enforcement on top of plain Parquet files."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "data_engineering_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "data_engineering"
+      ],
+      "selected_subtopics": {
+        "data_engineering": "databricks"
+      },
+      "selected_chapters": {
+        "data_engineering": "chapter_02_delta_lake"
+      },
+      "retrieved_chapters_by_topic": {
+        "data_engineering": [
+          "chapter_02_delta_lake",
+          "chapter_01_overview",
+          "chapter_03_jobs"
+        ]
+      },
+      "tool_decisions": {
+        "data_engineering": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage explains that Delta Lake provides time travel, allowing users to query an older table version using VERSION AS OF or TIMESTAMP AS OF."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "data_engineering": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Delta Lake is an open table format that adds ACID transactions, time travel (querying an older table version with VERSION AS OF or TIMESTAMP AS OF), and schema enforcement on top of plain Parquet files.\n\nSources: chapter_01_overview, chapter_02_delta_lake, chapter_03_jobs",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific concept related to Delta Lake, which can be answered with a straightforward definition."
+          },
+          "duration_ms": 9.5
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about a specific topic, not an identification query."
+          },
+          "duration_ms": 8.3
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "data_engineering"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "data_engineering": "What is Delta Lake time travel?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about Delta Lake, which is a data engineering topic related to data management and processing."
+          },
+          "duration_ms": 10.5
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[data_engineering]",
+          "output": {
+            "subtopic": "databricks",
+            "confidence": 0.9,
+            "reasoning": "Delta Lake is a feature of Databricks that allows users to access and revert to earlier versions of data, which is referred to as time travel."
+          },
+          "duration_ms": 10.1
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[data_engineering/databricks]",
+          "output": {
+            "chapter_id": "chapter_02_delta_lake",
+            "confidence": 0.9,
+            "reasoning": "Delta Lake time travel allows querying an older version of a table using VERSION AS OF or TIMESTAMP AS OF, which is a key feature of Delta Lake."
+          },
+          "duration_ms": 11.1
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[data_engineering/databricks]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_02_delta_lake",
+              "chapter_01_overview",
+              "chapter_03_jobs"
+            ],
+            "scores": [
+              1.0094,
+              1.6145,
+              1.6421
+            ]
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[data_engineering/databricks]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage explains that Delta Lake provides time travel, allowing users to query an older table version using VERSION AS OF or TIMESTAMP AS OF."
+            }
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "data_engineering_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Delta Lake is an open table format that adds ACID transactions, time travel (querying an older table version with VERSION AS OF or TIMESTAMP AS OF), and schema enforcement on top of plain Parquet file",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_02_delta_lake",
+              "chapter_01_overview",
+              "chapter_03_jobs"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 6.1
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "data_engineering"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9333,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 81.5,
+    "total_tokens": 5650,
+    "prompt_tokens": 5311,
+    "completion_tokens": 339,
+    "cost_usd": 0.00077,
+    "error": null
+  },
+  {
+    "test_id": "T006",
+    "level": 1,
+    "question": "What is the 50/30/20 budgeting rule?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-017).",
+    "expected": {
+      "topics": [
+        "finance"
+      ],
+      "subtopic": "budgeting",
+      "chapter": "chapter_01_basics",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "50%",
+        "30%",
+        "20%"
+      ],
+      "answer": "The 50/30/20 rule is a budgeting guideline: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "finance_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "finance"
+      ],
+      "selected_subtopics": {
+        "finance": "budgeting"
+      },
+      "selected_chapters": {
+        "finance": "chapter_01_basics"
+      },
+      "retrieved_chapters_by_topic": {
+        "finance": [
+          "chapter_01_basics",
+          "chapter_02_tracking",
+          "chapter_03_emergency_fund"
+        ]
+      },
+      "tool_decisions": {
+        "finance": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage already explains the 50/30/20 budgeting rule, detailing how to allocate after-tax income."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "finance": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSources: chapter_01_basics, chapter_02_tracking, chapter_03_emergency_fund",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question asks for a specific budgeting rule, which is a single, self-contained concept."
+          },
+          "duration_ms": 9.1
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a definition, not a multi-hop query."
+          },
+          "duration_ms": 8.1
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "finance"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "finance": "What is the 50/30/20 budgeting rule?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a budgeting rule, which falls under personal finance."
+          },
+          "duration_ms": 8.1
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[finance]",
+          "output": {
+            "subtopic": "budgeting",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about a budgeting rule, which falls under the budgeting subtopic."
+          },
+          "duration_ms": 8.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[finance/budgeting]",
+          "output": {
+            "chapter_id": "chapter_01_basics",
+            "confidence": 1.0,
+            "reasoning": "The 50/30/20 budgeting rule is specifically mentioned in the 'Budgeting Basics' chapter as a common guideline for allocating after-tax income."
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[finance/budgeting]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_basics",
+              "chapter_02_tracking",
+              "chapter_03_emergency_fund"
+            ],
+            "scores": [
+              0.4572,
+              1.219,
+              1.3228
+            ]
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[finance/budgeting]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage already explains the 50/30/20 budgeting rule, detailing how to allocate after-tax income."
+            }
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "finance_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "A common budgeting guideline is the 50/30/20 rule: roughly 50% of after-tax income toward needs, 30% toward wants, and 20% toward savings or debt repayment, adjusted to individual circumstances.\n\nSour",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_basics",
+              "chapter_02_tracking",
+              "chapter_03_emergency_fund"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.9
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "finance"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9333,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 68.3,
+    "total_tokens": 5591,
+    "prompt_tokens": 5282,
+    "completion_tokens": 309,
+    "cost_usd": 0.000747,
+    "error": null
+  },
+  {
+    "test_id": "T007",
+    "level": 1,
+    "question": "What's the difference between APR and APY?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-018).",
+    "expected": {
+      "topics": [
+        "finance"
+      ],
+      "subtopic": "loans",
+      "chapter": "chapter_01_interest",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "compounding"
+      ],
+      "answer": "APR (Annual Percentage Rate) reflects the stated yearly interest rate, while APY (Annual Percentage Yield) also accounts for the effect of compounding frequency, so APY is typically higher than APR at the same nominal rate."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "finance_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "finance"
+      ],
+      "selected_subtopics": {
+        "finance": "loans"
+      },
+      "selected_chapters": {
+        "finance": "chapter_01_interest"
+      },
+      "retrieved_chapters_by_topic": {
+        "finance": [
+          "chapter_01_interest",
+          "chapter_02_amortization",
+          "chapter_03_types"
+        ]
+      },
+      "tool_decisions": {
+        "finance": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage explains that APR reflects the stated yearly rate, while APY accounts for the effect of compounding frequency, thus providing the necessary information to answer the question."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "finance": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "APR (Annual Percentage Rate) reflects the stated yearly rate, while APY (Annual Percentage Yield) also accounts for the effect of compounding frequency.\n\nSources: chapter_01_interest, chapter_02_amortization, chapter_03_types",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a straightforward definition of two financial terms, which can be answered from a single topic area."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question contains only one clause asking for a definition, not a comparison or identification query."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "finance"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "finance": "What is the difference between APR and APY?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about financial terms, which falls under the finance topic."
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[finance]",
+          "output": {
+            "subtopic": "loans",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about APR and APY, which are related to interest rates and loan types."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[finance/loans]",
+          "output": {
+            "chapter_id": "chapter_01_interest",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about APR and APY, which are both defined in the Interest Basics chapter."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[finance/loans]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_interest",
+              "chapter_02_amortization",
+              "chapter_03_types"
+            ],
+            "scores": [
+              0.7049,
+              1.3194,
+              1.4003
+            ]
+          },
+          "duration_ms": 5.8
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[finance/loans]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage explains that APR reflects the stated yearly rate, while APY accounts for the effect of compounding frequency, thus providing the necessary information to answer the question."
+            }
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "finance_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "APR (Annual Percentage Rate) reflects the stated yearly rate, while APY (Annual Percentage Yield) also accounts for the effect of compounding frequency.\n\nSources: chapter_01_interest, chapter_02_amort",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_interest",
+              "chapter_02_amortization",
+              "chapter_03_types"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.5
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "finance"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9231,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 62.3,
+    "total_tokens": 5641,
+    "prompt_tokens": 5340,
+    "completion_tokens": 301,
+    "cost_usd": 0.000751,
+    "error": null
+  },
+  {
+    "test_id": "T008",
+    "level": 1,
+    "question": "What is SmartHome's refund policy for a change-of-mind return?",
+    "notes": "Level 1: simple topic routing. Reused from datasets/routing_ground_truth.jsonl (L1-022).",
+    "expected": {
+      "topics": [
+        "customer_support"
+      ],
+      "subtopic": "refunds",
+      "chapter": "chapter_01_policy",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "30 days"
+      ],
+      "answer": "SmartHome's standard refund policy allows a full refund within 30 days of delivery for unopened, undamaged items. A 15% restocking fee applies to an opened large appliance returned for a change-of-mind reason; this fee does not apply when the item is faulty."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "customer_support_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "customer_support"
+      ],
+      "selected_subtopics": {
+        "customer_support": "refunds"
+      },
+      "selected_chapters": {
+        "customer_support": "chapter_01_policy"
+      },
+      "retrieved_chapters_by_topic": {
+        "customer_support": [
+          "chapter_01_policy",
+          "chapter_03_exceptions",
+          "chapter_02_process"
+        ]
+      },
+      "tool_decisions": {
+        "customer_support": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages already provide the necessary information about the refund policy for change-of-mind returns."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "customer_support": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The standard policy allows a full refund within 30 days of delivery for unopened, undamaged items. A 15% restocking fee applies to an opened large appliance returned for a change-of-mind reason; this restocking fee does not apply when the item is faulty.\n\nSources: chapter_01_policy, chapter_02_process, chapter_03_exceptions",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a company's refund policy, which can be answered from a single topic area."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about an already-named subject (SmartHome's refund policy), not an identification query."
+          },
+          "duration_ms": 7.5
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "customer_support"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "customer_support": "What is SmartHome's refund policy for a change-of-mind return?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about the refund policy related to a change-of-mind return, which falls under customer support."
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[customer_support]",
+          "output": {
+            "subtopic": "refunds",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the refund policy related to a change-of-mind return, which falls under the refunds subtopic."
+          },
+          "duration_ms": 8.1
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[customer_support/refunds]",
+          "output": {
+            "chapter_id": "chapter_01_policy",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the refund policy for change-of-mind returns, which is detailed in the refund policy chapter."
+          },
+          "duration_ms": 8.5
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[customer_support/refunds]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_policy",
+              "chapter_03_exceptions",
+              "chapter_02_process"
+            ],
+            "scores": [
+              0.7785,
+              0.9699,
+              1.1921
+            ]
+          },
+          "duration_ms": 5.6
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[customer_support/refunds]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages already provide the necessary information about the refund policy for change-of-mind returns."
+            }
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "customer_support_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The standard policy allows a full refund within 30 days of delivery for unopened, undamaged items. A 15% restocking fee applies to an opened large appliance returned for a change-of-mind reason; this ",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_policy",
+              "chapter_03_exceptions",
+              "chapter_02_process"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.9
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "customer_support"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9474,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 66.8,
+    "total_tokens": 5587,
+    "prompt_tokens": 5245,
+    "completion_tokens": 342,
+    "cost_usd": 0.000762,
+    "error": null
+  },
+  {
+    "test_id": "T009",
+    "level": 1,
+    "question": "How does SmartHome organize inventory into storage partitions in its shipping warehouses?",
+    "notes": "Level 1: overlapping-terminology test - 'partition' must route to customer_support, not data_engineering or azure_cloud. Reused from routing_ground_truth.jsonl (L1-024).",
+    "expected": {
+      "topics": [
+        "customer_support"
+      ],
+      "subtopic": "delivery",
+      "chapter": "chapter_03_warehouse",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "SKU"
+      ],
+      "answer": "SmartHome splits inventory in each regional warehouse across physical storage partitions by SKU category, which speeds up picking and packing. This is a physical warehouse storage concept, unrelated to a Spark compute partition or an Azure Table Storage partition."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "customer_support_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "customer_support"
+      ],
+      "selected_subtopics": {
+        "customer_support": "delivery"
+      },
+      "selected_chapters": {
+        "customer_support": "chapter_03_warehouse"
+      },
+      "retrieved_chapters_by_topic": {
+        "customer_support": [
+          "chapter_03_warehouse",
+          "chapter_03_warehouse",
+          "chapter_01_shipping_methods",
+          "chapter_02_delays"
+        ]
+      },
+      "tool_decisions": {
+        "customer_support": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages explain that inventory in each regional warehouse is split across physical storage partitions by SKU category, which speeds up picking and packing."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "customer_support": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Inventory in each regional warehouse is split across physical storage partitions by SKU category, which speeds up picking and packing.\n\nSources: chapter_01_shipping_methods, chapter_02_delays, chapter_03_warehouse",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "complex",
+            "confidence": 0.8,
+            "reasoning": "The question requires understanding of logistics and inventory management systems, which may involve multiple topics and detailed processes not typically found in a single source."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a fact about SmartHome's inventory organization, not an identification query."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "customer_support"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "customer_support": "How does SmartHome organize inventory into storage partitions in its shipping warehouses?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question is about the organization of inventory in shipping warehouses, which falls under customer support logistics."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[customer_support]",
+          "output": {
+            "subtopic": "delivery",
+            "confidence": 0.9,
+            "reasoning": "The question pertains to warehouse operations, which falls under the delivery subtopic."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[customer_support/delivery]",
+          "output": {
+            "chapter_id": "chapter_03_warehouse",
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about how inventory is organized in shipping warehouses, which is directly addressed in the content of chapter 03 regarding warehouse operations."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[customer_support/delivery]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_03_warehouse",
+              "chapter_03_warehouse",
+              "chapter_01_shipping_methods",
+              "chapter_02_delays"
+            ],
+            "scores": [
+              0.7477,
+              1.1094,
+              1.3557,
+              1.6857
+            ]
+          },
+          "duration_ms": 5.7
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[customer_support/delivery]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages explain that inventory in each regional warehouse is split across physical storage partitions by SKU category, which speeds up picking and packing."
+            }
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "customer_support_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Inventory in each regional warehouse is split across physical storage partitions by SKU category, which speeds up picking and packing.\n\nSources: chapter_01_shipping_methods, chapter_02_delays, chapter",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_03_warehouse",
+              "chapter_03_warehouse",
+              "chapter_01_shipping_methods",
+              "chapter_02_delays"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.8
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "customer_support"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9286,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 60.3,
+    "total_tokens": 5636,
+    "prompt_tokens": 5330,
+    "completion_tokens": 306,
+    "cost_usd": 0.000753,
+    "error": null
+  },
+  {
+    "test_id": "T010",
+    "level": 2,
+    "question": "What's the warranty on the compressor in SmartHome refrigerators?",
+    "notes": "Level 2: subtopic routing within appliances. Reused from routing_ground_truth.jsonl (L2-001).",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "refrigerators",
+      "chapter": "chapter_01_overview",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "10-year"
+      ],
+      "answer": "All SmartHome refrigerators ship with a standard 2-year parts and labour warranty. The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "refrigerators"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_overview"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "chapter_01_overview",
+          "chapter_01_overview",
+          "chapter_02_features",
+          "chapter_03_troubleshooting",
+          "chapter_02_features"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The warranty on the compressor is stated in the retrieved passages as an extended 10-year warranty, separate from the standard parts warranty."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about the warranty of a single appliance component, which can be answered from one topic area."
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause fact-lookup about a specific subject (the warranty on the compressor), not an identification query."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What's the warranty on the compressor in SmartHome refrigerators?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the warranty of a component in a refrigerator, which falls under the appliances topic."
+          },
+          "duration_ms": 7.7
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "refrigerators",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the warranty related to the compressor in refrigerators, which falls under the refrigerators subtopic."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/refrigerators]",
+          "output": {
+            "chapter_id": "chapter_01_overview",
+            "confidence": 0.9,
+            "reasoning": "The warranty details for the compressor are mentioned in the overview chapter, which discusses the standard warranty for all refrigerator models."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/refrigerators]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_overview",
+              "chapter_01_overview",
+              "chapter_02_features",
+              "chapter_03_troubleshooting",
+              "chapter_02_features"
+            ],
+            "scores": [
+              0.5652,
+              0.8775,
+              1.0524,
+              1.1599,
+              1.4005
+            ]
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/refrigerators]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The warranty on the compressor is stated in the retrieved passages as an extended 10-year warranty, separate from the standard parts warranty."
+            }
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The compressor on every model carries an extended 10-year warranty, separate from the standard parts warranty.\n\nSources: chapter_01_overview, chapter_02_features, chapter_03_troubleshooting",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_overview",
+              "chapter_01_overview",
+              "chapter_02_features",
+              "chapter_03_troubleshooting",
+              "chapter_02_features"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.0
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 61.4,
+    "total_tokens": 6186,
+    "prompt_tokens": 5877,
+    "completion_tokens": 309,
+    "cost_usd": 0.000837,
+    "error": null
+  },
+  {
+    "test_id": "T011",
+    "level": 2,
+    "question": "What's the difference between a VNet and a subnet in Azure?",
+    "notes": "Level 2: subtopic routing within azure_cloud. Reused from routing_ground_truth.jsonl (L2-004).",
+    "expected": {
+      "topics": [
+        "azure_cloud"
+      ],
+      "subtopic": "networking",
+      "chapter": "chapter_01_vnet",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "isolated network boundary",
+        "CIDR"
+      ],
+      "answer": "A VNet (Virtual Network) is an isolated network boundary within Azure, with its address space defined using CIDR notation (e.g. 10.0.0.0/16). A subnet is a smaller CIDR range carved out of that VNet's address space - the VNet is the overall isolated network, and subnets subdivide it, each able to have its own Network Security Group and route table."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "azure_cloud_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "azure_cloud"
+      ],
+      "selected_subtopics": {
+        "azure_cloud": "networking"
+      },
+      "selected_chapters": {
+        "azure_cloud": "chapter_01_vnet"
+      },
+      "retrieved_chapters_by_topic": {
+        "azure_cloud": [
+          "chapter_02_subnets",
+          "chapter_01_vnet",
+          "chapter_03_nsg"
+        ]
+      },
+      "tool_decisions": {
+        "azure_cloud": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages explain that a VNet is an isolated network boundary with a defined address space, while a subnet is a subdivision of that VNet with its own CIDR range."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "azure_cloud": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "A Virtual Network (VNet) is an isolated network boundary within Azure, while a VNet is divided into one or more subnets, each with its own CIDR range carved out of the VNet's address space.\n\nSources: chapter_01_vnet, chapter_02_subnets, chapter_03_nsg",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a straightforward definition of two related concepts within a single topic area (Azure networking)."
+          },
+          "duration_ms": 6.1
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a difference, which does not meet the criteria for multi-hop."
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "azure_cloud"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "azure_cloud": "What's the difference between a VNet and a subnet in Azure?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about networking concepts within Azure, which falls under the azure_cloud topic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[azure_cloud]",
+          "output": {
+            "subtopic": "networking",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the differences between VNets and subnets, which are both components of Azure networking."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[azure_cloud/networking]",
+          "output": {
+            "chapter_id": "chapter_01_vnet",
+            "confidence": 0.9,
+            "reasoning": "The question asks about the difference between a VNet and a subnet, which is primarily explained in the context of Virtual Networks (VNets) and their structure."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[azure_cloud/networking]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_02_subnets",
+              "chapter_01_vnet",
+              "chapter_03_nsg"
+            ],
+            "scores": [
+              0.5881,
+              0.5961,
+              1.1447
+            ]
+          },
+          "duration_ms": 5.7
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[azure_cloud/networking]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages explain that a VNet is an isolated network boundary with a defined address space, while a subnet is a subdivision of that VNet with its own CIDR range."
+            }
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "azure_cloud_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "A Virtual Network (VNet) is an isolated network boundary within Azure, while a VNet is divided into one or more subnets, each with its own CIDR range carved out of the VNet's address space.\n\nSources: ",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_02_subnets",
+              "chapter_01_vnet",
+              "chapter_03_nsg"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.6
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "azure_cloud"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9333,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 60.2,
+    "total_tokens": 5883,
+    "prompt_tokens": 5541,
+    "completion_tokens": 342,
+    "cost_usd": 0.000806,
+    "error": null
+  },
+  {
+    "test_id": "T012",
+    "level": 3,
+    "question": "What Spark join strategy helps performance when joining a small lookup table?",
+    "notes": "Level 3: chapter routing within data_engineering/spark. Reused from routing_ground_truth.jsonl (L3-016).",
+    "expected": {
+      "topics": [
+        "data_engineering"
+      ],
+      "subtopic": "spark",
+      "chapter": "chapter_03_optimization",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "broadcast"
+      ],
+      "answer": "Using a broadcast join is the recommended optimization when joining a small lookup table in Spark - it avoids an expensive wide shuffle by sending the small table to every executor instead."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "data_engineering_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "data_engineering"
+      ],
+      "selected_subtopics": {
+        "data_engineering": "spark"
+      },
+      "selected_chapters": {
+        "data_engineering": "chapter_03_optimization"
+      },
+      "retrieved_chapters_by_topic": {
+        "data_engineering": [
+          "chapter_03_optimization",
+          "chapter_02_partitions",
+          "chapter_02_partitions",
+          "chapter_01_overview"
+        ]
+      },
+      "tool_decisions": {
+        "data_engineering": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage mentions that using broadcast joins for small lookup tables is a common Spark optimization technique that helps improve performance."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "data_engineering": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Common Spark optimization techniques include using broadcast joins for small lookup tables.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about Spark join strategies, which can be answered from a single topic area."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking about a specific Spark join strategy, not a multi-hop query."
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "data_engineering"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "data_engineering": "What Spark join strategy helps performance when joining a small lookup table?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically pertains to Spark join strategies, which falls under the data_engineering topic."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[data_engineering]",
+          "output": {
+            "subtopic": "spark",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about a Spark join strategy, which falls under the Spark subtopic related to performance optimization."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[data_engineering/spark]",
+          "output": {
+            "chapter_id": "chapter_03_optimization",
+            "confidence": 0.9,
+            "reasoning": "The question pertains to Spark optimization techniques, specifically the use of broadcast joins for small lookup tables, which is covered in the optimization chapter."
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[data_engineering/spark]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_03_optimization",
+              "chapter_02_partitions",
+              "chapter_02_partitions",
+              "chapter_01_overview"
+            ],
+            "scores": [
+              0.6537,
+              1.0983,
+              1.2358,
+              1.259
+            ]
+          },
+          "duration_ms": 5.7
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[data_engineering/spark]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage mentions that using broadcast joins for small lookup tables is a common Spark optimization technique that helps improve performance."
+            }
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "data_engineering_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Common Spark optimization techniques include using broadcast joins for small lookup tables.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_03_optimization",
+              "chapter_02_partitions",
+              "chapter_02_partitions",
+              "chapter_01_overview"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.9
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "data_engineering"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "chapter_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9167,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 59.3,
+    "total_tokens": 5815,
+    "prompt_tokens": 5521,
+    "completion_tokens": 294,
+    "cost_usd": 0.000774,
+    "error": null
+  },
+  {
+    "test_id": "T013",
+    "level": 4,
+    "question": "What does the spark.sql.shuffle.partitions setting default to?",
+    "notes": "Level 4: RAG retrieval + grounded answer. Reused from routing_ground_truth.jsonl (L4-008).",
+    "expected": {
+      "topics": [
+        "data_engineering"
+      ],
+      "subtopic": "spark",
+      "chapter": "chapter_02_partitions",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "200"
+      ],
+      "answer": "spark.sql.shuffle.partitions defaults to 200."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "data_engineering_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "data_engineering"
+      ],
+      "selected_subtopics": {
+        "data_engineering": "spark"
+      },
+      "selected_chapters": {
+        "data_engineering": "chapter_02_partitions"
+      },
+      "retrieved_chapters_by_topic": {
+        "data_engineering": [
+          "chapter_02_partitions",
+          "chapter_02_partitions",
+          "chapter_03_optimization",
+          "chapter_01_overview"
+        ]
+      },
+      "tool_decisions": {
+        "data_engineering": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage states that the default value for the spark.sql.shuffle.partitions setting is 200."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "data_engineering": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter_03_optimization",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single configuration setting in Spark SQL, which is a straightforward lookup."
+          },
+          "duration_ms": 5.8
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about a specific setting, not an identification query."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "data_engineering"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "data_engineering": "What does the spark.sql.shuffle.partitions setting default to?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a Spark configuration setting, which falls under the data_engineering topic."
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[data_engineering]",
+          "output": {
+            "subtopic": "spark",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about a Spark configuration setting related to partitions, which falls under the Spark subtopic."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[data_engineering/spark]",
+          "output": {
+            "chapter_id": "chapter_02_partitions",
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about the default value of the spark.sql.shuffle.partitions setting, which is discussed in the context of Spark partitions."
+          },
+          "duration_ms": 7.4
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[data_engineering/spark]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_02_partitions",
+              "chapter_02_partitions",
+              "chapter_03_optimization",
+              "chapter_01_overview"
+            ],
+            "scores": [
+              0.5406,
+              0.9251,
+              1.1769,
+              1.2446
+            ]
+          },
+          "duration_ms": 5.7
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[data_engineering/spark]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage states that the default value for the spark.sql.shuffle.partitions setting is 200."
+            }
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "data_engineering_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The default number of partitions created after a shuffle is controlled by the spark.sql.shuffle.partitions setting, which defaults to 200.\n\nSources: chapter_01_overview, chapter_02_partitions, chapter",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_02_partitions",
+              "chapter_02_partitions",
+              "chapter_03_optimization",
+              "chapter_01_overview"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.6
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "data_engineering"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "chapter_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9091,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 59.6,
+    "total_tokens": 5813,
+    "prompt_tokens": 5514,
+    "completion_tokens": 299,
+    "cost_usd": 0.00091,
+    "error": null
+  },
+  {
+    "test_id": "T014",
+    "level": 4,
+    "question": "What are the three access tiers in Azure Blob Storage?",
+    "notes": "Level 4: RAG retrieval + grounded answer. Reused from routing_ground_truth.jsonl (L4-007).",
+    "expected": {
+      "topics": [
+        "azure_cloud"
+      ],
+      "subtopic": "storage",
+      "chapter": "chapter_01_blob",
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "Hot",
+        "Cool",
+        "Archive"
+      ],
+      "answer": "Azure Blob Storage offers three access tiers - Hot, Cool, and Archive - trading off storage cost against retrieval cost and latency."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "azure_cloud_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "azure_cloud"
+      ],
+      "selected_subtopics": {
+        "azure_cloud": "storage"
+      },
+      "selected_chapters": {
+        "azure_cloud": "chapter_01_blob"
+      },
+      "retrieved_chapters_by_topic": {
+        "azure_cloud": [
+          "chapter_01_blob",
+          "chapter_03_redundancy",
+          "chapter_02_table_partitions",
+          "chapter_02_table_partitions"
+        ]
+      },
+      "tool_decisions": {
+        "azure_cloud": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passage already states that the three access tiers in Azure Blob Storage are Hot, Cool, and Archive."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "azure_cloud": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Azure Blob Storage stores unstructured data such as files and images in containers. Three access tiers are available: Hot, Cool, and Archive, trading off storage cost against retrieval cost and latency.\n\nSources: chapter_01_blob, chapter_02_table_partitions, chapter_03_redundancy",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about Azure Blob Storage, which can be answered with a straightforward lookup."
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a list of options, not an identification query with a comparison."
+          },
+          "duration_ms": 5.8
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "azure_cloud"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "azure_cloud": "What are the three access tiers in Azure Blob Storage?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about Azure Blob Storage, which falls under the azure_cloud topic."
+          },
+          "duration_ms": 7.4
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[azure_cloud]",
+          "output": {
+            "subtopic": "storage",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about access tiers in Azure Blob Storage, which falls under the storage subtopic."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[azure_cloud/storage]",
+          "output": {
+            "chapter_id": "chapter_01_blob",
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about the access tiers in Azure Blob Storage, which are detailed in chapter 01."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[azure_cloud/storage]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_blob",
+              "chapter_03_redundancy",
+              "chapter_02_table_partitions",
+              "chapter_02_table_partitions"
+            ],
+            "scores": [
+              0.6495,
+              1.0654,
+              1.2107,
+              1.4746
+            ]
+          },
+          "duration_ms": 6.1
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[azure_cloud/storage]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passage already states that the three access tiers in Azure Blob Storage are Hot, Cool, and Archive."
+            }
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "azure_cloud_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Azure Blob Storage stores unstructured data such as files and images in containers. Three access tiers are available: Hot, Cool, and Archive, trading off storage cost against retrieval cost and latenc",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_blob",
+              "chapter_03_redundancy",
+              "chapter_02_table_partitions",
+              "chapter_02_table_partitions"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.9
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "azure_cloud"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "chapter_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9444,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 59.6,
+    "total_tokens": 5819,
+    "prompt_tokens": 5517,
+    "completion_tokens": 302,
+    "cost_usd": 0.000778,
+    "error": null
+  },
+  {
+    "test_id": "T015",
+    "level": 5,
+    "question": "Is it covered?",
+    "notes": "Level 5: vague pronoun 'it' with no identifiable subject - correct behavior is a clarifying question, not a guess. Reused from routing_ground_truth.jsonl (L5-001).",
+    "expected": {
+      "topics": [
+        "customer_support"
+      ],
+      "subtopic": null,
+      "chapter": null,
+      "chapters": null,
+      "tool": null,
+      "behavior": "clarify",
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [],
+      "answer": "No factual answer is expected - the correct behavior is a clarifying question (e.g. \"What specific item or service are you asking about?\"), since 'it' has no identifiable referent."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "clarification_agent"
+      ],
+      "selected_topics": [
+        "customer_support"
+      ],
+      "selected_subtopics": {},
+      "selected_chapters": {},
+      "retrieved_chapters_by_topic": {},
+      "tool_decisions": {},
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {},
+      "final_answer": "What specific item or service are you inquiring about regarding coverage?",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question is straightforward and likely pertains to a specific fact about coverage, which can be answered without needing additional context or complexity."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a yes/no inquiry and does not contain an explicit 'and' joining two clauses."
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "customer_support"
+            ],
+            "is_ambiguous": true,
+            "topic_questions": {
+              "customer_support": "Is it covered?"
+            },
+            "confidence": 0.8,
+            "reasoning": "The question is ambiguous because it does not specify what 'it' refers to, making it unclear whether it pertains to a warranty, refund, or another type of coverage."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "clarification_agent",
+          "action": "ask_for_clarification",
+          "output": {
+            "clarifying_question": "What specific item or service are you inquiring about regarding coverage?"
+          },
+          "duration_ms": 4.2
+        }
+      ]
+    },
+    "scores": {
+      "behavior_correct": true,
+      "routing_correct": true,
+      "answer_correct": null,
+      "answer_correctness": null,
+      "groundedness": null,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 28.8,
+    "total_tokens": 3911,
+    "prompt_tokens": 3737,
+    "completion_tokens": 174,
+    "cost_usd": 0.000435,
+    "error": null
+  },
+  {
+    "test_id": "T016",
+    "level": 6,
+    "question": "What does E21 mean on the WM-500, and what is its standard warranty term?",
+    "notes": "Level 6: multi-chapter evidence aggregation - needs both the fault-code chapter and the model-specific warranty-terms chapter. Reused from routing_ground_truth.jsonl (L6-001).",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "washing_machines",
+      "chapter": null,
+      "chapters": [
+        "chapter_03_faults",
+        "chapter_01_types"
+      ],
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "drainage",
+        "2-year"
+      ],
+      "answer": "E21 on a washing machine indicates a drainage fault. The WM-500 carries a standard 2-year warranty term."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "washing_machines"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_faults"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "chapter_03_faults",
+          "chapter_03_faults",
+          "chapter_01_types",
+          "chapter_03_faults",
+          "chapter_02_operation"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The meaning of E21 and the standard warranty term for the WM-500 are both provided in the retrieved passages."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "E21: Drainage problem. Check the pump filter and drain hose for blockages before assuming a pump motor failure. The WM-500 has a 2-year standard warranty.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "intermediate",
+            "confidence": 0.8,
+            "reasoning": "The question requires knowledge of specific appliance error codes and warranty terms, which may involve looking up information from multiple sources."
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The first clause is a fact-lookup about an already-named error code, not an identification query."
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What does E21 mean on the WM-500, and what is its standard warranty term?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a fault code and warranty term related to a specific appliance model, which falls under the appliances topic."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "washing_machines",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the E21 fault code related to the WM-500 washing machine model."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/washing_machines]",
+          "output": {
+            "chapter_id": "chapter_03_faults",
+            "confidence": 0.9,
+            "reasoning": "The E21 fault code is specifically mentioned in the faults chapter, while the standard warranty term for the WM-500 is found in the types chapter."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/washing_machines]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_03_faults",
+              "chapter_03_faults",
+              "chapter_01_types",
+              "chapter_03_faults",
+              "chapter_02_operation"
+            ],
+            "scores": [
+              0.9549,
+              0.9553,
+              0.9856,
+              1.1918,
+              1.3007
+            ]
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/washing_machines]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The meaning of E21 and the standard warranty term for the WM-500 are both provided in the retrieved passages."
+            }
+          },
+          "duration_ms": 9.2
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "E21: Drainage problem. Check the pump filter and drain hose for blockages before assuming a pump motor failure. The WM-500 has a 2-year standard warranty.\n\nSources: chapter_01_types, chapter_02_operat",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_03_faults",
+              "chapter_03_faults",
+              "chapter_01_types",
+              "chapter_03_faults",
+              "chapter_02_operation"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.1
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "chapters_correct": true,
+      "chapters_coverage": 1.0,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9231,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 64.0,
+    "total_tokens": 6428,
+    "prompt_tokens": 6094,
+    "completion_tokens": 334,
+    "cost_usd": 0.000884,
+    "error": null
+  },
+  {
+    "test_id": "T017",
+    "level": 7,
+    "question": "My WM-500 is showing error E21 - is that covered under warranty, and what's SmartHome's standard refund policy?",
+    "notes": "Level 7: genuine multi-topic question - needs the washing-machine fault-code chapter (appliances) and the refund policy chapter (customer_support), merged by the Synthesis Agent. Reused from routing_ground_truth.jsonl (L7-001).",
+    "expected": {
+      "topics": [
+        "appliances",
+        "customer_support"
+      ],
+      "subtopic": null,
+      "chapter": null,
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "drainage",
+        "30 days"
+      ],
+      "answer": "E21 indicates a drainage fault, covered under the WM-500's standard warranty (no exclusion applies to this fault type). Separately, SmartHome's standard refund policy allows a full refund within 30 days of delivery for unopened, undamaged items."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "chapter_selector",
+        "rag_retriever",
+        "rag_retriever",
+        "tool_router",
+        "tool_router",
+        "appliances_agent",
+        "customer_support_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances",
+        "customer_support"
+      ],
+      "selected_subtopics": {
+        "appliances": "washing_machines",
+        "customer_support": "refunds"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_faults",
+        "customer_support": "chapter_01_policy"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "chapter_03_faults",
+          "chapter_03_faults",
+          "chapter_03_faults",
+          "chapter_01_types",
+          "chapter_02_operation"
+        ],
+        "customer_support": [
+          "chapter_01_policy",
+          "chapter_03_exceptions",
+          "chapter_02_process"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages explain that error E21 indicates a drainage problem and that it is typically covered under the standard warranty, depending on the fault's root cause."
+        },
+        "customer_support": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The standard refund policy is already detailed in the retrieved passages, stating that a full refund is allowed within 30 days of delivery for unopened, undamaged items."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        },
+        "customer_support": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The error code E21 on your WM-500 indicates a drainage problem. It is advisable to check the pump filter and drain hose for any blockages before concluding that there is a pump motor failure. Whether the repair is covered under warranty depends on the root cause of the fault and the purchase date of the machine, rather than solely on the error code. Typically, a drainage fault (E21) is considered a parts issue (related to the pump or hose) and is usually covered only under the standard warranty period.\n\nRegarding SmartHome's refund policy, customers can receive a full refund within 30 days of delivery for unopened and undamaged items. If a large appliance is opened and returned for a change-of-mind reason, a 15% restocking fee will apply; however, this fee does not apply if the item is faulty.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, chapter_01_policy, chapter_02_process, chapter_03_exceptions",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "complex",
+            "confidence": 0.9,
+            "reasoning": "This question involves multiple topics, including warranty coverage for a specific appliance error and the refund policy of a company, requiring multi-step reasoning to provide a comprehensive answer."
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The first clause is a yes/no question about an already-named model, not an identification query."
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances",
+              "customer_support"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What does error E21 mean on the WM-500, and is it covered under warranty?",
+              "customer_support": "What is SmartHome's standard refund policy?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question involves a specific appliance error and warranty coverage, which falls under appliances, while the inquiry about the refund policy pertains to customer support."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "washing_machines",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about an error code (E21) related to a washing machine model (WM-500), which falls under the washing_machines subtopic."
+          },
+          "duration_ms": 7.5
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[customer_support]",
+          "output": {
+            "subtopic": "refunds",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the refund policy, which falls under the refunds subtopic."
+          },
+          "duration_ms": 9.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/washing_machines]",
+          "output": {
+            "chapter_id": "chapter_03_faults",
+            "confidence": 0.9,
+            "reasoning": "Error E21 indicates a drainage problem, which is detailed in the faults chapter."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[customer_support/refunds]",
+          "output": {
+            "chapter_id": "chapter_01_policy",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks for the standard refund policy, which is detailed in chapter 01."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/washing_machines]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_03_faults",
+              "chapter_03_faults",
+              "chapter_03_faults",
+              "chapter_01_types",
+              "chapter_02_operation"
+            ],
+            "scores": [
+              0.8117,
+              0.8381,
+              0.9824,
+              1.177,
+              1.3383
+            ]
+          },
+          "duration_ms": 5.4
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[customer_support/refunds]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_policy",
+              "chapter_03_exceptions",
+              "chapter_02_process"
+            ],
+            "scores": [
+              0.8308,
+              1.0944,
+              1.1827
+            ]
+          },
+          "duration_ms": 5.5
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/washing_machines]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages explain that error E21 indicates a drainage problem and that it is typically covered under the standard warranty, depending on the fault's root cause."
+            }
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[customer_support/refunds]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The standard refund policy is already detailed in the retrieved passages, stating that a full refund is allowed within 30 days of delivery for unopened, undamaged items."
+            }
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "E21: Drainage problem. Check the pump filter and drain hose for blockages before assuming a pump motor failure. Whether a repair is covered under the standard parts warranty or the extended motor warr",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_03_faults",
+              "chapter_03_faults",
+              "chapter_03_faults",
+              "chapter_01_types",
+              "chapter_02_operation"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "customer_support_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The standard policy allows a full refund within 30 days of delivery for unopened, undamaged items. A 15% restocking fee applies to an opened large appliance returned for a change-of-mind reason; this ",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_policy",
+              "chapter_03_exceptions",
+              "chapter_02_process"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances",
+              "customer_support"
+            ]
+          },
+          "duration_ms": 4.3
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.7321,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 99.3,
+    "total_tokens": 8968,
+    "prompt_tokens": 8157,
+    "completion_tokens": 811,
+    "cost_usd": 0.00148,
+    "error": null
+  },
+  {
+    "test_id": "T018",
+    "level": 8,
+    "question": "What's the price of the WM-900 washing machine?",
+    "notes": "Level 8: price_aud exists only in specifications.csv, not in any chapter's prose - answerable only via the sql_query tool. Reused from routing_ground_truth.jsonl (L8-001).",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "washing_machines",
+      "chapter": null,
+      "chapters": null,
+      "tool": "sql_query",
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "1499"
+      ],
+      "answer": "The WM-900 washing machine is priced at $1,499 (AUD), looked up via the sql_query tool against specifications.csv since price isn't covered in the prose chapters."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "washing_machines"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_types"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "chapter_01_types",
+          "chapter_02_operation",
+          "chapter_01_types",
+          "chapter_02_operation",
+          "chapter_03_faults"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": true,
+          "tool_name": "sql_query",
+          "tool_input": "SELECT price_aud FROM specifications WHERE model = 'WM-900'",
+          "reasoning": "The price of the WM-900 washing machine is not mentioned in the retrieved passages, so a SQL query is needed to obtain this information."
+        }
+      },
+      "tool_results": {
+        "appliances": {
+          "tool_name": "sql_query",
+          "tool_input": "SELECT price_aud FROM specifications WHERE model = 'WM-900'",
+          "output": "[{'price_aud': 1499}]",
+          "error": null
+        }
+      },
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The price of the WM-900 washing machine is $1499 AUD. Sources: tool:sql_query.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific price of a single product, which is a straightforward fact lookup."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause fact-lookup about a specific model, not an identification query."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What's the price of the WM-900 washing machine?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the price of a washing machine model, which falls under the appliances topic."
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "washing_machines",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a washing machine model, which falls under the washing machines subtopic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/washing_machines]",
+          "output": {
+            "chapter_id": "chapter_01_types",
+            "confidence": 0.9,
+            "reasoning": "The price of the WM-900 washing machine is likely to be found in the chapter discussing the types and models of washing machines."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/washing_machines]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_03_faults"
+            ],
+            "scores": [
+              0.7596,
+              0.7683,
+              1.0038,
+              1.0439,
+              1.1562
+            ]
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/washing_machines]",
+          "output": {
+            "decision": {
+              "needs_tool": true,
+              "tool_name": "sql_query",
+              "tool_input": "SELECT price_aud FROM specifications WHERE model = 'WM-900'",
+              "reasoning": "The price of the WM-900 washing machine is not mentioned in the retrieved passages, so a SQL query is needed to obtain this information."
+            },
+            "result": {
+              "tool_name": "sql_query",
+              "tool_input": "SELECT price_aud FROM specifications WHERE model = 'WM-900'",
+              "output": "[{'price_aud': 1499}]",
+              "error": null
+            }
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The price of the WM-900 washing machine is $1499 AUD. Sources: tool:sql_query.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_03_faults"
+            ],
+            "used_tool_result": true,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.2
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "tool_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.5,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 63.4,
+    "total_tokens": 6413,
+    "prompt_tokens": 6100,
+    "completion_tokens": 313,
+    "cost_usd": 0.001007,
+    "error": null
+  },
+  {
+    "test_id": "T019",
+    "level": 9,
+    "question": "Which washing machine model has the largest capacity, and what's its price?",
+    "notes": "Level 9: hop 2 ('its price') has no named subject until hop 1 identifies the largest-capacity model (WM-900, 11 kg, unique). Reused from routing_ground_truth.jsonl (L9-001).",
+    "expected": {
+      "topics": null,
+      "subtopic": null,
+      "chapter": null,
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": true,
+      "hop1_fact": "WM-900",
+      "recovery_attempted": null,
+      "is_answerable": true,
+      "facts": [
+        "WM-900",
+        "1499"
+      ],
+      "answer": "The WM-900 has the largest capacity (11 kg) among SmartHome's washing machines, and it is priced at $1,499 (AUD)."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "hop1:complexity_router",
+        "hop1:topic_router",
+        "hop1:subtopic_router",
+        "hop1:chapter_selector",
+        "hop1:rag_retriever",
+        "hop1:tool_router",
+        "hop1:appliances_agent",
+        "hop1:synthesis_agent",
+        "multihop_agent",
+        "hop2:complexity_router",
+        "hop2:topic_router",
+        "hop2:subtopic_router",
+        "hop2:chapter_selector",
+        "hop2:rag_retriever",
+        "hop2:tool_router",
+        "hop2:appliances_agent",
+        "hop2:synthesis_agent",
+        "multihop_agent",
+        "multihop_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {},
+      "selected_chapters": {},
+      "retrieved_chapters_by_topic": {},
+      "tool_decisions": {},
+      "tool_results": {},
+      "is_multi_hop": true,
+      "hop_results": [
+        {
+          "hop_number": 1,
+          "question": "Which washing machine model has the largest capacity?",
+          "final_answer": "The WM-900 has the largest capacity at 11 kg.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+          "extracted_value": "WM-900"
+        },
+        {
+          "hop_number": 2,
+          "question": "What is the price of the washing machine model WM-900?",
+          "final_answer": "The price of the washing machine model WM-900 is $1499 AUD. Sources: tool:sql_query, chapter_01_types.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+          "extracted_value": null
+        }
+      ],
+      "recovery_attempts": {},
+      "final_answer": "The washing machine model with the largest capacity is the WM-900, which has a capacity of 11 kg. The price of the WM-900 is $1499 AUD.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single product, which can be answered with a lookup in the appliances topic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": true,
+            "hop_plan": {
+              "hop1_question": "Which washing machine model has the largest capacity?",
+              "hop2_question_template": "What is the price of the washing machine model {hop1_answer}?",
+              "reasoning": "The question contains an explicit 'and' joining two clauses, and the first clause is a 'which ... has' identification query."
+            },
+            "reasoning": "The question contains an explicit 'and' joining two clauses, and the first clause is a 'which ... has' identification query."
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "hop1:complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about washing machine models, which can be answered from a single topic area."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "hop1:topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "Which washing machine model has the largest capacity?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about washing machine models and their capacities, which falls under the appliances topic."
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "hop1:subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "washing_machines",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about washing machine models, which falls under the washing_machines subtopic."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "hop1:chapter_selector",
+          "action": "select_chapter[appliances/washing_machines]",
+          "output": {
+            "chapter_id": "chapter_01_types",
+            "confidence": 0.9,
+            "reasoning": "The chapter on washing machine types provides specific details about the capacities of different models, including which one has the largest capacity."
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "hop1:rag_retriever",
+          "action": "retrieve[appliances/washing_machines]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_types",
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_02_operation",
+              "chapter_03_faults"
+            ],
+            "scores": [
+              0.5724,
+              0.7157,
+              0.9799,
+              1.132,
+              1.4643
+            ]
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "hop1:tool_router",
+          "action": "select_tools[appliances/washing_machines]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that the WM-900 has an 11 kg capacity, which is the largest among the models listed."
+            }
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "hop1:appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The WM-900 has the largest capacity at 11 kg.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_types",
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_02_operation",
+              "chapter_03_faults"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.7
+        },
+        {
+          "node": "hop1:synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        },
+        {
+          "node": "multihop_agent",
+          "action": "execute_hop[1]",
+          "output": {
+            "hop_number": 1,
+            "question": "Which washing machine model has the largest capacity?",
+            "final_answer": "The WM-900 has the largest capacity at 11 kg.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults",
+            "extracted_value": "WM-900"
+          },
+          "duration_ms": 0.0
+        },
+        {
+          "node": "hop2:complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific price of a single product, which is a straightforward fact lookup."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "hop2:topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What is the price of the washing machine model WM-900?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about the price of a washing machine model, which falls under the appliances topic."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "hop2:subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "washing_machines",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a washing machine model, which falls under the washing_machines subtopic."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "hop2:chapter_selector",
+          "action": "select_chapter[appliances/washing_machines]",
+          "output": {
+            "chapter_id": "chapter_01_types",
+            "confidence": 0.9,
+            "reasoning": "The price of the washing machine model WM-900 is likely to be found in the chapter discussing the types and models of washing machines."
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "hop2:rag_retriever",
+          "action": "retrieve[appliances/washing_machines]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_03_faults"
+            ],
+            "scores": [
+              0.8087,
+              0.8317,
+              0.9731,
+              1.1485,
+              1.2231
+            ]
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "hop2:tool_router",
+          "action": "select_tools[appliances/washing_machines]",
+          "output": {
+            "decision": {
+              "needs_tool": true,
+              "tool_name": "sql_query",
+              "tool_input": "SELECT price_aud FROM specifications WHERE model = 'WM-900'",
+              "reasoning": "The price of the washing machine model WM-900 is not mentioned in the retrieved passages, so a SQL query is needed to obtain this information."
+            },
+            "result": {
+              "tool_name": "sql_query",
+              "tool_input": "SELECT price_aud FROM specifications WHERE model = 'WM-900'",
+              "output": "[{'price_aud': 1499}]",
+              "error": null
+            }
+          },
+          "duration_ms": 7.5
+        },
+        {
+          "node": "hop2:appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The price of the washing machine model WM-900 is $1499 AUD. Sources: tool:sql_query, chapter_01_types.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_01_types",
+              "chapter_02_operation",
+              "chapter_03_faults"
+            ],
+            "used_tool_result": true,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.1
+        },
+        {
+          "node": "hop2:synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        },
+        {
+          "node": "multihop_agent",
+          "action": "execute_hop[2]",
+          "output": {
+            "hop_number": 2,
+            "question": "What is the price of the washing machine model WM-900?",
+            "final_answer": "The price of the washing machine model WM-900 is $1499 AUD. Sources: tool:sql_query, chapter_01_types.\n\nSources: chapter_01_types, chapter_02_operation, chapter_03_faults, tool:sql_query",
+            "extracted_value": null
+          },
+          "duration_ms": 0.0
+        },
+        {
+          "node": "multihop_agent",
+          "action": "synthesize_hops",
+          "output": {
+            "hops_combined": 2
+          },
+          "duration_ms": 148.2
+        }
+      ]
+    },
+    "scores": {
+      "multihop_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.0,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 166.1,
+    "total_tokens": 12103,
+    "prompt_tokens": 11405,
+    "completion_tokens": 698,
+    "cost_usd": 0.001899,
+    "error": null
+  },
+  {
+    "test_id": "T020",
+    "level": 10,
+    "question": "What is the maximum amperage draw of the RF-900 refrigerator's compressor?",
+    "notes": "Level 10: deliberately unanswerable - no RF-900 model exists. Naturally triggers a genuine tool_error recovery (the Tool Router hallucinates a plausible 'compressor_amperage' column that doesn't exist); recovery must be attempted but must still correctly decline afterward, not fabricate. Reused from routing_ground_truth.jsonl (L10-001).",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": null,
+      "chapter": null,
+      "chapters": null,
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": false,
+      "hop1_fact": null,
+      "recovery_attempted": true,
+      "is_answerable": false,
+      "facts": [],
+      "answer": "Unanswerable - no RF-900 refrigerator model exists in SmartHome's lineup, so the correct answer is to report insufficient information rather than fabricate a compressor amperage figure."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "refrigerators"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_overview"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "chapter_01_overview",
+          "chapter_01_overview",
+          "chapter_02_features",
+          "chapter_03_troubleshooting",
+          "chapter_02_features"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": true,
+          "tool_name": "sql_query",
+          "tool_input": "SELECT compressor_amperage FROM specifications WHERE model = 'RF-900'",
+          "reasoning": "The maximum amperage draw of the RF-900 refrigerator's compressor is not mentioned in the retrieved passages, so I need to query the specifications database for this specific information."
+        }
+      },
+      "tool_results": {
+        "appliances": {
+          "tool_name": "sql_query",
+          "tool_input": "SELECT compressor_amperage FROM specifications WHERE model = 'RF-900'",
+          "output": null,
+          "error": "no such column: compressor_amperage"
+        }
+      },
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": true,
+          "reason": "tool_error",
+          "succeeded": false
+        }
+      },
+      "final_answer": "Insufficient information in the knowledge base to answer this question.",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single appliance, which can be answered from one topic area."
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about an already-named product, which does not meet the criteria for multi-hop."
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What is the maximum amperage draw of the RF-900 refrigerator's compressor?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the amperage draw of a refrigerator's compressor, which falls under the appliances topic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "refrigerators",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the RF-900 refrigerator's compressor, which falls under the refrigerators subtopic."
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/refrigerators]",
+          "output": {
+            "chapter_id": "chapter_01_overview",
+            "confidence": 0.7,
+            "reasoning": "The overview chapter provides general specifications about refrigerator models, which may include details about compressor performance, even if the RF-900 is not explicitly mentioned."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/refrigerators]",
+          "output": {
+            "retrieved_chapters": [
+              "chapter_01_overview",
+              "chapter_01_overview",
+              "chapter_02_features",
+              "chapter_03_troubleshooting",
+              "chapter_02_features"
+            ],
+            "scores": [
+              1.0478,
+              1.1439,
+              1.1892,
+              1.2007,
+              1.3331
+            ]
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/refrigerators]",
+          "output": {
+            "decision": {
+              "needs_tool": true,
+              "tool_name": "sql_query",
+              "tool_input": "SELECT compressor_amperage FROM specifications WHERE model = 'RF-900'",
+              "reasoning": "The maximum amperage draw of the RF-900 refrigerator's compressor is not mentioned in the retrieved passages, so I need to query the specifications database for this specific information."
+            },
+            "result": {
+              "tool_name": "sql_query",
+              "tool_input": "SELECT compressor_amperage FROM specifications WHERE model = 'RF-900'",
+              "output": null,
+              "error": "no such column: compressor_amperage"
+            }
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Insufficient information in the knowledge base to answer this question.",
+            "insufficient_info": true,
+            "retrieved_chapters": [
+              "chapter_01_overview",
+              "chapter_01_overview",
+              "chapter_02_features",
+              "chapter_03_troubleshooting",
+              "chapter_01_types"
+            ],
+            "used_tool_result": true,
+            "recovery": {
+              "attempted": true,
+              "reason": "tool_error",
+              "succeeded": false
+            }
+          },
+          "duration_ms": 21.2
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "recovery_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 1.0,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 77.4,
+    "total_tokens": 7174,
+    "prompt_tokens": 6813,
+    "completion_tokens": 361,
+    "cost_usd": 0.001008,
+    "error": null
+  }
+]
