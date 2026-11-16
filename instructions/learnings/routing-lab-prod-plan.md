@@ -366,6 +366,11 @@ restore a `pg_dump` - not a rewrite of the application or its surrounding servic
 - Reuses two patterns already demonstrated in this repo's reference material rather than inventing
   them: Prometheus-via-callback-handler and PII redaction, both from
   [rag-krish-learnings.md](./rag-krish-learnings.md) §4/§7.
+- [chat-ui-plan1.md](./chat-ui-plan1.md) is the frontend-specific companion to this plan - it plans
+  `routing_lab3/frontend/`'s own path to production readiness (UX completeness, accessibility,
+  testing, containerization, auth integration) without redeciding any component chosen here, and
+  surfaces one backend gap back into this plan's §2.1 rollout (a `thread_id` ownership check
+  needed once Keycloak auth lands - see that document's §6).
 - Follows the same evidence-based, zero-regression discipline established throughout
   [routing-project-learnings.md](./routing-project-learnings.md) and
   [routing-lab2-learnings.md](./routing-lab2-learnings.md) - every phase above has an explicit exit
