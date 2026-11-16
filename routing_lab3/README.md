@@ -1041,22 +1041,36 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   self-hosted backend contract without reimplementing that protocol).
 - `datasets/chat_ground_truth.jsonl` + `tests/test_chat_condensing.py` -
   multi-turn condensing accuracy dataset/tests (100% passing).
+- `app/llm_gateway.py` - routes every `ChatOpenAI`/`OpenAIEmbeddings`
+  call (16 call sites across `app/routers/`, `app/agents/`,
+  `app/chat/condense.py`, `app/architectures/_shared.py`, and
+  `app/rag/embeddings.py`) through LiteLLM when `LITELLM_BASE_URL` is
+  set, giving each authenticated user their own budget-capped virtual
+  key (`infra/litellm/`) - a no-op otherwise. See
+  [`routing-lab-prod-plan.md`](../instructions/learnings/routing-lab-prod-plan.md)
+  section 2.3.
+- `tests/test_chat_rate_limiting.py` - skipped unless `LITELLM_BASE_URL`
+  is set; verifies a budget-exceeded user is blocked without affecting a
+  different user.
 - `scripts/chat_cli.py` - a terminal chat loop, useful for quick manual
   testing without starting the API/frontend.
 
 ```powershell
-# Terminal 0 (first run, and any time Keycloak/Postgres need to be
-# running - see infra/keycloak/README.md): Keycloak is required since
-# /chat and /chat/stream now require a login (chat-ui-plan1.md section
-# 4's Phase D); Postgres is optional - without it the backend falls back
-# to InMemorySaver (lost on restart) automatically.
+# Terminal 0 (first run, and any time Keycloak/Postgres/LiteLLM need to
+# be running - see infra/keycloak/README.md and infra/litellm/README.md):
+# Keycloak is required since /chat and /chat/stream now require a login
+# (chat-ui-plan1.md section 4's Phase D); Postgres and LiteLLM are both
+# optional - without them the backend falls back to InMemorySaver (lost
+# on restart) and direct OpenAI calls (no per-user budget) respectively.
 docker compose up -d
 
-# Terminal 1: the chat API (from routing_lab3\). Set CHAT_DB_URL to use
-# the Postgres container above for durable persistence (section 2.2 of
-# routing-lab-prod-plan.md) - conversations then survive a backend
-# restart; omit it to use the faster, non-durable InMemorySaver instead.
+# Terminal 1: the chat API (from routing_lab3\). Set CHAT_DB_URL for
+# durable persistence (section 2.2) and LITELLM_BASE_URL/
+# LITELLM_MASTER_KEY for per-user budgets (section 2.3) - omit either to
+# use the simpler fallback (InMemorySaver / calling OpenAI directly).
 $env:CHAT_DB_URL = "postgresql://routing_lab3:routing-lab3-dev-password@localhost:5433/routing_lab3_chat"
+$env:LITELLM_BASE_URL = "http://localhost:4000"
+$env:LITELLM_MASTER_KEY = "sk-routing-lab3-dev-master-key"
 ..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
 
 # Terminal 2: the frontend (from routing_lab3\frontend\, first run only:

@@ -25,6 +25,12 @@ falls back to `InMemorySaver` (lost on restart), which is what this
 project's own tests use, to stay fast/deterministic without requiring a
 live Postgres instance for every test run.
 
+Every LLM/embedding call made on behalf of a request goes through that
+user's own LiteLLM virtual key (app/llm_gateway.py) when `LITELLM_BASE_URL`
+is set - instructions/learnings/routing-lab-prod-plan.md section 2.3 -
+so one user exceeding their budget is rejected (429) without affecting
+anyone else's.
+
 Exposes two endpoints:
 - `POST /chat` - synchronous, returns the full turn's result as JSON.
 - `POST /chat/stream` - Server-Sent Events, one `status` event per graph
@@ -54,12 +60,14 @@ load_dotenv(find_dotenv())
 
 import os  # noqa: E402
 
-from fastapi import Depends, FastAPI  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
+from openai import RateLimitError, UnprocessableEntityError  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
+from app import llm_gateway  # noqa: E402
 from app.api.auth import ThreadOwnershipRegistry, get_current_user  # noqa: E402
 from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
@@ -131,6 +139,28 @@ _chat_graph = build_chat_graph(checkpointer=_build_checkpointer())
 # history on restart) otherwise.
 _thread_ownership = ThreadOwnershipRegistry(conn_string=_CHAT_DB_URL)
 
+# None (meaning: every call uses OPENAI_API_KEY directly, no per-user
+# budget) unless LITELLM_BASE_URL is set - instructions/learnings/
+# routing-lab-prod-plan.md section 2.3.
+_LITELLM_BASE_URL = os.environ.get("LITELLM_BASE_URL")
+_user_key_provisioner = (
+    llm_gateway.UserKeyProvisioner(
+        base_url=_LITELLM_BASE_URL,
+        master_key=os.environ["LITELLM_MASTER_KEY"],
+        conn_string=_CHAT_DB_URL,
+    )
+    if _LITELLM_BASE_URL
+    else None
+)
+
+
+def _scope_llm_calls_to(user: str) -> None:
+    """Sets the per-request virtual API key (app/llm_gateway.py) every
+    ChatOpenAI/OpenAIEmbeddings call made for the rest of this request
+    will use - a no-op when LiteLLM isn't configured."""
+    if _user_key_provisioner is not None:
+        llm_gateway.set_current_user_api_key(_user_key_provisioner.get_or_create_key(user))
+
 
 class ChatRequest(BaseModel):
     thread_id: str
@@ -158,8 +188,18 @@ def chat(request: ChatRequest, user: str = Depends(get_current_user)) -> ChatRes
     result. Simpler to call/test than `/chat/stream` - use this for
     anything that doesn't need incremental progress updates."""
     _thread_ownership.check_and_record(request.thread_id, user)
+    _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
-    output = _chat_graph.invoke({"user_message": request.message}, config=config)
+    try:
+        output = _chat_graph.invoke({"user_message": request.message}, config=config)
+    except (RateLimitError, UnprocessableEntityError) as exc:
+        # LiteLLM returns HTTP 422 (UnprocessableEntityError in the
+        # openai SDK's exception hierarchy, not RateLimitError) for a
+        # budget-exceeded virtual key specifically - confirmed
+        # empirically while validating this phase, not assumed from
+        # docs. RateLimitError/429 is also caught for an actual RPM/TPM
+        # cap, which LiteLLM does return as a genuine 429.
+        raise HTTPException(status_code=429, detail="LLM budget exceeded for this user.") from exc
     return ChatResponse(
         thread_id=request.thread_id,
         self_contained_question=output["self_contained_question"],
@@ -173,23 +213,33 @@ def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> 
     """Streams this turn's progress as Server-Sent Events: a `status`
     event each time a graph node (`condense`/`invoke_routing_pipeline`/
     `record_turn`) finishes, then a final `answer` event with the
-    complete response."""
+    complete response - or an `error` event if the LLM gateway rejects a
+    call mid-stream (e.g. a budget-exceeded user). An `error` event, not
+    an HTTP status code, is used for this because streaming has already
+    started (with a 200) by the time such a rejection can happen."""
     _thread_ownership.check_and_record(request.thread_id, user)
+    _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
 
     def event_stream():
-        for update in _chat_graph.stream(
-            {"user_message": request.message}, config=config, stream_mode="updates"
-        ):
-            for node_name, node_output in update.items():
-                yield f"event: status\ndata: {json.dumps({'node': node_name})}\n\n"
-                if node_name == "invoke_routing_pipeline":
-                    answer_payload = {
-                        "final_answer": node_output.get("final_answer", ""),
-                        "routing_summary": build_routing_summary(
-                            node_output.get("routing_result", {})
-                        ),
-                    }
-                    yield f"event: answer\ndata: {json.dumps(answer_payload)}\n\n"
+        try:
+            for update in _chat_graph.stream(
+                {"user_message": request.message}, config=config, stream_mode="updates"
+            ):
+                for node_name, node_output in update.items():
+                    yield f"event: status\ndata: {json.dumps({'node': node_name})}\n\n"
+                    if node_name == "invoke_routing_pipeline":
+                        answer_payload = {
+                            "final_answer": node_output.get("final_answer", ""),
+                            "routing_summary": build_routing_summary(
+                                node_output.get("routing_result", {})
+                            ),
+                        }
+                        yield f"event: answer\ndata: {json.dumps(answer_payload)}\n\n"
+        except (RateLimitError, UnprocessableEntityError):
+            # See the /chat endpoint's comment above for why both
+            # exception types are caught here too.
+            error_payload = {"detail": "LLM budget exceeded for this user."}
+            yield f"event: error\ndata: {json.dumps(error_payload)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

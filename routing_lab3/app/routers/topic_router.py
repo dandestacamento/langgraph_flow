@@ -31,6 +31,7 @@ from typing import Literal
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL, TOPIC_SUBTOPICS
 from app.state import RoutingState
 
@@ -182,7 +183,9 @@ class TopicOutput(BaseModel):
 
 
 def build_topic_llm() -> ChatOpenAI:
-    return ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(TopicOutput)
+    return ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        TopicOutput
+    )
 
 
 def classify_topic(state: RoutingState) -> dict:

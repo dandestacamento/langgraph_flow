@@ -32,6 +32,7 @@ import time
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL
 from app.state import RoutingState
 
@@ -123,7 +124,9 @@ class MultiHopPlan(BaseModel):
 
 
 def build_multihop_llm() -> ChatOpenAI:
-    return ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(MultiHopPlan)
+    return ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        MultiHopPlan
+    )
 
 
 def classify_multihop(state: RoutingState) -> dict:

@@ -22,6 +22,7 @@ import time
 from langchain_openai import ChatOpenAI
 from pydantic import Field, create_model
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL, SUBTOPIC_DESCRIPTIONS, TOPIC_SUBTOPICS
 from app.state import RoutingState, get_topic_question
 
@@ -64,7 +65,9 @@ def classify_subtopic(state: RoutingState) -> dict:
     for topic in state["selected_topics"]:
         start = time.perf_counter()
         model = _build_subtopic_output_model(topic)
-        llm = ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(model)
+        llm = ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+            model
+        )
         result = llm.invoke(
             [
                 ("system", _subtopic_system_prompt(topic)),

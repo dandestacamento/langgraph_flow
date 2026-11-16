@@ -21,6 +21,7 @@ from typing import Literal
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL
 from app.state import RoutingState
 
@@ -49,7 +50,9 @@ class ComplexityOutput(BaseModel):
 
 
 def build_complexity_llm() -> ChatOpenAI:
-    return ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(ComplexityOutput)
+    return ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        ComplexityOutput
+    )
 
 
 def classify_complexity(state: RoutingState) -> dict:

@@ -31,6 +31,7 @@ from typing import Literal
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL
 from app.state import RoutingState, get_topic_question
 from app.tools.calculator import calculate
@@ -116,7 +117,9 @@ def _tool_router_system_prompt(topic: str, subtopic: str, passages: list[dict]) 
 
 
 def build_tool_router_llm() -> ChatOpenAI:
-    return ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(ToolSelection)
+    return ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        ToolSelection
+    )
 
 
 def _execute_tool(tool_name: str, tool_input: str, topic: str, subtopic: str) -> tuple[str | None, str | None]:

@@ -20,6 +20,7 @@ import time
 
 from langchain_openai import ChatOpenAI
 
+from app import llm_gateway
 from app.config import AGENT_MODEL
 from app.state import RoutingState
 
@@ -39,7 +40,7 @@ def ask_for_clarification(state: RoutingState) -> dict:
     start = time.perf_counter()
     topic_decision = state["topic_decision"]
 
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0)
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
     human = (
         f"Original question: {state['question']}\n"
         f"Best-guess topic(s): {', '.join(topic_decision['topics'])}\n"

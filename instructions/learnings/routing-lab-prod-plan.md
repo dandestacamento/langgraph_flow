@@ -178,6 +178,38 @@ cache helps during development, not against a malicious/runaway user in producti
 - Also provides fallback/load-balancing across providers - a genuine production reliability win
   beyond just cost control.
 
+**Done**: LiteLLM runs via `routing_lab3/docker-compose.yml` (`ghcr.io/berriai/litellm:main-stable`,
+its own dedicated Postgres database - see `infra/litellm/README.md` for why it can't share
+`app/api/main.py`'s own database). `app/llm_gateway.py`'s `llm_kwargs()` is a no-op unless
+`LITELLM_BASE_URL` is set, spread into all 16 `ChatOpenAI`/`OpenAIEmbeddings` call sites across
+`app/routers/`, `app/agents/`, `app/chat/condense.py`, `app/architectures/_shared.py`, and
+`app/rag/embeddings.py` - a genuinely mechanical, bounded change at each site, not a rewrite.
+Per-user routing uses a `contextvars.ContextVar`, not a process-global env var (`app/api/main.py`
+serves many users from one process, often concurrently - a global var would race between them).
+`UserKeyProvisioner` mints one LiteLLM virtual key per authenticated user the first time it's seen
+(via `/key/generate`), persisted the same way `ThreadOwnershipRegistry` persists thread ownership.
+
+A real bug found and fixed along the way: `app/rag/embeddings.py`'s `get_embeddings_client()` was
+`@lru_cache`d (built once per process) - this would have frozen every user's embedding calls onto
+whichever user's key happened to be active the first time it was ever called. Removed the cache;
+constructing `OpenAIEmbeddings` is cheap (no network call at construction time), so this costs
+negligible performance for real per-user correctness.
+
+**Verified end-to-end against the real, full multi-node chat graph** (not a single raw LiteLLM
+call): a deliberately tiny-budget virtual key was blocked - correctly, with every one of a turn's
+~8 LLM/embedding calls honoring that key, not just the first - while a separate, generously-budgeted
+key's user completed a full turn successfully and got the correct answer, completely unaffected.
+One real finding along the way: LiteLLM returns **HTTP 422** (`openai.UnprocessableEntityError`)
+for a budget-exceeded key, not 429/`RateLimitError` as might be assumed from the name "rate
+limiting" - confirmed empirically, not from documentation; `app/api/main.py` catches both exception
+types and translates either into a client-facing 429. A new regression test
+(`tests/test_chat_rate_limiting.py`, skipped unless `LITELLM_BASE_URL` is set) encodes this same
+guarantee.
+
+**Not yet done**: per-team budgets/tags (only per-user so far), and the provider fallback/
+load-balancing capability LiteLLM also offers (not configured - this project only has one provider,
+OpenAI, today).
+
 ### 2.4 Security hardening
 
 Gap: "that guard [sql_query.py's SELECT-only check] covers one tool; a production chat app facing
@@ -310,6 +342,8 @@ packaged Agent Server:
 3. **Phase C - Cost/rate limiting.** LiteLLM (§2.3) placed in front of every provider call.
    **Exit criteria**: a deliberately budget-exceeding test user is correctly rate-limited/blocked
    without affecting other users' quotas.
+   **Done**: verified exactly to this exit criterion, against the real multi-node chat graph - see
+   §2.3's write-up for the HTTP 422/`UnprocessableEntityError` finding this surfaced.
 4. **Phase D - Observability.** MLflow moved to always-on hosted mode + Prometheus/Grafana/Loki/OTel
    (§2.5). **Exit criteria**: a deliberately induced failure (e.g., a bad API key) triggers a real
    alert, not just a log line nobody's watching.
@@ -351,7 +385,7 @@ in this plan touches `app/graph.py`'s `build_graph()` itself.
       and restarted for real, `conversation_history` and thread ownership both intact afterward.
       The Postgres container itself uses a named volume for the same guarantee by construction, but
       was not independently killed-and-restarted this session to confirm it empirically too.)
-- [ ] Cost control: a LiteLLM-enforced budget cap actually blocks further requests once exceeded,
+- [x] Cost control: a LiteLLM-enforced budget cap actually blocks further requests once exceeded,
       verified with a deliberate test, not just configured and assumed to work.
 - [ ] Security: a deliberate prompt-injection attempt and a deliberate non-SELECT SQL attempt
       (extending the existing `sql_query.py` test pattern from this session) are both caught before

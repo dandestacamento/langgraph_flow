@@ -141,6 +141,12 @@ export async function streamChatMessage(
         onEvent({ type: "status", node: data.node });
       } else if (eventName === "answer") {
         onEvent({ type: "answer", final_answer: data.final_answer, routing_summary: data.routing_summary });
+      } else if (eventName === "error") {
+        // Emitted when the backend's LLM gateway rejects a call
+        // mid-stream (e.g. a budget-exceeded user) - thrown rather than
+        // delivered via onEvent so it flows through the same
+        // catch/describeError path as every other failure (useChat.ts).
+        throw new Error(data.detail ?? "The assistant could not complete this response.");
       }
     }
   }

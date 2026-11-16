@@ -18,6 +18,7 @@ import time
 from langchain_openai import ChatOpenAI
 from pydantic import Field, create_model
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL
 from app.rag.ingestion import list_chapter_metadata
 from app.state import RoutingState, get_topic_question
@@ -65,7 +66,9 @@ def select_chapter(state: RoutingState) -> dict:
 
         start = time.perf_counter()
         model = _build_chapter_output_model(chapter_ids)
-        llm = ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(model)
+        llm = ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+            model
+        )
         result = llm.invoke(
             [
                 ("system", _chapter_system_prompt(topic, subtopic, chapters)),

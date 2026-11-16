@@ -22,6 +22,7 @@ import time
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import AGENT_MODEL, TOPIC_SUBTOPICS
 from app.rag.retrieval import retrieve
 from app.routers.tool_router import _execute_tool
@@ -106,7 +107,7 @@ def _generate_answer(topic: str, question: str, passages: list[dict], tool_resul
         else "NONE of the excerpts address the question at all"
     )
 
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0)
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
     system_prompt = (
         f"{_AGENT_SYSTEM_PROMPTS[topic]} Relevant subtopics: {', '.join(TOPIC_SUBTOPICS[topic])}.\n\n"
         "Answer using ONLY the knowledge base excerpts below - do not use any outside knowledge, "
@@ -157,7 +158,9 @@ def _retry_tool(topic: str, subtopic: str, tool_name: str, original_input: str, 
         schema = get_specifications_schema(topic, subtopic)
         if schema:
             lines.append(f"The 'specifications' table's actual columns are: {', '.join(schema)}.")
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0).with_structured_output(_CorrectedToolInput)
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        _CorrectedToolInput
+    )
     result: _CorrectedToolInput = llm.invoke([("system", "\n".join(lines)), ("human", "Correct the input.")])
     return _execute_tool(tool_name, result.corrected_input, topic, subtopic)
 

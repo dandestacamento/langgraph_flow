@@ -27,6 +27,7 @@ from __future__ import annotations
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.chat.state import ChatTurn
 from app.config import AGENT_MODEL
 
@@ -66,7 +67,9 @@ def condense_question(conversation_history: list[ChatTurn], latest_message: str)
     system prompt) whether `latest_message` already is self-contained,
     in which case it's returned unchanged - there's no separate
     heuristic/classifier deciding that ahead of time."""
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0).with_structured_output(CondensedQuestion)
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        CondensedQuestion
+    )
     human_message = (
         f"Conversation history:\n{_format_history(conversation_history)}\n\n"
         f"Latest message: {latest_message}"

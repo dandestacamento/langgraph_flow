@@ -26,6 +26,7 @@ import time
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import AGENT_MODEL
 from app.state import RoutingState, initial_state
 
@@ -51,7 +52,9 @@ class ExtractedValue(BaseModel):
 
 
 def _extract_value(hop_question: str, hop_answer: str) -> str:
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0).with_structured_output(ExtractedValue)
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        ExtractedValue
+    )
     result: ExtractedValue = llm.invoke(
         [
             ("system", _EXTRACT_SYSTEM_PROMPT),
@@ -123,7 +126,7 @@ def execute_multihop(state: RoutingState) -> dict:
         }
     )
 
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0)
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
     human_message = (
         f"Original question: {state['question']}\n\n"
         f"--- HOP 1: {hop1_question} ---\n{hop1_answer}\n\n"

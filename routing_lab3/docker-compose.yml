@@ -16,6 +16,12 @@
 # genuinely survives `docker compose down`/`up` (not just a process
 # restart), matching routing-lab-prod-plan.md section 3's Phase B exit
 # criterion ("new multi-turn conversations survive a backend restart").
+#
+# LiteLLM, self-hosted (MIT core) - per routing-lab-prod-plan.md section
+# 2.3. Gives every app user their own virtual API key with an
+# independent budget (app/llm_gateway.py), rather than every call
+# sharing one raw OPENAI_API_KEY - see infra/litellm/README.md for what
+# still needs hardening before this is a production configuration.
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.7
@@ -44,11 +50,43 @@ services:
       - "5433:5432"
     volumes:
       - routing_lab3_postgres_data:/var/lib/postgresql/data
+      # Runs once, only on a brand-new data volume - creates the
+      # separate `litellm` database the litellm service below needs
+      # (see infra/postgres/init-litellm-db.sql for why it must be
+      # separate from this project's own routing_lab3_chat database).
+      - ./infra/postgres/init-litellm-db.sql:/docker-entrypoint-initdb.d/init-litellm-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U routing_lab3 -d routing_lab3_chat"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    env_file:
+      # Reuses the repo-root .env for OPENAI_API_KEY - same convention
+      # routing_lab3 already follows for everything else (see
+      # README.md's "VS Code setup").
+      - ../.env
+    environment:
+      # Throwaway dev values - see infra/litellm/README.md for why these
+      # specifically must be replaced before any real deployment.
+      LITELLM_MASTER_KEY: sk-routing-lab3-dev-master-key
+      LITELLM_SALT_KEY: routing-lab3-dev-salt-key-do-not-reuse
+      # A dedicated database, not routing_lab3_chat - LiteLLM's own
+      # Prisma-managed migration tooling refuses to share a database
+      # that already has unrelated tables in it (a real conflict hit
+      # while validating this phase, not a hypothetical one).
+      DATABASE_URL: postgresql://routing_lab3:routing-lab3-dev-password@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "False"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./infra/litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   routing_lab3_postgres_data:

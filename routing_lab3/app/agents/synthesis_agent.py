@@ -19,6 +19,7 @@ import time
 
 from langchain_openai import ChatOpenAI
 
+from app import llm_gateway
 from app.config import AGENT_MODEL
 from app.state import RoutingState
 
@@ -51,7 +52,7 @@ def synthesize(state: RoutingState) -> dict:
         duration_ms = 0.0
     else:
         start = time.perf_counter()
-        llm = ChatOpenAI(model=AGENT_MODEL, temperature=0)
+        llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
         human_message = (
             f"Original question: {state['question']}\n\n"
             f"Per-topic answers to combine:\n{_format_topic_answers(responses, topics)}"

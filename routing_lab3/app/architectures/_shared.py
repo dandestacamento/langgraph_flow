@@ -19,6 +19,7 @@ import time
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from app import llm_gateway
 from app.config import ROUTER_MODEL, TOPICS
 from app.routers.topic_router import TopicLiteral, _TOPIC_DESCRIPTIONS
 from app.state import RoutingState
@@ -56,7 +57,9 @@ def classify_topic_only(node_name: str):
 
     def _node(state: RoutingState) -> dict:
         start = time.perf_counter()
-        llm = ChatOpenAI(model=ROUTER_MODEL, temperature=0).with_structured_output(TopicOnlyOutput)
+        llm = ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+            TopicOnlyOutput
+        )
         result: TopicOnlyOutput = llm.invoke(
             [
                 ("system", SIMPLE_TOPIC_SYSTEM_PROMPT),
