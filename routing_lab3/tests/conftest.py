@@ -28,6 +28,7 @@ from app.graph import build_graph  # noqa: E402
 enable_llm_cache()  # cheap/no-op if ROUTING_LAB_CACHE_ENABLED=0; see app/cache.py
 
 GROUND_TRUTH_PATH = _PROJECT_ROOT / "datasets" / "routing_ground_truth.jsonl"
+CHAT_GROUND_TRUTH_PATH = _PROJECT_ROOT / "datasets" / "chat_ground_truth.jsonl"
 
 
 def load_ground_truth(level: int | None = None) -> list[dict]:
@@ -41,6 +42,27 @@ def load_ground_truth(level: int | None = None) -> list[dict]:
             if level is None or row["level"] == level:
                 rows.append(row)
     return rows
+
+
+def load_chat_ground_truth() -> dict[str, list[dict]]:
+    """Every chat-app turn from `datasets/chat_ground_truth.jsonl`,
+    grouped by `conversation_id` and kept in turn order - callers replay
+    each conversation's turns in sequence through `build_chat_graph()`,
+    rather than loading rows independently, since a later turn's
+    expected condensing result depends on the real conversation history
+    earlier turns in the same conversation actually produced."""
+    rows = []
+    with CHAT_GROUND_TRUTH_PATH.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(json.loads(line))
+
+    conversations: dict[str, list[dict]] = {}
+    for row in sorted(rows, key=lambda r: (r["conversation_id"], r["turn"])):
+        conversations.setdefault(row["conversation_id"], []).append(row)
+    return conversations
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -72,3 +94,18 @@ def compiled_graph():
     """Build the graph once per test session - each test invokes it fresh
     with its own question, but the compiled StateGraph object is reusable."""
     return build_graph()
+
+
+@pytest.fixture(scope="session")
+def compiled_chat_graph():
+    """Build the chat-app graph once per test session, with ONE shared
+    `InMemorySaver` checkpointer - distinct conversations stay isolated
+    from each other via distinct `thread_id`s (see app/chat/graph.py's
+    docstring), not distinct checkpointer instances, the same way a
+    single production checkpointer instance would serve every real
+    conversation."""
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    from app.chat.graph import build_chat_graph
+
+    return build_chat_graph(checkpointer=InMemorySaver())
