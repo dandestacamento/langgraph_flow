@@ -101,7 +101,7 @@ steps:
       path: routing_lab3/.chroma
     displayName: "Cache Chroma vector index"
 
-  - script: "$(CI_VENV)\Scripts\python.exe" -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
+  - script: $(CI_VENV)\Scripts\python.exe -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
     workingDirectory: routing_lab3
     displayName: "Run backend test suite (pytest)"
     env:
