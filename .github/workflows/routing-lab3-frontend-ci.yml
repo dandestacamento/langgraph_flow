@@ -1,0 +1,62 @@
+name: routing_lab3 frontend CI
+
+# Scoped to routing_lab3/frontend per
+# instructions/learnings/chat-ui-plan1.md section 2.5/4 (Phase B) - build
+# + lint + unit tests + the Playwright e2e smoke test on every change
+# touching the frontend. Deliberately does not touch anything under
+# routing_lab3/app/ or routing_lab3/tests/ (the Python backend's own
+# 228-row/10-level ground-truth suite, which has its own separate,
+# much longer-running, LLM-cost-incurring test process and is not run
+# from this workflow).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "routing_lab3/frontend/**"
+      - ".github/workflows/routing-lab3-frontend-ci.yml"
+  pull_request:
+    paths:
+      - "routing_lab3/frontend/**"
+      - ".github/workflows/routing-lab3-frontend-ci.yml"
+
+defaults:
+  run:
+    working-directory: routing_lab3/frontend
+
+jobs:
+  build-lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: routing_lab3/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check + build
+        run: npm run build
+
+      - name: Unit/component tests (vitest)
+        run: npm run test
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end smoke tests (Playwright)
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: routing_lab3/frontend/playwright-report/
+          retention-days: 7

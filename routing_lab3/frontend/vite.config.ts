@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -16,5 +16,13 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/setupTests.ts'],
+    // Playwright's own tests live in e2e/ and run via `npm run test:e2e`,
+    // not vitest - exclude them so `npm run test` only runs unit/component tests.
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 })

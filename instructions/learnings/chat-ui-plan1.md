@@ -207,6 +207,19 @@ consistent with the rest of this repo's stack.
    frontend up early rather than accumulating more untested surface area first. **Exit criteria**:
    CI fails on a deliberately introduced regression in each of `useChat`, `RoutingDetails`, and the
    e2e flow.
+   **Done**: 17 `vitest`/Testing Library unit/component tests (`useChat`, `RoutingDetails`,
+   `ChatWindow`, `MarkdownMessage` - including a sanitization test confirming a `<img onerror=...>`
+   payload never reaches the DOM, and `CopyButton`), 3 Playwright e2e tests
+   (`e2e/chat.spec.ts`) mocking `/api/chat/stream` at the network boundary rather than requiring a
+   live LLM-backed server - deliberate, since the pipeline's own correctness is already covered
+   exhaustively by `routing_lab3/tests`' ground truth; this suite's job is the frontend's own
+   behavior (SSE parsing/rendering/error-retry), which it now actually does cover end-to-end,
+   including the exact send→stream→expand-citations flow and the error+Retry flow validated
+   manually in Phase A. The third e2e test runs `@axe-core/playwright` against a populated
+   conversation and found **zero serious/critical accessibility violations** on the first try - a
+   genuine, not just assumed, positive result from the semantic HTML already in place. CI wired via
+   `.github/workflows/routing-lab3-frontend-ci.yml` (build+lint+unit+e2e on every change under
+   `routing_lab3/frontend/`).
 3. **Phase C - Containerization & deployment.** Dockerfile, production nginx reverse-proxy config
    for `/api`, CI build/push. Depends on nothing else here, needed before any real deployment
    regardless of auth/backend progress. **Exit criteria**: the containerized frontend, pointed at a
