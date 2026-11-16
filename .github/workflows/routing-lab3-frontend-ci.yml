@@ -1,22 +1,28 @@
 name: routing_lab3 frontend CI
 
 # Scoped to routing_lab3/frontend per
-# instructions/learnings/chat-ui-plan1.md section 2.5/4 (Phases B and C)
-# - build + lint + unit tests + the Playwright e2e smoke test, then a
-# Docker build validation, on every change touching the frontend.
-# Deliberately does not touch anything under routing_lab3/app/ or
-# routing_lab3/tests/ (the Python backend's own 228-row/10-level
-# ground-truth suite, which has its own separate, much longer-running,
-# LLM-cost-incurring test process and is not run from this workflow).
+# instructions/learnings/chat-ui-plan1.md section 2.5/4 (Phases B, C,
+# and D) - build + lint + unit tests + the Playwright e2e smoke test
+# (now driving a real Keycloak login, not a mocked one), then a Docker
+# build validation, on every change touching the frontend or its
+# Keycloak realm config. Deliberately does not touch anything under
+# routing_lab3/app/ or routing_lab3/tests/ (the Python backend's own
+# 228-row/10-level ground-truth suite, which has its own separate,
+# much longer-running, LLM-cost-incurring test process and is not run
+# from this workflow).
 on:
   push:
     branches: [main]
     paths:
       - "routing_lab3/frontend/**"
+      - "routing_lab3/infra/keycloak/**"
+      - "routing_lab3/docker-compose.yml"
       - ".github/workflows/routing-lab3-frontend-ci.yml"
   pull_request:
     paths:
       - "routing_lab3/frontend/**"
+      - "routing_lab3/infra/keycloak/**"
+      - "routing_lab3/docker-compose.yml"
       - ".github/workflows/routing-lab3-frontend-ci.yml"
 
 defaults:
@@ -28,6 +34,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The e2e suite drives a real Keycloak login (no auth mocking -
+      # see e2e/chat.spec.ts's module docstring) against the same
+      # docker-compose.yml a developer runs locally
+      # (routing_lab3/docker-compose.yml) - reusing that file instead of
+      # a separate CI-only service container definition, and started as
+      # a regular step (not GitHub Actions' `services:` block) because
+      # services start before `actions/checkout`, too early to mount the
+      # realm-export.json this step's volume needs.
+      - name: Start Keycloak
+        working-directory: routing_lab3
+        run: |
+          docker compose up -d
+          timeout 120 bash -c 'until curl -sf http://localhost:8081/realms/routing-lab3/.well-known/openid-configuration > /dev/null; do sleep 2; done'
 
       - uses: actions/setup-node@v4
         with:
@@ -60,6 +80,11 @@ jobs:
           name: playwright-report
           path: routing_lab3/frontend/playwright-report/
           retention-days: 7
+
+      - name: Stop Keycloak
+        if: always()
+        working-directory: routing_lab3
+        run: docker compose down -v
 
   docker-build:
     needs: build-lint-test

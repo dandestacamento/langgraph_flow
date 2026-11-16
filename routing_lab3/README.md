@@ -1019,6 +1019,15 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   production self-hosting (Elastic License 2.0); see
   [`routing-lab-prod-plan.md`](../instructions/learnings/routing-lab-prod-plan.md)
   section 0/2.10 for the full reasoning.
+- `app/api/auth.py` - verifies Keycloak-issued bearer tokens on `/chat`
+  and `/chat/stream` and enforces per-user `thread_id` ownership (see
+  `infra/keycloak/` below and
+  [`routing-lab-prod-plan.md`](../instructions/learnings/routing-lab-prod-plan.md)
+  section 2.1).
+- `infra/keycloak/` + `docker-compose.yml` - a self-hosted Keycloak realm
+  (declarative `realm-export.json` import, two demo users) for local
+  authentication - **development only**, see `infra/keycloak/README.md`
+  for exactly what a real deployment still needs.
 - `frontend/` - a minimal Vite + React + TypeScript + Tailwind chat UI
   that talks only to `app/api/main.py`'s own endpoints (no LangGraph
   Server protocol dependency, unlike the official
@@ -1031,6 +1040,11 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   testing without starting the API/frontend.
 
 ```powershell
+# Terminal 0 (first run, and any time Keycloak needs to be running - see
+# infra/keycloak/README.md): Keycloak, required since /chat and
+# /chat/stream now require a login (chat-ui-plan1.md section 4's Phase D)
+docker compose up -d
+
 # Terminal 1: the chat API (from routing_lab3\)
 ..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
 
@@ -1038,11 +1052,14 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
 # npm install)
 cd frontend
 npm run dev
-# Then open http://localhost:5173 - the Vite dev server proxies "/api/*"
-# to the backend on port 8000 (see vite.config.ts), so no CORS setup is
-# needed in development.
+# Then open http://localhost:5173 - you'll be redirected to Keycloak's
+# login page first (demo / demo-password, or demo2 / demo-password - see
+# infra/keycloak/README.md). The Vite dev server proxies "/api/*" to the
+# backend on port 8000 (see vite.config.ts), so no CORS setup is needed
+# in development.
 
-# Or, for a quick terminal-only check without either server:
+# Or, for a quick terminal-only check without either server (bypasses
+# auth entirely, since it calls build_chat_graph() directly, not the API):
 ..\.venv\Scripts\python.exe scripts\chat_cli.py
 ```
 

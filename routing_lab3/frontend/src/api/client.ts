@@ -8,6 +8,8 @@
  * routes, `/chat` and `/chat/stream`.
  */
 
+import { getValidToken } from "../auth/keycloak";
+
 // In dev, Vite's server.proxy (vite.config.ts) forwards "/api/*" to the
 // FastAPI backend on localhost:8000, so this works out of the box with
 // no CORS configuration. Override via VITE_API_BASE_URL for other
@@ -80,9 +82,10 @@ export async function sendChatMessage(
   threadId: string,
   message: string,
 ): Promise<ChatResponse> {
+  const token = await getValidToken();
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ thread_id: threadId, message }),
   });
   if (!response.ok) {
@@ -104,9 +107,10 @@ export async function streamChatMessage(
   onEvent: (event: StreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  const token = await getValidToken();
   const response = await fetch(`${API_BASE_URL}/chat/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ thread_id: threadId, message }),
     signal,
   });

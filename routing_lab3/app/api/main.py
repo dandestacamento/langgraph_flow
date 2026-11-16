@@ -13,6 +13,11 @@ client's responsibility to generate and track (e.g. one per browser
 session, the same pattern `smarthome-csr/app.py` already uses with
 Streamlit's `st.session_state`).
 
+`/chat` and `/chat/stream` require a valid Keycloak-issued bearer token
+(see app/api/auth.py) and enforce that a `thread_id` can only be resumed
+by the user who first used it (`ThreadOwnershipRegistry`) - closing the
+gap flagged in instructions/learnings/chat-ui-plan1.md section 6.
+
 Exposes two endpoints:
 - `POST /chat` - synchronous, returns the full turn's result as JSON.
 - `POST /chat/stream` - Server-Sent Events, one `status` event per graph
@@ -42,12 +47,13 @@ load_dotenv(find_dotenv())
 
 import os  # noqa: E402
 
-from fastapi import FastAPI  # noqa: E402
+from fastapi import Depends, FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
+from app.api.auth import ThreadOwnershipRegistry, get_current_user  # noqa: E402
 from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
@@ -76,6 +82,10 @@ app.add_middleware(
 # changes, build_chat_graph() just takes a different checkpointer.
 _chat_graph = build_chat_graph(checkpointer=InMemorySaver())
 
+# In-memory only, same non-durability caveat as the checkpointer above -
+# see ThreadOwnershipRegistry's own docstring (app/api/auth.py).
+_thread_ownership = ThreadOwnershipRegistry()
+
 
 class ChatRequest(BaseModel):
     thread_id: str
@@ -98,10 +108,11 @@ def health() -> dict:
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
+def chat(request: ChatRequest, user: str = Depends(get_current_user)) -> ChatResponse:
     """One synchronous turn: invokes the chat graph and returns the full
     result. Simpler to call/test than `/chat/stream` - use this for
     anything that doesn't need incremental progress updates."""
+    _thread_ownership.check_and_record(request.thread_id, user)
     config = {"configurable": {"thread_id": request.thread_id}}
     output = _chat_graph.invoke({"user_message": request.message}, config=config)
     return ChatResponse(
@@ -113,11 +124,12 @@ def chat(request: ChatRequest) -> ChatResponse:
 
 
 @app.post("/chat/stream")
-def chat_stream(request: ChatRequest) -> StreamingResponse:
+def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> StreamingResponse:
     """Streams this turn's progress as Server-Sent Events: a `status`
     event each time a graph node (`condense`/`invoke_routing_pipeline`/
     `record_turn`) finishes, then a final `answer` event with the
     complete response."""
+    _thread_ownership.check_and_record(request.thread_id, user)
     config = {"configurable": {"thread_id": request.thread_id}}
 
     def event_stream():

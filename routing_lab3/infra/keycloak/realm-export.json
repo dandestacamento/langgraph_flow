@@ -1,0 +1,44 @@
+{
+  "realm": "routing-lab3",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "routing-lab3-frontend",
+      "name": "routing_lab3 chat frontend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:8080/*"],
+      "webOrigins": ["http://localhost:5173", "http://localhost:8080"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:8080/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "demo",
+      "enabled": true,
+      "email": "demo@example.com",
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "demo-password", "temporary": false }]
+    },
+    {
+      "username": "demo2",
+      "enabled": true,
+      "email": "demo2@example.com",
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "UserTwo",
+      "credentials": [{ "type": "password", "value": "demo-password", "temporary": false }]
+    }
+  ]
+}

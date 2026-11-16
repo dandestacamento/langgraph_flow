@@ -110,6 +110,19 @@ Gap (from `routing-lab3-chat-app-plan.md` §8): "nothing exists today - the Stre
   Keycloak specifically if genuine multi-tenant/enterprise SSO is a near-term requirement;
   Authentik is a reasonable lighter substitute otherwise.
 
+**Done (basic single-realm authentication, not yet multi-tenant)**: Keycloak runs via
+`routing_lab3/docker-compose.yml` (dev mode - see `infra/keycloak/README.md` for exactly what
+still needs hardening for real production use), its realm/client/demo-users declared in
+`infra/keycloak/realm-export.json`. `app/api/auth.py` verifies tokens against the realm's JWKS
+endpoint; `ThreadOwnershipRegistry` enforces per-user thread isolation (not yet per-tenant realm
+mapping - that's the one piece of this section's original scope not yet built, since this project
+currently has one realm, not one per tenant). Verified end-to-end via a real browser login, and
+via 8 new backend tests (`tests/test_chat_api.py`) covering missing/invalid/wrong-client tokens and
+cross-user thread access. Frontend integration (`keycloak-js`, protected routes, bearer-token
+requests) is recorded in `instructions/learnings/chat-ui-plan1.md` §4's Phase D, together with one
+real limitation found: the frontend's Keycloak URL is baked in at Vite build time, unlike the
+backend API's runtime-configurable nginx proxy (Phase C) - not yet fixed.
+
 ### 2.2 Durable persistence - **PostgreSQL + `langgraph-checkpoint-postgres`**
 
 Gap: `routing-lab3-chat-app-plan.md` §6 explicitly scoped the checkpointer as `InMemorySaver`

@@ -244,6 +244,33 @@ consistent with the rest of this repo's stack.
    adding the thread-ownership check flagged in §2.3/§6 - both need to land together, since an OIDC
    login with no corresponding backend authorization check would be security theater. **Exit
    criteria**: logging in as user A and attempting to resume user B's `thread_id` is rejected.
+   **Done**: Keycloak (`quay.io/keycloak/keycloak:26.7`, Apache-2.0) runs via
+   `routing_lab3/docker-compose.yml` in Quarkus dev mode, with its one realm, public frontend
+   client (PKCE), and two demo users imported declaratively from `infra/keycloak/realm-export.json`
+   at every startup - no manual admin-console configuration. Backend: `app/api/auth.py` verifies
+   tokens against the realm's JWKS endpoint (`PyJWT[crypto]`, algorithm pinned to RS256, `azp`
+   checked against the expected client id) and `ThreadOwnershipRegistry` enforces the §6 fix (8
+   new backend tests, including the exact "user A's thread_id is rejected for user B" exit
+   criterion). Frontend: `src/auth/keycloak.ts` (`keycloak-js`) gates the whole app behind
+   `onLoad: "login-required"`; `src/api/client.ts` attaches a refreshed bearer token to every
+   request; a logout button was added to the header.
+
+   **Verified end-to-end for real, not just unit-tested**: navigated to the running app, was
+   redirected to Keycloak's actual login page, logged in as the `demo` user, and completed a real
+   authenticated conversation through the real backend. The Playwright e2e suite (`e2e/chat.spec.ts`)
+   was updated to drive this same real login (no auth mocking) rather than bypassing it, and CI
+   (`routing-lab3-frontend-ci.yml`) now starts/stops the same `docker-compose.yml` Keycloak instance
+   around the test run.
+
+   **One real limitation found and documented, not yet fixed**: unlike the backend API proxy
+   (Phase C, resolved purely at container *startup* via nginx envsubst), the frontend's Keycloak
+   URL (`VITE_KEYCLOAK_URL`) is a Vite env var baked in at *build* time - the browser talks to
+   Keycloak directly, not through the nginx reverse proxy, so there's currently no runtime-injection
+   equivalent for it. A single built container image is therefore not yet portable across
+   environments with different Keycloak URLs without a rebuild; fixing this (e.g. a small
+   runtime-config script the container's entrypoint writes from env vars, read by `index.html`
+   before the bundle loads) is a reasonable future addition, not done here to keep this phase
+   bounded.
 5. **Phase E - Multi-conversation UX + observability.** Conversation list/switcher (needs the
    server-side thread-listing-per-user endpoint Phase D's auth makes possible), frontend error
    reporting into Grafana/Loki. Depends on Phase D (threads scoped per user) and
@@ -255,15 +282,16 @@ consistent with the rest of this repo's stack.
 
 ## 5. Acceptance checklist
 
-- [ ] A real user can complete a multi-turn conversation with correctly rendered Markdown and
-      working citations/tool-result panels, on both desktop and a phone-width viewport.
-- [ ] `vitest`/Testing Library unit tests and a Playwright e2e smoke test both run in CI and fail on
-      a deliberately introduced regression.
-- [ ] `axe-core` reports no violations on the chat screen.
-- [ ] The production container serves the app and proxies `/api` correctly with zero
-      frontend-side environment configuration.
-- [ ] Logging in via Keycloak works end-to-end; a token from one user cannot resume another user's
-      `thread_id` (the gap identified in §2.3/§6).
+- [x] A real user can complete a multi-turn conversation with correctly rendered Markdown and
+      working citations/tool-result panels, on both desktop and a phone-width viewport. (Phase A)
+- [x] `vitest`/Testing Library unit tests and a Playwright e2e smoke test both run in CI and fail on
+      a deliberately introduced regression. (Phase B)
+- [x] `axe-core` reports no violations on the chat screen. (Phase B)
+- [x] The production container serves the app and proxies `/api` correctly with zero
+      frontend-side environment configuration. (Phase C - note: this does not yet extend to the
+      Keycloak URL, which is still build-time, not runtime-configurable - see Phase D's write-up.)
+- [x] Logging in via Keycloak works end-to-end; a token from one user cannot resume another user's
+      `thread_id` (the gap identified in §2.3/§6). (Phase D)
 - [ ] A deliberately induced frontend error (e.g. throwing inside a component) is caught by the
       error boundary and appears in Grafana/Loki, not just the browser console.
 - [ ] Bundle size stays within the budget set in §2.5; a regression here is visible in CI, not
@@ -275,6 +303,11 @@ consistent with the rest of this repo's stack.
 ---
 
 ## 6. A gap this plan surfaces for `routing-lab-prod-plan.md`
+
+**Fixed** (Phase D): `app/api/auth.py`'s `ThreadOwnershipRegistry` now rejects (403) any
+`/chat`/`/chat/stream` call where the authenticated token's `sub` doesn't match the `thread_id`'s
+recorded owner - see `routing-lab-prod-plan.md` §2.1 for what was actually built. Left below for
+context on why this mattered, not because it's still open.
 
 While scoping the UI's auth integration (§2.3/Phase D), this plan identified a **backend**
 authorization gap not previously called out: `app/api/main.py` never verifies that the caller

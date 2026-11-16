@@ -1,0 +1,20 @@
+# Keycloak, self-hosted (Apache-2.0) - per instructions/learnings/
+# routing-lab-prod-plan.md section 2.1/7. Runs in Quarkus "dev mode"
+# (`start-dev`), which uses an ephemeral, in-memory H2 database and
+# disables HTTPS - appropriate for local development/testing only, NOT
+# for production (see infra/keycloak/README.md). The realm, its one
+# public frontend client, and two demo users are imported declaratively
+# from realm-export.json at every startup (`--import-realm`) - git-
+# committable, reproducible configuration, no manual admin-console
+# clicking required to get a working local auth flow.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro

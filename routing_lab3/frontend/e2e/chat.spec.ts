@@ -1,14 +1,29 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 /**
  * Mocks the backend's `/api/chat/stream` SSE contract (per
  * app/api/main.py and src/api/client.ts) directly at the network
  * boundary - keeps this suite deterministic and free of any live
  * LLM/backend dependency, per playwright.config.ts's module docstring.
+ * Authentication is NOT mocked - the app now requires a real login via
+ * Keycloak (instructions/learnings/chat-ui-plan1.md section 2.3/Phase
+ * D), so `login` below drives the actual OIDC redirect against the
+ * demo realm in routing_lab3/infra/keycloak - that realm must be
+ * running (`docker compose up -d` from routing_lab3/, or the
+ * `keycloak` service container in CI) for this suite to pass.
  */
 function sseBody(events: Array<{ event: string; data: unknown }>): string {
   return events.map(({ event, data }) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join("");
+}
+
+async function login(page: Page, username = "demo", password = "demo-password"): Promise<void> {
+  await page.goto("/");
+  await page.locator("#username").fill(username);
+  await page.locator("#password").fill(password);
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await page.waitForURL("**/localhost:5173/**");
 }
 
 const ROUTING_SUMMARY_FIXTURE = {
@@ -54,7 +69,7 @@ test("sends a message, shows streaming status, then renders the Markdown answer 
     });
   });
 
-  await page.goto("/");
+  await login(page);
   await page.getByPlaceholder("Type your message…").fill("What does washing machine error E21 mean?");
   await page.getByRole("button", { name: "Send" }).click();
 
@@ -87,7 +102,7 @@ test("shows an error banner with a working Retry button on a backend failure", a
     }
   });
 
-  await page.goto("/");
+  await login(page);
   await page.getByPlaceholder("Type your message…").fill("Trigger a failure");
   await page.getByRole("button", { name: "Send" }).click();
 
@@ -111,7 +126,7 @@ test("has no serious/critical accessibility violations once a conversation is po
     });
   });
 
-  await page.goto("/");
+  await login(page);
   await page.getByPlaceholder("Type your message…").fill("What does washing machine error E21 mean?");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("E21 is a drainage fault.")).toBeVisible();
