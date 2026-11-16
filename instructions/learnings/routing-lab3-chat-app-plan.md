@@ -233,6 +233,25 @@ latter).
 - **Multi-hop/multi-topic questions across turns**: Level 9 (multi-hop) already recursively invokes
   `build_graph()` for sub-questions within a single turn - interaction between that and
   cross-turn follow-ups needs explicit test cases, not just assumed to work.
+- **Observed consequence of the first bullet above, not a new issue**: live-tested in the
+  `routing_lab3/frontend` UI with a real multi-turn conversation (E21 meaning -> "Is that covered
+  under warranty?" -> "What's the price of the WM-900 model?" -> "Thanks, that's really helpful.").
+  The first three turns condensed and routed correctly; the fourth - a plain conversational
+  acknowledgment, not a question - was still run through the full condense-and-route pipeline, and
+  `condense_question()` apparently treated it as an implicit request for more detail given the
+  recent WM-900 context, so the pipeline answered with a full WM-900 spec dump instead of just
+  acknowledging the thanks. This is exactly the tradeoff the first bullet already named in the
+  abstract ("every turn, even ones that aren't really follow-ups"), now confirmed as a real,
+  reproducible behavior rather than a hypothetical. **Not fixed yet** - options worth considering
+  later, roughly in order of how well they fit this project's "prefer a small always-on call over a
+  brittle gate" preference: (a) leave as-is (harmless but slightly odd UX - no incorrect
+  information, just an unnecessary re-answer); (b) have `condense_question()` itself recognize a
+  pure acknowledgment/no-question turn and return a sentinel the chat graph short-circuits on
+  (skips `invoke_routing_pipeline` entirely, answers with a canned "You're welcome!"-style
+  response) - adds a branch but reuses the condensing call already being made, not a new one; (c) a
+  dedicated lightweight classifier node - the heavier option, and the one this project's own
+  `complexity_router` precedent (routing-project-learnings.md §11, item 3) argues against adding
+  without clear evidence it's needed.
 
 ---
 
