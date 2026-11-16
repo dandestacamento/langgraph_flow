@@ -225,6 +225,20 @@ consistent with the rest of this repo's stack.
    regardless of auth/backend progress. **Exit criteria**: the containerized frontend, pointed at a
    real (non-`localhost`) backend URL purely via the reverse proxy, round-trips a real conversation
    with no `VITE_API_BASE_URL` set.
+   **Done**: multi-stage `Dockerfile` (Node builder -> `nginx:1.27-alpine` runtime, final image
+   ~21 MB of content), `docker/nginx.conf.template` (nginx's own built-in envsubst-on-templates
+   mechanism resolves `${BACKEND_HOST}`/`${BACKEND_PORT}` at container startup, not at build time -
+   `proxy_buffering off` specifically for `/api/chat/stream`'s SSE response). Verified for real:
+   built the image, ran the actual FastAPI backend on the host, started the container with
+   `BACKEND_HOST=host.docker.internal` (no `VITE_API_BASE_URL` anywhere), and completed a full
+   conversation turn (including expanding "Routing details" and confirming the complete JSON
+   payload survived the proxy) through a real browser hitting only the container's port. Found and
+   fixed one real bug this surfaced: the `HEALTHCHECK`'s `wget http://localhost/` failed with
+   "Connection refused" inside the Alpine container, because Alpine resolves `localhost` to `::1`
+   first and nginx wasn't listening on IPv6 - fixed by targeting `http://127.0.0.1/` explicitly;
+   confirmed `healthy` afterward. CI extended with a `docker-build` job (build-only, no push yet -
+   no container registry/credentials exist to push to; see `routing-lab-prod-plan.md` §7 for the
+   planned ACR/ECR target once that's wired up).
 4. **Phase D - Auth integration.** OIDC flow against Keycloak, protected routes, bearer-token
    requests. Depends on `routing-lab-prod-plan.md` Phase A (Keycloak live) **and** on the backend
    adding the thread-ownership check flagged in §2.3/§6 - both need to land together, since an OIDC

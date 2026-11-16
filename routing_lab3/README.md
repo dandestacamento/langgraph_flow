@@ -1046,6 +1046,20 @@ npm run dev
 ..\.venv\Scripts\python.exe scripts\chat_cli.py
 ```
 
+**Running the frontend as a container** (per
+[`chat-ui-plan1.md`](../instructions/learnings/chat-ui-plan1.md) section 4's Phase C):
+
+```powershell
+cd frontend
+docker build -t routing-lab3-frontend .
+
+# BACKEND_HOST/BACKEND_PORT are resolved at container *startup*, not baked
+# in at build time - host.docker.internal reaches a backend already
+# running on the host machine (e.g. via the uvicorn command above).
+docker run -d -p 8080:80 -e BACKEND_HOST=host.docker.internal -e BACKEND_PORT=8000 routing-lab3-frontend
+# Then open http://localhost:8080 - no VITE_API_BASE_URL needed in either case.
+```
+
 ## Batch Routing Test Runner
 
 ### Quick reference

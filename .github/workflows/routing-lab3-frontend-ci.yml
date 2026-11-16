@@ -1,13 +1,13 @@
 name: routing_lab3 frontend CI
 
 # Scoped to routing_lab3/frontend per
-# instructions/learnings/chat-ui-plan1.md section 2.5/4 (Phase B) - build
-# + lint + unit tests + the Playwright e2e smoke test on every change
-# touching the frontend. Deliberately does not touch anything under
-# routing_lab3/app/ or routing_lab3/tests/ (the Python backend's own
-# 228-row/10-level ground-truth suite, which has its own separate,
-# much longer-running, LLM-cost-incurring test process and is not run
-# from this workflow).
+# instructions/learnings/chat-ui-plan1.md section 2.5/4 (Phases B and C)
+# - build + lint + unit tests + the Playwright e2e smoke test, then a
+# Docker build validation, on every change touching the frontend.
+# Deliberately does not touch anything under routing_lab3/app/ or
+# routing_lab3/tests/ (the Python backend's own 228-row/10-level
+# ground-truth suite, which has its own separate, much longer-running,
+# LLM-cost-incurring test process and is not run from this workflow).
 on:
   push:
     branches: [main]
@@ -60,3 +60,20 @@ jobs:
           name: playwright-report
           path: routing_lab3/frontend/playwright-report/
           retention-days: 7
+
+  docker-build:
+    needs: build-lint-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Validates the Dockerfile actually builds (catches the same class
+      # of issue this phase's manual testing found - the IPv6
+      # localhost-resolution healthcheck bug - before it reaches a real
+      # deployment). Does NOT push: no container registry is wired up
+      # yet (ACR/ECR per instructions/learnings/routing-lab-prod-plan.md
+      # section 7's cloud mapping) - pushing is a follow-up once that
+      # credential/registry setup exists, not faked here.
+      - name: Build image
+        run: docker build -t routing-lab3-frontend:ci-${{ github.sha }} .
+
