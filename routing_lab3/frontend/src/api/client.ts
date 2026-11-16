@@ -14,10 +14,52 @@
 // deployments (e.g. a separately hosted backend in production).
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
+export interface RetrievedPassage {
+  chapter_id: string | null;
+  document_id: string | null;
+  subtopic: string | null;
+  score: number | null;
+  text: string | null;
+}
+
+export interface ToolResult {
+  tool_name: string;
+  tool_input: string;
+  output: string | null;
+  error: string | null;
+}
+
+export interface HopResult {
+  hop_number: number;
+  question: string;
+  final_answer: string;
+  extracted_value: string | null;
+}
+
+export interface RecoveryAttempt {
+  attempted: boolean;
+  reason: string | null;
+  succeeded: boolean | null;
+}
+
+/** Trimmed per-turn routing/retrieval/tool trace - mirrors
+ * app/chat/routing_summary.py's `build_routing_summary` output exactly. */
+export interface RoutingSummary {
+  topics: string[];
+  subtopics: Record<string, string>;
+  chapters: Record<string, string>;
+  passages: Record<string, RetrievedPassage[]>;
+  tool_results: Record<string, ToolResult>;
+  is_multi_hop: boolean;
+  hop_results: HopResult[];
+  recovery_attempts: Record<string, RecoveryAttempt>;
+}
+
 export interface ChatResponse {
   thread_id: string;
   self_contained_question: string;
   final_answer: string;
+  routing_summary: RoutingSummary;
 }
 
 export interface StreamStatusEvent {
@@ -28,6 +70,7 @@ export interface StreamStatusEvent {
 export interface StreamAnswerEvent {
   type: "answer";
   final_answer: string;
+  routing_summary: RoutingSummary;
 }
 
 export type StreamEvent = StreamStatusEvent | StreamAnswerEvent;
@@ -93,7 +136,7 @@ export async function streamChatMessage(
       if (eventName === "status") {
         onEvent({ type: "status", node: data.node });
       } else if (eventName === "answer") {
-        onEvent({ type: "answer", final_answer: data.final_answer });
+        onEvent({ type: "answer", final_answer: data.final_answer, routing_summary: data.routing_summary });
       }
     }
   }

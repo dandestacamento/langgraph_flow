@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sendChatMessage, streamChatMessage } from "../api/client";
+import type { RoutingSummary } from "../api/client";
 
 export interface ChatMessage {
   id: string;
@@ -9,6 +10,9 @@ export interface ChatMessage {
   /** Populated only on assistant messages, while the answer is still
    * streaming in (last node completed so far, e.g. "rag_retriever"). */
   statusNode?: string;
+  /** Populated once the turn completes - the routing/retrieval/tool
+   * trace behind this answer, rendered by RoutingDetails. */
+  routingSummary?: RoutingSummary;
 }
 
 const THREAD_ID_STORAGE_KEY = "routing-lab3-chat-thread-id";
@@ -72,7 +76,12 @@ export function useChat() {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMessageId
-                      ? { ...m, content: event.final_answer, statusNode: undefined }
+                      ? {
+                          ...m,
+                          content: event.final_answer,
+                          statusNode: undefined,
+                          routingSummary: event.routing_summary,
+                        }
                       : m,
                   ),
                 );
@@ -84,7 +93,9 @@ export function useChat() {
           const response = await sendChatMessage(threadId, trimmed);
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantMessageId ? { ...m, content: response.final_answer } : m,
+              m.id === assistantMessageId
+                ? { ...m, content: response.final_answer, routingSummary: response.routing_summary }
+                : m,
             ),
           );
         }

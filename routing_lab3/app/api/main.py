@@ -50,6 +50,7 @@ from pydantic import BaseModel  # noqa: E402
 
 from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
+from app.chat.routing_summary import build_routing_summary  # noqa: E402
 
 enable_llm_cache()
 
@@ -85,6 +86,10 @@ class ChatResponse(BaseModel):
     thread_id: str
     self_contained_question: str
     final_answer: str
+    # Trimmed per-turn routing/retrieval/tool trace for generative UI -
+    # see app/chat/routing_summary.py for exactly what this contains and
+    # what's deliberately left out.
+    routing_summary: dict
 
 
 @app.get("/health")
@@ -103,6 +108,7 @@ def chat(request: ChatRequest) -> ChatResponse:
         thread_id=request.thread_id,
         self_contained_question=output["self_contained_question"],
         final_answer=output["final_answer"],
+        routing_summary=build_routing_summary(output.get("routing_result", {})),
     )
 
 
@@ -121,7 +127,12 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:
             for node_name, node_output in update.items():
                 yield f"event: status\ndata: {json.dumps({'node': node_name})}\n\n"
                 if node_name == "invoke_routing_pipeline":
-                    answer_payload = {"final_answer": node_output.get("final_answer", "")}
+                    answer_payload = {
+                        "final_answer": node_output.get("final_answer", ""),
+                        "routing_summary": build_routing_summary(
+                            node_output.get("routing_result", {})
+                        ),
+                    }
                     yield f"event: answer\ndata: {json.dumps(answer_payload)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

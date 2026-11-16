@@ -1,9 +1,10 @@
 import type { ChatMessage } from "../hooks/useChat";
+import { RoutingDetails } from "./RoutingDetails";
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       <div
         className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
           isUser
@@ -19,6 +20,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <span className="text-slate-500 italic">Thinking…</span>
         )}
       </div>
+      {!isUser && message.routingSummary && (
+        <div className="max-w-[75%]">
+          <RoutingDetails summary={message.routingSummary} />
+        </div>
+      )}
     </div>
   );
 }

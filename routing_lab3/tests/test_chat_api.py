@@ -34,6 +34,9 @@ def test_chat_endpoint_answers_a_self_contained_question() -> None:
     assert response.status_code == 200
     body = response.json()
     assert "drainage" in body["final_answer"].lower()
+    assert "appliances" in body["routing_summary"]["topics"]
+    assert body["routing_summary"]["chapters"]["appliances"]
+    assert body["routing_summary"]["passages"]["appliances"], "expected at least one cited passage"
 
 
 def test_chat_endpoint_resolves_a_follow_up_across_requests() -> None:
@@ -68,3 +71,4 @@ def test_chat_stream_endpoint_emits_status_then_answer_events() -> None:
     assert "answer" in event_names
     answer_payload = next(data for name, data in events if name == "answer")
     assert "drainage" in answer_payload["final_answer"].lower()
+    assert "appliances" in answer_payload["routing_summary"]["topics"]
