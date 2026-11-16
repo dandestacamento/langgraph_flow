@@ -1,0 +1,104 @@
+# Azure Pipelines CI for routing_lab3's Python backend - the suite
+# .github/workflows/routing-lab3-frontend-ci.yml deliberately excludes
+# ("its own separate, much longer-running, LLM-cost-incurring test
+# process"). Kept as a separate pipeline definition/tool (Azure
+# Pipelines, not GitHub Actions) specifically for the backend, per
+# instructions/learnings/routing-lab-prod-plan.md section 2.7 - the
+# frontend's GitHub Actions workflow is untouched by this file.
+#
+# Requires one secret pipeline variable, set in the Azure DevOps UI
+# (Pipeline -> Edit -> Variables -> New variable -> check "Keep this
+# value secret"), NOT committed here:
+#   OPENAI_API_KEY - every one of the ~432 tests in routing_lab3/tests/
+#   makes real, billed OpenAI API calls (routing/condensing/embedding),
+#   same as running them locally - there is no mocked/free path.
+#
+# Runs on every push and PR touching the backend (routing_lab3/app/,
+# routing_lab3/tests/, its dependency manifest, or this file itself) -
+# a deliberate cost/coverage tradeoff: catches a regression on every
+# change, at the cost of a real OpenAI bill per run. The Chroma index
+# (routing_lab3/.chroma/) is cached across runs, keyed on
+# knowledge_base/'s own contents, so routine runs reuse an already-built
+# index rather than re-embedding the entire knowledge base (and its
+# OpenAI embedding cost) every single time - only a knowledge_base/
+# change invalidates it.
+trigger:
+  branches:
+    include: ["main"]
+  paths:
+    include:
+      - routing_lab3/app/*
+      - routing_lab3/tests/*
+      - routing_lab3/requirements.txt
+      - routing_lab3/knowledge_base/*
+      - routing_lab3/datasets/*
+      - azure-pipelines.yml
+
+pr:
+  branches:
+    include: ["main"]
+  paths:
+    include:
+      - routing_lab3/app/*
+      - routing_lab3/tests/*
+      - routing_lab3/requirements.txt
+      - routing_lab3/knowledge_base/*
+      - routing_lab3/datasets/*
+      - azure-pipelines.yml
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  PIP_CACHE_DIR: $(Pipeline.Workspace)/.pip-cache
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.13"
+    displayName: "Use Python 3.13"
+
+  # Keyed on requirements.txt's own hash - a change to it invalidates
+  # the cache automatically; otherwise reused across runs to skip
+  # re-downloading the same wheels every time.
+  - task: Cache@2
+    inputs:
+      key: 'pip | "$(Agent.OS)" | routing_lab3/requirements.txt'
+      restoreKeys: |
+        pip | "$(Agent.OS)"
+      path: $(PIP_CACHE_DIR)
+    displayName: "Cache pip packages"
+
+  - script: |
+      python -m pip install --cache-dir $(PIP_CACHE_DIR) --upgrade pip
+      python -m pip install --cache-dir $(PIP_CACHE_DIR) -r routing_lab3/requirements.txt
+    displayName: "Install backend dependencies"
+
+  # The Chroma index is deterministic from knowledge_base/ (see
+  # routing_lab3/tests/conftest.py's ensure_chroma_index_exists
+  # fixture's own docstring) - caching it here, keyed on
+  # knowledge_base/'s contents, means a routine run (no knowledge-base
+  # change) skips scripts/build_index.py's embedding calls entirely,
+  # the single largest avoidable slice of this pipeline's OpenAI cost.
+  - task: Cache@2
+    inputs:
+      key: 'chroma | "$(Agent.OS)" | routing_lab3/knowledge_base/**'
+      path: routing_lab3/.chroma
+    displayName: "Cache Chroma vector index"
+
+  - script: python -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
+    workingDirectory: routing_lab3
+    displayName: "Run backend test suite (pytest)"
+    env:
+      # Mapped explicitly from the secret pipeline variable of the same
+      # name - Azure Pipelines does not expose secret variables as
+      # environment variables to scripts unless mapped here.
+      OPENAI_API_KEY: $(OPENAI_API_KEY)
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: "JUnit"
+      testResultsFiles: "$(Agent.TempDirectory)/pytest-results.xml"
+      testRunTitle: "routing_lab3 backend (pytest)"
+    displayName: "Publish test results"
