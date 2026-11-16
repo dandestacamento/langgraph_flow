@@ -50,8 +50,18 @@ def ensure_chroma_index_exists():
     so `pytest` works without a manual step - but don't rebuild it every
     run; it's deterministic from `knowledge_base/`, so an existing index
     is left alone (re-run scripts/build_index.py by hand after editing
-    the knowledge base generation script)."""
-    if not CHROMA_PERSIST_DIR.exists():
+    the knowledge base generation script).
+
+    Checks for `manifest.json` specifically, not just the `.chroma/`
+    directory's existence - `CHROMA_PERSIST_DIR` can exist but be empty
+    (e.g. Chroma's client lazily creates the directory as a side effect
+    of being instantiated at all, even with zero data added yet, if
+    something touches `get_vector_store()` before `build_index.py` ever
+    runs) and `.exists()` alone can't tell that apart from a real,
+    populated index - `manifest.json` is only ever written at the end of
+    a successful `build_index.py` run, so its presence is a much safer
+    signal."""
+    if not (CHROMA_PERSIST_DIR / "manifest.json").exists():
         from scripts.build_index import main as build_index
 
         build_index()
