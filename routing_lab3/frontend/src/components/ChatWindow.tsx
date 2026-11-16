@@ -30,6 +30,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <span className="text-slate-500 italic">Thinking…</span>
         )}
       </div>
+      {!isUser && message.guardrailBlockedReason && (
+        <span className="mt-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+          {message.guardrailBlockedReason === "prompt_injection"
+            ? "Blocked: this message was flagged as a prompt-injection attempt."
+            : "Redacted: part of this answer looked like a leaked credential."}
+        </span>
+      )}
       {!isUser && message.content && (
         <div className="mt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
           <CopyButton text={message.content} />

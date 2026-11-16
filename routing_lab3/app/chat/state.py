@@ -51,6 +51,17 @@ class ChatState(TypedDict):
     # Final answer shown to the user for this turn.
     final_answer: str
 
+    # Set by app.chat.graph.check_input / check_output
+    # (app.chat.guardrails.scan_input / scan_output) when a turn was
+    # blocked - "prompt_injection" (user_message rejected before
+    # condense/the routing pipeline ever ran) or "secret_leakage"
+    # (final_answer replaced before being returned/persisted). None
+    # when guardrails are disabled (the default) or the turn passed
+    # both scans - kept around for the same reason routing_result is:
+    # a future UI could surface it instead of silently rewriting the
+    # answer.
+    guardrail_blocked_reason: str | None
+
     # Per-turn history for this conversation - appended to once per
     # turn via `graph.record_turn`, never overwritten. With a
     # checkpointer and a stable thread_id (see smarthome-csr/app.py for

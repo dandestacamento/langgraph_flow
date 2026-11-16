@@ -175,6 +175,13 @@ class ChatResponse(BaseModel):
     # see app/chat/routing_summary.py for exactly what this contains and
     # what's deliberately left out.
     routing_summary: dict
+    # "prompt_injection" | "secret_leakage" | None - set by
+    # app.chat.graph's check_input/check_output nodes
+    # (app.chat.guardrails.py, instructions/learnings/
+    # routing-lab-prod-plan.md section 2.4) when this turn's
+    # final_answer is a safe fallback rather than the pipeline's real
+    # output. Always None when ROUTING_LAB_GUARDRAILS_ENABLED isn't set.
+    guardrail_blocked_reason: str | None = None
 
 
 @app.get("/health")
@@ -205,37 +212,65 @@ def chat(request: ChatRequest, user: str = Depends(get_current_user)) -> ChatRes
         self_contained_question=output["self_contained_question"],
         final_answer=output["final_answer"],
         routing_summary=build_routing_summary(output.get("routing_result", {})),
+        guardrail_blocked_reason=output.get("guardrail_blocked_reason"),
     )
 
 
 @app.post("/chat/stream")
 def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> StreamingResponse:
     """Streams this turn's progress as Server-Sent Events: a `status`
-    event each time a graph node (`condense`/`invoke_routing_pipeline`/
-    `record_turn`) finishes, then a final `answer` event with the
-    complete response - or an `error` event if the LLM gateway rejects a
-    call mid-stream (e.g. a budget-exceeded user). An `error` event, not
-    an HTTP status code, is used for this because streaming has already
-    started (with a 200) by the time such a rejection can happen."""
+    event each time a graph node (`check_input`/`condense`/
+    `invoke_routing_pipeline`/`check_output`/`record_turn`) finishes,
+    then one final `answer` event with the complete response - or an
+    `error` event if the LLM gateway rejects a call mid-stream (e.g. a
+    budget-exceeded user). An `error` event, not an HTTP status code, is
+    used for this because streaming has already started (with a 200) by
+    the time such a rejection can happen.
+
+    The `answer` event is deliberately emitted only once, after the
+    whole graph finishes - not as soon as `invoke_routing_pipeline`
+    completes - because `check_output`
+    (app.chat.guardrails.scan_output, instructions/learnings/
+    routing-lab-prod-plan.md section 2.4) runs *after* it and can
+    replace a leaked-secret answer with a safe fallback; emitting at
+    `invoke_routing_pipeline` would stream the unredacted answer before
+    that guardrail ever got a chance to run. `check_input` can also
+    short-circuit straight to `record_turn` without
+    `invoke_routing_pipeline` ever running (a blocked prompt-injection
+    attempt), so the running `final_answer`/`routing_result` are tracked
+    across every node update rather than read off one specific node."""
     _thread_ownership.check_and_record(request.thread_id, user)
     _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
 
     def event_stream():
+        final_answer = ""
+        routing_result: dict = {}
+        guardrail_blocked_reason = None
         try:
             for update in _chat_graph.stream(
                 {"user_message": request.message}, config=config, stream_mode="updates"
             ):
                 for node_name, node_output in update.items():
                     yield f"event: status\ndata: {json.dumps({'node': node_name})}\n\n"
-                    if node_name == "invoke_routing_pipeline":
-                        answer_payload = {
-                            "final_answer": node_output.get("final_answer", ""),
-                            "routing_summary": build_routing_summary(
-                                node_output.get("routing_result", {})
-                            ),
-                        }
-                        yield f"event: answer\ndata: {json.dumps(answer_payload)}\n\n"
+                    # `node_output` is None, not {}, for a node that
+                    # returned no state update at all (e.g. check_input/
+                    # check_output when nothing was blocked) - a real
+                    # bug hit while wiring these guardrail nodes in.
+                    if not node_output:
+                        continue
+                    if "final_answer" in node_output:
+                        final_answer = node_output["final_answer"]
+                    if "routing_result" in node_output:
+                        routing_result = node_output["routing_result"]
+                    if "guardrail_blocked_reason" in node_output:
+                        guardrail_blocked_reason = node_output["guardrail_blocked_reason"]
+            answer_payload = {
+                "final_answer": final_answer,
+                "routing_summary": build_routing_summary(routing_result),
+                "guardrail_blocked_reason": guardrail_blocked_reason,
+            }
+            yield f"event: answer\ndata: {json.dumps(answer_payload)}\n\n"
         except (RateLimitError, UnprocessableEntityError):
             # See the /chat endpoint's comment above for why both
             # exception types are caught here too.

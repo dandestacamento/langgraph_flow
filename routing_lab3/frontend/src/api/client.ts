@@ -62,6 +62,7 @@ export interface ChatResponse {
   self_contained_question: string;
   final_answer: string;
   routing_summary: RoutingSummary;
+  guardrail_blocked_reason?: string | null;
 }
 
 export interface StreamStatusEvent {
@@ -73,6 +74,7 @@ export interface StreamAnswerEvent {
   type: "answer";
   final_answer: string;
   routing_summary: RoutingSummary;
+  guardrail_blocked_reason?: string | null;
 }
 
 export type StreamEvent = StreamStatusEvent | StreamAnswerEvent;
@@ -140,7 +142,12 @@ export async function streamChatMessage(
       if (eventName === "status") {
         onEvent({ type: "status", node: data.node });
       } else if (eventName === "answer") {
-        onEvent({ type: "answer", final_answer: data.final_answer, routing_summary: data.routing_summary });
+        onEvent({
+          type: "answer",
+          final_answer: data.final_answer,
+          routing_summary: data.routing_summary,
+          guardrail_blocked_reason: data.guardrail_blocked_reason ?? null,
+        });
       } else if (eventName === "error") {
         // Emitted when the backend's LLM gateway rejects a call
         // mid-stream (e.g. a budget-exceeded user) - thrown rather than

@@ -1011,8 +1011,16 @@ condenses each follow-up question into a self-contained one using prior
 turns (`app/chat/condense.py`), then invokes the existing graph.
 
 - `app/chat/` - `state.py` (`ChatState`), `condense.py`, `graph.py`
-  (`build_chat_graph()`: `condense -> invoke_routing_pipeline ->
-  record_turn`)
+  (`build_chat_graph()`: `check_input -> [condense -> invoke_routing_pipeline
+  -> check_output] -> record_turn`)
+- `app/chat/guardrails.py` - prompt-injection input scanning
+  (`protectai/deberta-v3-base-prompt-injection-v2` via `transformers`)
+  and secrets-leakage output scanning (a focused regex scanner) - a
+  no-op unless `ROUTING_LAB_GUARDRAILS_ENABLED=1` (`app/config.py`'s
+  `GUARDRAILS_ENABLED`, same "off by default" convention as reranking's
+  `ROUTING_LAB_RERANK_ENABLED`). See
+  [`routing-lab-prod-plan.md`](../instructions/learnings/routing-lab-prod-plan.md)
+  section 2.4.
 - `app/api/main.py` - a small, custom, MIT-friendly FastAPI backend
   (`/health`, `/chat`, `/chat/stream`) - deliberately **not** LangGraph's
   packaged Agent Server, which requires a paid Enterprise license key for
@@ -1054,6 +1062,10 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   different user.
 - `scripts/chat_cli.py` - a terminal chat loop, useful for quick manual
   testing without starting the API/frontend.
+- `tests/test_guardrails.py` - regex secret-scanner unit tests (always
+  run) plus graph-wiring tests that monkeypatch `scan_input`/
+  `scan_output` to verify a blocked input skips the routing pipeline and
+  a blocked output is replaced before being returned/persisted.
 
 ```powershell
 # Terminal 0 (first run, and any time Keycloak/Postgres/LiteLLM need to
@@ -1065,12 +1077,15 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
 docker compose up -d
 
 # Terminal 1: the chat API (from routing_lab3\). Set CHAT_DB_URL for
-# durable persistence (section 2.2) and LITELLM_BASE_URL/
-# LITELLM_MASTER_KEY for per-user budgets (section 2.3) - omit either to
-# use the simpler fallback (InMemorySaver / calling OpenAI directly).
+# durable persistence (section 2.2), LITELLM_BASE_URL/
+# LITELLM_MASTER_KEY for per-user budgets (section 2.3), and
+# ROUTING_LAB_GUARDRAILS_ENABLED=1 for prompt-injection/secrets-leakage
+# scanning (section 2.4) - omit any of these to use the simpler
+# fallback (InMemorySaver / calling OpenAI directly / no scanning).
 $env:CHAT_DB_URL = "postgresql://routing_lab3:routing-lab3-dev-password@localhost:5433/routing_lab3_chat"
 $env:LITELLM_BASE_URL = "http://localhost:4000"
 $env:LITELLM_MASTER_KEY = "sk-routing-lab3-dev-master-key"
+$env:ROUTING_LAB_GUARDRAILS_ENABLED = "1"
 ..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
 
 # Terminal 2: the frontend (from routing_lab3\frontend\, first run only:

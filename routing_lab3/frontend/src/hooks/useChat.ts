@@ -13,6 +13,11 @@ export interface ChatMessage {
   /** Populated once the turn completes - the routing/retrieval/tool
    * trace behind this answer, rendered by RoutingDetails. */
   routingSummary?: RoutingSummary;
+  /** Set when app/chat/guardrails.py blocked this turn's input
+   * ("prompt_injection") or rewrote its output ("secret_leakage") -
+   * null/undefined otherwise. Rendered as a small badge, not hidden,
+   * so a blocked/redacted answer isn't mistaken for a normal one. */
+  guardrailBlockedReason?: string | null;
 }
 
 const THREAD_ID_STORAGE_KEY = "routing-lab3-chat-thread-id";
@@ -97,6 +102,7 @@ export function useChat() {
                           content: event.final_answer,
                           statusNode: undefined,
                           routingSummary: event.routing_summary,
+                          guardrailBlockedReason: event.guardrail_blocked_reason,
                         }
                       : m,
                   ),
@@ -110,7 +116,12 @@ export function useChat() {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: response.final_answer, routingSummary: response.routing_summary }
+                ? {
+                    ...m,
+                    content: response.final_answer,
+                    routingSummary: response.routing_summary,
+                    guardrailBlockedReason: response.guardrail_blocked_reason,
+                  }
                 : m,
             ),
           );
