@@ -24,8 +24,9 @@ export function Composer({
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder="Type your message…"
+        aria-label="Type your message"
         disabled={disabled}
-        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:bg-slate-50"
+        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:bg-slate-50 sm:text-sm"
       />
       <button
         type="submit"

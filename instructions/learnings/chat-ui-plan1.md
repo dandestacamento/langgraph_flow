@@ -141,6 +141,11 @@ frontend error reporting, and no verification beyond a desktop browser at `local
   revisit once Markdown rendering (§2.1) is added, since that category of library can add real
   weight; prefer the lightest option that does the job (e.g. skip a full code syntax-highlighter
   unless answers actually contain code blocks often enough to justify it).
+  **Measured after §2.1 landed**: `react-markdown` + `rehype-sanitize` (plus their `unified`
+  ecosystem dependencies) grew the bundle to ~353 KB JS / ~109 KB gzipped - a real, predicted
+  increase, not a regression to investigate. Still small in absolute terms; the bundle-size budget
+  in §2.5/§3 (`size-limit`) should be set with this as the new informed baseline, not the earlier
+  227 KB figure.
 - Code-split anything added later that isn't needed on first paint (e.g. a future conversation-list
   sidebar) via `React.lazy`.
 - Verify streaming renders incrementally without layout thrashing under real (non-`localhost`)
@@ -186,6 +191,15 @@ consistent with the rest of this repo's stack.
    scenarios already validated this session (single-turn, multi-turn, tool call) now additionally
    renders Markdown correctly, survives a deliberately induced network failure gracefully, and
    looks correct at a phone-width viewport.
+   **Done**: `react-markdown` + `rehype-sanitize` (`MarkdownMessage.tsx`), `CopyButton.tsx`,
+   auto-scroll with a "Jump to latest" affordance in `ChatWindow.tsx` (follows an incoming answer
+   only if the user hasn't scrolled up; always follows the user's own freshly-sent message),
+   a `retryLastMessage` path in `useChat.ts` wired to a "Retry" button in the error banner, and a
+   network-vs-backend-error distinction (`describeError`). Verified via real browser testing: a
+   502 induced by stopping the backend mid-conversation showed the error+Retry banner, and
+   clicking Retry after restarting the backend resent the same message and completed successfully;
+   a 375px-wide viewport showed no overflow/truncation. `h-screen` was also switched to `h-dvh`
+   (dynamic viewport height), a real mobile-Safari-address-bar fix, not just a cosmetic tweak.
 2. **Phase B - Testing foundation.** `vitest`/`@testing-library/react` unit tests, the Playwright
    e2e smoke test, `axe-core` wired in, CI running all of it. Deliberately placed **before** further
    feature growth - nothing is tested today, and this project's own evidence-based culture (the

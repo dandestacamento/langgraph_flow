@@ -25,6 +25,19 @@ function getOrCreateThreadId(): string {
   return generated;
 }
 
+/** A `TypeError` is what `fetch` itself throws for a connectivity failure
+ * (DNS/refused/offline) - distinct from an HTTP error response, which
+ * `sendChatMessage`/`streamChatMessage` instead reject with a regular
+ * `Error` carrying the status code. Worth telling these apart in the UI:
+ * one means "check your connection," the other means "the server/answer
+ * itself failed." */
+function describeError(err: unknown): string {
+  if (err instanceof TypeError) {
+    return "Network error - check your connection and try again.";
+  }
+  return err instanceof Error ? err.message : "Something went wrong.";
+}
+
 /**
  * Owns the conversation's `thread_id` (persisted in localStorage, so a
  * page refresh resumes the same backend-side conversation_history - the
@@ -38,6 +51,9 @@ export function useChat() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // The most recent message that failed to send, kept only so "Retry"
+  // can resend the exact same text - cleared on any successful send.
+  const lastFailedMessageRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => abortControllerRef.current?.abort();
@@ -99,8 +115,10 @@ export function useChat() {
             ),
           );
         }
+        lastFailedMessageRef.current = null;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong.");
+        lastFailedMessageRef.current = trimmed;
+        setError(describeError(err));
         setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
       } finally {
         setIsSending(false);
@@ -109,5 +127,11 @@ export function useChat() {
     [threadId, isSending],
   );
 
-  return { threadId, messages, isSending, error, sendMessage };
+  const retryLastMessage = useCallback(() => {
+    if (lastFailedMessageRef.current) {
+      void sendMessage(lastFailedMessageRef.current);
+    }
+  }, [sendMessage]);
+
+  return { threadId, messages, isSending, error, sendMessage, retryLastMessage };
 }
