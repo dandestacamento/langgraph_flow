@@ -1000,6 +1000,52 @@ re-billing the API. Set `ROUTING_LAB_CACHE_ENABLED=0` to force fresh calls
 (e.g. after changing a prompt, since the cache key is just the literal
 question text).
 
+## Chat application
+
+`routing_lab3` wraps the stateless routing pipeline above in a
+multi-turn chat application, following the "wrap, don't rewrite"
+architecture in
+[`routing-lab3-chat-app-plan.md`](../instructions/learnings/routing-lab3-chat-app-plan.md):
+the pipeline itself (everything above) is unmodified; a new layer on top
+condenses each follow-up question into a self-contained one using prior
+turns (`app/chat/condense.py`), then invokes the existing graph.
+
+- `app/chat/` - `state.py` (`ChatState`), `condense.py`, `graph.py`
+  (`build_chat_graph()`: `condense -> invoke_routing_pipeline ->
+  record_turn`)
+- `app/api/main.py` - a small, custom, MIT-friendly FastAPI backend
+  (`/health`, `/chat`, `/chat/stream`) - deliberately **not** LangGraph's
+  packaged Agent Server, which requires a paid Enterprise license key for
+  production self-hosting (Elastic License 2.0); see
+  [`routing-lab-prod-plan.md`](../instructions/learnings/routing-lab-prod-plan.md)
+  section 0/2.10 for the full reasoning.
+- `frontend/` - a minimal Vite + React + TypeScript + Tailwind chat UI
+  that talks only to `app/api/main.py`'s own endpoints (no LangGraph
+  Server protocol dependency, unlike the official
+  [Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui), which
+  was explored and found incompatible with this project's simpler,
+  self-hosted backend contract without reimplementing that protocol).
+- `datasets/chat_ground_truth.jsonl` + `tests/test_chat_condensing.py` -
+  multi-turn condensing accuracy dataset/tests (100% passing).
+- `scripts/chat_cli.py` - a terminal chat loop, useful for quick manual
+  testing without starting the API/frontend.
+
+```powershell
+# Terminal 1: the chat API (from routing_lab3\)
+..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
+
+# Terminal 2: the frontend (from routing_lab3\frontend\, first run only:
+# npm install)
+cd frontend
+npm run dev
+# Then open http://localhost:5173 - the Vite dev server proxies "/api/*"
+# to the backend on port 8000 (see vite.config.ts), so no CORS setup is
+# needed in development.
+
+# Or, for a quick terminal-only check without either server:
+..\.venv\Scripts\python.exe scripts\chat_cli.py
+```
+
 ## Batch Routing Test Runner
 
 ### Quick reference

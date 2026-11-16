@@ -182,10 +182,29 @@ latter).
   work correctly, before investing in any new frontend stack at all. Matches this project's
   consistent "prove it works before building more infrastructure around it" pattern (e.g. how P1's
   hybrid retrieval was benchmarked before being wired into anything user-facing).
+  **Done**: `app/chat/`, `scripts/chat_cli.py`, the condensing ground-truth dataset
+  (`datasets/chat_ground_truth.jsonl`, 100% accuracy), and a custom FastAPI backend
+  (`app/api/main.py`) all built and tested - see §9 below for why the backend is custom rather
+  than LangGraph's packaged Agent Server.
 - **Phase 1**: once Phase 0's condensing accuracy and conversation behavior are validated, stand up
   **Agent Chat UI** (open-source, official LangChain Next.js template) pointed at a LangGraph
   server/API serving `build_chat_graph()` - the fastest path to a real chat interface, since it's
   built specifically around LangGraph's streaming/state conventions.
+  **Explored, not adopted for production**: Agent Chat UI's `useStream` hook requires the full
+  LangGraph Server protocol (a `messages`-keyed graph state, threads/runs/assistants, a versioned
+  SSE format) - confirmed empirically (`KeyError: 'user_message'` the first time this was tried
+  against `build_chat_graph()`'s actual state shape). A thin dev-only adapter made it work against
+  the free, local-dev-only `langgraph dev` server (end-to-end verified via browser, including a
+  correct multi-turn follow-up and correct "insufficient information" refusal for an
+  out-of-knowledge-base question) - useful for a one-time UX gut-check, but not reused, since
+  `langgraph dev` is explicitly not for production (Elastic License 2.0 applies to the packaged
+  server it runs) and the adapter doesn't thread `conversation_history` through across turns.
+- **Phase 1 (production path, done instead)**: a minimal custom frontend
+  (`frontend/` - Vite + React + TypeScript + Tailwind) calling `app/api/main.py`'s own `/chat` and
+  `/chat/stream` endpoints directly - no protocol-compatibility risk, since both sides are fully
+  under this project's control. Verified end-to-end via browser: single-turn Q&A, SSE streaming
+  status updates, and multi-turn follow-ups (condensing a pronoun-referencing question correctly
+  using prior turns) all work.
 - **Phase 2**: migrate to **CopilotKit** once ready to build real generative UI - rendering
   `retrieved_passages`/citations as rich cards, `selected_topics`/`selected_subtopics` as a routing
   breadcrumb, `tool_results` as structured widgets - which `routing_lab3`'s unusually rich per-turn

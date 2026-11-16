@@ -40,7 +40,10 @@ from dotenv import find_dotenv, load_dotenv  # noqa: E402
 
 load_dotenv(find_dotenv())
 
+import os  # noqa: E402
+
 from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
@@ -51,6 +54,19 @@ from app.chat.graph import build_chat_graph  # noqa: E402
 enable_llm_cache()
 
 app = FastAPI(title="Routing Lab Chat API", version="0.1.0")
+
+# Only needed when the frontend is served from a different origin than
+# this API (e.g. the Vite dev server without its proxy, or a separately
+# deployed production frontend container). Defaults to the Vite dev
+# server's own origin; override with a comma-separated list via
+# CHAT_API_CORS_ORIGINS for other deployments.
+_cors_origins = os.environ.get("CHAT_API_CORS_ORIGINS", "http://localhost:5173").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 # A single shared checkpointer for the process lifetime - see module
 # docstring. Swap InMemorySaver() for a PostgresSaver per
