@@ -178,6 +178,10 @@ does the job" rule from plan1 §2.6.
    nothing clickable. `record_turn` now persists each turn's trimmed routing summary and
    `GET /threads/{id}/history` returns it, so citations and Routing details survive reloads and
    conversation switches; turns recorded before the field existed degrade to plain messages.
+   **Refinement from user feedback**: the separate citation-chips row under each answer was
+   removed as duplicative of Routing details' passage list - instead, the passage cards *inside*
+   Routing details are now the clickable citations, opening the same full-text PassagePreview
+   panel. One affordance, no duplication.
    Remaining limitations, by design: per-node execution timings are still live-turns-only (not
    persisted), and the MLflow trace ID column waits for tracing to exist (Phase D).
 4. **Phase D - developer pages (§2.3-§2.6).** Graph Explorer, Test Lab (reusing the Streamlit

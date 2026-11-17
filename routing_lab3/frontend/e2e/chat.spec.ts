@@ -97,9 +97,9 @@ test("sends a message, shows streaming status, then renders the Markdown answer 
   await expect(routingDetailsPanel.getByText("invoke_routing_pipeline")).toBeVisible();
   await expect(routingDetailsPanel.getByText("2.3 s")).toBeVisible();
 
-  // Clickable citation (chat-ui-plan3.md §2 item 1): the chip opens the
-  // full passage in a preview panel.
-  await page.getByRole("button", { name: "chapter_03_faults" }).click();
+  // Clickable citation (chat-ui-plan3.md §2 item 1): the passage card
+  // inside Routing details opens the full passage in a preview panel.
+  await routingDetailsPanel.getByRole("button", { name: /chapter_03_faults \(score 0\.79\)/ }).click();
   const preview = page.getByRole("dialog", { name: /chapter_03_faults/ });
   await expect(preview.getByText(/Check the pump filter and drain hose/)).toBeVisible();
   await expect(preview.getByText(/lower = closer match/)).toBeVisible();
@@ -218,7 +218,8 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await expect(page.getByText("Check the thermostat.")).toBeVisible();
   await expect(page.getByTitle("Fridge is too warm")).toBeVisible();
   await expect(page).toHaveTitle("Fridge is too warm - Appliance Troubleshooting Chat");
-  await page.getByRole("button", { name: "chapter_03_faults" }).click();
+  await page.getByText("Routing details").click();
+  await page.getByRole("button", { name: /chapter_03_faults \(score 0\.79\)/ }).click();
   await expect(
     page.getByRole("dialog").getByText(/Check the pump filter and drain hose/),
   ).toBeVisible();

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { ExecutionStep, HopResult, RoutingSummary, ToolResult } from "../api/client";
+import type { SelectedPassage } from "./PassagePreview";
 
 function Badge({ children, tone = "slate" }: { children: ReactNode; tone?: "slate" | "amber" | "green" }) {
   const toneClasses = {
@@ -95,16 +96,21 @@ function ExecutionTimeline({ steps }: { steps: ExecutionStep[] }) {
  * app/chat/routing_summary.py): the topic/subtopic/chapter routing
  * trail, any tool that ran, the multi-hop trace when present, the
  * retrieved passages (citations) that grounded the answer, and - for
- * live-streamed turns - the node execution timeline. Renders nothing
- * if there's neither topic data nor a trace (e.g. a restored
- * conversation-meta turn).
+ * live-streamed turns - the node execution timeline. Each cited
+ * passage card is clickable, opening the full passage in the
+ * PassagePreview panel (a separate citation-chips row above this panel
+ * was tried first and removed as duplicative, per user feedback).
+ * Renders nothing if there's neither topic data nor a trace (e.g. a
+ * restored conversation-meta turn).
  */
 export function RoutingDetails({
   summary,
   executionTrace,
+  onOpenPassage,
 }: {
   summary: RoutingSummary;
   executionTrace?: ExecutionStep[];
+  onOpenPassage?: (passage: SelectedPassage) => void;
 }) {
   const hasTrace = (executionTrace?.length ?? 0) > 0;
   if (summary.topics.length === 0 && !hasTrace) return null;
@@ -147,13 +153,18 @@ export function RoutingDetails({
             <div key={topic} className="space-y-1.5">
               <p className="font-medium text-slate-600 dark:text-slate-300">{topic} sources</p>
               {passages.map((passage, index) => (
-                <div key={index} className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => onOpenPassage?.({ ...passage, topic })}
+                  className="block w-full rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
+                >
                   <p className="font-medium text-slate-600 dark:text-slate-300">
                     {passage.chapter_id}
                     {passage.score != null && ` (score ${passage.score.toFixed(2)})`}
                   </p>
                   {passage.text && <p className="mt-1 text-slate-500 dark:text-slate-400">{passage.text.slice(0, 220)}{passage.text.length > 220 ? "…" : ""}</p>}
-                </div>
+                </button>
               ))}
             </div>
           ) : null,

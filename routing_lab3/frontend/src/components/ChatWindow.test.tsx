@@ -72,7 +72,9 @@ describe("ChatWindow", () => {
     ];
     render(<ChatWindow messages={messages} onOpenPassage={onOpenPassage} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "chapter_03_faults" }));
+    // The passage card inside Routing details is the clickable citation
+    // (a separate chips row was removed as duplicative).
+    fireEvent.click(screen.getByRole("button", { name: /chapter_03_faults \(score 0\.79\)/ }));
     expect(onOpenPassage).toHaveBeenCalledWith(
       expect.objectContaining({ topic: "appliances", chapter_id: "chapter_03_faults" }),
     );
