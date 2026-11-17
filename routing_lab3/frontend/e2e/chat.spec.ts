@@ -126,32 +126,38 @@ test("shows an error banner with a working Retry button on a backend failure", a
   expect(callCount).toBe(2);
 });
 
-test("has no serious/critical accessibility violations once a conversation is populated", async ({ page }) => {
-  await mockEmptyThreadRoutes(page);
-  await page.route("**/api/chat/stream", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/event-stream",
-      body: sseBody([
-        {
-          event: "answer",
-          data: { final_answer: "E21 is a drainage fault.", routing_summary: ROUTING_SUMMARY_FIXTURE },
-        },
-      ]),
+for (const theme of ["light", "dark"] as const) {
+  test(`has no serious/critical accessibility violations once a conversation is populated (${theme} mode)`, async ({
+    page,
+  }) => {
+    // The theme is read from localStorage at app startup (useTheme.ts).
+    await page.addInitScript((t) => localStorage.setItem("routing-lab3-theme", t), theme);
+    await mockEmptyThreadRoutes(page);
+    await page.route("**/api/chat/stream", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sseBody([
+          {
+            event: "answer",
+            data: { final_answer: "E21 is a drainage fault.", routing_summary: ROUTING_SUMMARY_FIXTURE },
+          },
+        ]),
+      });
     });
+
+    await login(page);
+    await page.getByPlaceholder("Type your message…").fill("What does washing machine error E21 mean?");
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByText("E21 is a drainage fault.")).toBeVisible();
+
+    const results = await new AxeBuilder({ page }).analyze();
+    const seriousOrCritical = results.violations.filter(
+      (violation) => violation.impact === "serious" || violation.impact === "critical",
+    );
+    expect(seriousOrCritical, JSON.stringify(seriousOrCritical, null, 2)).toEqual([]);
   });
-
-  await login(page);
-  await page.getByPlaceholder("Type your message…").fill("What does washing machine error E21 mean?");
-  await page.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByText("E21 is a drainage fault.")).toBeVisible();
-
-  const results = await new AxeBuilder({ page }).analyze();
-  const seriousOrCritical = results.violations.filter(
-    (violation) => violation.impact === "serious" || violation.impact === "critical",
-  );
-  expect(seriousOrCritical, JSON.stringify(seriousOrCritical, null, 2)).toEqual([]);
-});
+}
 
 test("lists past conversations in the sidebar, switches between them, and starts a new one", async ({
   page,
@@ -186,9 +192,12 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await expect(sidebar.getByText("Fridge is too warm")).toBeVisible();
   await expect(sidebar.getByText("What does washing machine error E21 mean?")).toBeVisible();
 
-  // Switching restores that conversation's past turns from the backend.
+  // Switching restores that conversation's past turns from the backend,
+  // and the header + browser tab reflect the active conversation.
   await sidebar.getByRole("button", { name: /^Fridge is too warm/ }).click();
   await expect(page.getByText("Check the thermostat.")).toBeVisible();
+  await expect(page.getByTitle("Fridge is too warm")).toBeVisible();
+  await expect(page).toHaveTitle("Fridge is too warm - Appliance Troubleshooting Chat");
 
   // "New conversation" starts from a blank window again.
   await sidebar.getByRole("button", { name: "+ New conversation" }).click();
@@ -196,4 +205,6 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await expect(
     page.getByText("Ask a question about appliance troubleshooting to get started."),
   ).toBeVisible();
+  await expect(page.getByTitle("New conversation")).toBeVisible();
+  await expect(page).toHaveTitle("Appliance Troubleshooting Chat");
 });

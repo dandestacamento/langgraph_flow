@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 
 import { ChatWindow } from "./components/ChatWindow";
 import { Composer } from "./components/Composer";
@@ -31,6 +31,19 @@ function App() {
   // Mobile-only: the sidebar is a toggleable overlay below md, a fixed
   // column at md and up (where `sidebarOpen` is simply irrelevant).
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // The active conversation's title - undefined until its first message
+  // has been sent (that's when the backend creates/titles it). Shown in
+  // the header and the browser tab so it's always clear *which*
+  // conversation is open, not just via the sidebar highlight (a real
+  // point of confusion observed in testing, chat-ui-plan2.md).
+  const activeTitle = threads.find((t) => t.thread_id === threadId)?.title;
+
+  useEffect(() => {
+    document.title = activeTitle
+      ? `${activeTitle} - Appliance Troubleshooting Chat`
+      : "Appliance Troubleshooting Chat";
+  }, [activeTitle]);
 
   const sidebar = (closeAfterAction: boolean) => (
     <Suspense fallback={null}>
@@ -78,11 +91,16 @@ function App() {
               >
                 ☰
               </button>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                   Appliance Troubleshooting Chat
                 </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">routing_lab3 - custom FastAPI backend</p>
+                <p
+                  className="truncate text-xs text-slate-500 dark:text-slate-400"
+                  title={activeTitle ?? "New conversation"}
+                >
+                  {activeTitle ?? "New conversation"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
