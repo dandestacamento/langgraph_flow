@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../hooks/useChat";
 import { CopyButton } from "./CopyButton";
 import { MarkdownMessage } from "./MarkdownMessage";
+import type { SelectedPassage } from "./PassagePreview";
 import { RoutingDetails } from "./RoutingDetails";
 
 const NEAR_BOTTOM_THRESHOLD_PX = 96;
@@ -26,12 +27,21 @@ function statusLabel(node: string): string {
 function MessageBubble({
   message,
   onRegenerate,
+  onOpenPassage,
 }: {
   message: ChatMessage;
   /** Set only on the last completed assistant message: re-asks the turn. */
   onRegenerate?: () => void;
+  /** Opens a cited passage in the preview panel (chat-ui-plan3.md §2). */
+  onOpenPassage?: (passage: SelectedPassage) => void;
 }) {
   const isUser = message.role === "user";
+  // Flatten per-topic passages into clickable citation chips.
+  const citations: SelectedPassage[] = message.routingSummary
+    ? Object.entries(message.routingSummary.passages).flatMap(([topic, passages]) =>
+        passages.map((passage) => ({ ...passage, topic })),
+      )
+    : [];
   return (
     <div className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       <div
@@ -79,9 +89,23 @@ function MessageBubble({
           )}
         </div>
       )}
+      {!isUser && message.content && citations.length > 0 && (
+        <div className="mt-1.5 flex max-w-[85%] flex-wrap gap-1.5 sm:max-w-[75%]">
+          {citations.map((citation, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => onOpenPassage?.(citation)}
+              className="rounded-full border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              {citation.chapter_id ?? "source"}
+            </button>
+          ))}
+        </div>
+      )}
       {!isUser && message.routingSummary && (
         <div className="max-w-[85%] sm:max-w-[75%]">
-          <RoutingDetails summary={message.routingSummary} />
+          <RoutingDetails summary={message.routingSummary} executionTrace={message.executionTrace} />
         </div>
       )}
     </div>
@@ -94,6 +118,7 @@ export function ChatWindow({
   onRegenerate,
   starterPrompts,
   onStarterPrompt,
+  onOpenPassage,
 }: {
   messages: ChatMessage[];
   isLoadingHistory?: boolean;
@@ -104,6 +129,8 @@ export function ChatWindow({
    * (chat-ui-plan3.md §1.4) - reveals what the knowledge base covers. */
   starterPrompts?: string[];
   onStarterPrompt?: (prompt: string) => void;
+  /** Opens a cited passage in the preview panel (chat-ui-plan3.md §2). */
+  onOpenPassage?: (passage: SelectedPassage) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -197,6 +224,7 @@ export function ChatWindow({
           <MessageBubble
             key={message.id}
             message={message}
+            onOpenPassage={onOpenPassage}
             onRegenerate={
               index === messages.length - 1 && message.role === "assistant" && message.content
                 ? onRegenerate

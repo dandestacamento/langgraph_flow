@@ -40,6 +40,44 @@ describe("ChatWindow", () => {
     expect(screen.getByText(/Stopped waiting for this answer/)).toBeInTheDocument();
   });
 
+  it("renders citation chips that open the passage preview", () => {
+    const onOpenPassage = vi.fn();
+    const messages: ChatMessage[] = [
+      { id: "1", role: "user", content: "What does E21 mean?" },
+      {
+        id: "2",
+        role: "assistant",
+        content: "E21 is a drainage fault.",
+        routingSummary: {
+          topics: ["appliances"],
+          subtopics: {},
+          chapters: {},
+          passages: {
+            appliances: [
+              {
+                chapter_id: "chapter_03_faults",
+                document_id: "d1",
+                subtopic: "washing_machines",
+                score: 0.79,
+                text: "E21: drainage problem.",
+              },
+            ],
+          },
+          tool_results: {},
+          is_multi_hop: false,
+          hop_results: [],
+          recovery_attempts: {},
+        },
+      },
+    ];
+    render(<ChatWindow messages={messages} onOpenPassage={onOpenPassage} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "chapter_03_faults" }));
+    expect(onOpenPassage).toHaveBeenCalledWith(
+      expect.objectContaining({ topic: "appliances", chapter_id: "chapter_03_faults" }),
+    );
+  });
+
   it("shows clickable starter prompts only while the conversation is empty", () => {
     const onStarterPrompt = vi.fn();
     const { rerender } = render(

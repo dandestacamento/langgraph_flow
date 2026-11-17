@@ -2,6 +2,8 @@ import { Suspense, lazy, useEffect, useState } from "react";
 
 import { ChatWindow } from "./components/ChatWindow";
 import { Composer } from "./components/Composer";
+import { PassagePreview } from "./components/PassagePreview";
+import type { SelectedPassage } from "./components/PassagePreview";
 import keycloak from "./auth/keycloak";
 import { useChat } from "./hooks/useChat";
 import { useSessionExpiryWarning } from "./hooks/useSessionExpiryWarning";
@@ -48,6 +50,9 @@ function App() {
   // Mobile-only: the sidebar is a toggleable overlay below md, a fixed
   // column at md and up (where `sidebarOpen` is simply irrelevant).
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // The citation currently open in the evidence panel, if any
+  // (chat-ui-plan3.md §2 item 1).
+  const [selectedPassage, setSelectedPassage] = useState<SelectedPassage | null>(null);
 
   // The active conversation's title - undefined until its first message
   // has been sent (that's when the backend creates/titles it). Shown in
@@ -145,6 +150,7 @@ function App() {
             onRegenerate={isSending ? undefined : regenerateLastTurn}
             starterPrompts={STARTER_PROMPTS}
             onStarterPrompt={(prompt) => sendMessage(prompt)}
+            onOpenPassage={setSelectedPassage}
           />
           {showExpiryWarning && (
             <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-amber-700 dark:text-amber-400">
@@ -173,6 +179,9 @@ function App() {
           <Composer onSend={(text) => sendMessage(text)} disabled={isSending} onStop={stopStreaming} />
         </div>
       </div>
+      {selectedPassage && (
+        <PassagePreview passage={selectedPassage} onClose={() => setSelectedPassage(null)} />
+      )}
       {recentlyDeleted && (
         <div
           role="status"

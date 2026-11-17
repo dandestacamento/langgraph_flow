@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { HopResult, RoutingSummary, ToolResult } from "../api/client";
+import type { ExecutionStep, HopResult, RoutingSummary, ToolResult } from "../api/client";
 
 function Badge({ children, tone = "slate" }: { children: ReactNode; tone?: "slate" | "amber" | "green" }) {
   const toneClasses = {
@@ -59,16 +59,55 @@ function HopTrace({ hops }: { hops: HopResult[] }) {
   );
 }
 
+function formatMs(ms: number): string {
+  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+}
+
+/** The node-by-node execution timeline with per-node durations - the
+ * first slice of chat-ui-plan2.md §3's "LangGraph Inspector", rendered
+ * inside the existing per-turn panel rather than a separate sidebar
+ * (chat-ui-plan3.md §2.2). */
+function ExecutionTimeline({ steps }: { steps: ExecutionStep[] }) {
+  const totalMs = steps.reduce((sum, step) => sum + (step.elapsedMs ?? 0), 0);
+  return (
+    <div>
+      <p className="font-medium text-slate-600 dark:text-slate-300">Execution</p>
+      <ol className="mt-1 space-y-0.5 font-mono text-[11px]">
+        {steps.map((step, index) => (
+          <li key={index} className="flex justify-between gap-3">
+            <span>{step.node}</span>
+            {step.elapsedMs != null && (
+              <span className="text-slate-400 dark:text-slate-500">{formatMs(step.elapsedMs)}</span>
+            )}
+          </li>
+        ))}
+        <li className="flex justify-between gap-3 border-t border-slate-200 pt-0.5 dark:border-slate-700">
+          <span>total</span>
+          <span>{formatMs(totalMs)}</span>
+        </li>
+      </ol>
+    </div>
+  );
+}
+
 /**
  * Collapsible per-turn panel rendering `routing_summary` (see
  * app/chat/routing_summary.py): the topic/subtopic/chapter routing
- * trail, any tool that ran, the multi-hop trace when present, and the
- * retrieved passages (citations) that grounded the answer. Renders
- * nothing if there's no topic data at all (e.g. a turn that errored
- * before routing ran).
+ * trail, any tool that ran, the multi-hop trace when present, the
+ * retrieved passages (citations) that grounded the answer, and - for
+ * live-streamed turns - the node execution timeline. Renders nothing
+ * if there's neither topic data nor a trace (e.g. a restored
+ * conversation-meta turn).
  */
-export function RoutingDetails({ summary }: { summary: RoutingSummary }) {
-  if (summary.topics.length === 0) return null;
+export function RoutingDetails({
+  summary,
+  executionTrace,
+}: {
+  summary: RoutingSummary;
+  executionTrace?: ExecutionStep[];
+}) {
+  const hasTrace = (executionTrace?.length ?? 0) > 0;
+  if (summary.topics.length === 0 && !hasTrace) return null;
 
   const toolEntries = Object.entries(summary.tool_results);
   const recoveredTopics = Object.entries(summary.recovery_attempts).filter(
@@ -80,7 +119,7 @@ export function RoutingDetails({ summary }: { summary: RoutingSummary }) {
       <summary className="cursor-pointer select-none">Routing details</summary>
       <div className="mt-2 space-y-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
         <RoutingBreadcrumb summary={summary} />
-
+        {hasTrace && executionTrace && <ExecutionTimeline steps={executionTrace} />}
         {recoveredTopics.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {recoveredTopics.map(([topic, attempt]) => (

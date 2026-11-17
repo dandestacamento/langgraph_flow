@@ -85,6 +85,9 @@ export interface ThreadHistoryTurn {
 export interface StreamStatusEvent {
   type: "status";
   node: string;
+  /** Time spent since the previous event - roughly this node's own
+   * duration (chat-ui-plan3.md §2.2's execution timeline). */
+  elapsedMs?: number;
 }
 
 export interface StreamAnswerEvent {
@@ -95,6 +98,13 @@ export interface StreamAnswerEvent {
 }
 
 export type StreamEvent = StreamStatusEvent | StreamAnswerEvent;
+
+/** One step of a turn's node-by-node execution timeline, accumulated
+ * from status events (chat-ui-plan3.md §2.2). */
+export interface ExecutionStep {
+  node: string;
+  elapsedMs?: number;
+}
 
 /** One synchronous turn: POST /chat, waits for the complete answer. */
 export async function sendChatMessage(
@@ -157,7 +167,7 @@ export async function streamChatMessage(
       const eventName = eventLine.slice("event: ".length).trim();
       const data = JSON.parse(dataLine.slice("data: ".length));
       if (eventName === "status") {
-        onEvent({ type: "status", node: data.node });
+        onEvent({ type: "status", node: data.node, elapsedMs: data.elapsed_ms });
       } else if (eventName === "answer") {
         onEvent({
           type: "answer",

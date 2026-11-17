@@ -58,8 +58,8 @@ describe("useChat", () => {
 
   it("applies streaming status events then the final answer event", async () => {
     mockedStreamChatMessage.mockImplementation(async (_threadId, _message, onEvent) => {
-      onEvent({ type: "status", node: "condense" });
-      onEvent({ type: "status", node: "rag_retriever" });
+      onEvent({ type: "status", node: "condense", elapsedMs: 800 });
+      onEvent({ type: "status", node: "invoke_routing_pipeline", elapsedMs: 2400 });
       onEvent({
         type: "answer",
         final_answer: "E21 is a drainage fault.",
@@ -76,6 +76,12 @@ describe("useChat", () => {
     expect(assistantMessage.content).toBe("E21 is a drainage fault.");
     expect(assistantMessage.statusNode).toBeUndefined();
     expect(assistantMessage.routingSummary?.topics).toEqual(["appliances"]);
+    // The node-by-node timeline is preserved for the inspector
+    // (chat-ui-plan3.md §2.2).
+    expect(assistantMessage.executionTrace).toEqual([
+      { node: "condense", elapsedMs: 800 },
+      { node: "invoke_routing_pipeline", elapsedMs: 2400 },
+    ]);
   });
 
   it("surfaces a friendly message for a network failure and removes the pending assistant bubble", async () => {

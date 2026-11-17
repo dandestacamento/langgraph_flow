@@ -49,6 +49,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -392,12 +393,23 @@ def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> 
         final_answer = ""
         routing_result: dict = {}
         guardrail_blocked_reason = None
+        # Per-node wall-clock timings for the frontend's execution
+        # timeline (chat-ui-plan3.md §2.2) - each status event carries
+        # the time spent since the previous one, i.e. roughly that
+        # node's own duration.
+        previous_event_time = time.perf_counter()
         try:
             for update in _chat_graph.stream(
                 {"user_message": request.message}, config=config, stream_mode="updates"
             ):
                 for node_name, node_output in update.items():
-                    yield f"event: status\ndata: {json.dumps({'node': node_name})}\n\n"
+                    now = time.perf_counter()
+                    elapsed_ms = round((now - previous_event_time) * 1000)
+                    previous_event_time = now
+                    yield (
+                        "event: status\n"
+                        f"data: {json.dumps({'node': node_name, 'elapsed_ms': elapsed_ms})}\n\n"
+                    )
                     # `node_output` is None, not {}, for a node that
                     # returned no state update at all (e.g. check_input/
                     # check_output when nothing was blocked) - a real

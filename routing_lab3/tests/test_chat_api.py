@@ -440,6 +440,12 @@ def test_chat_stream_endpoint_emits_status_then_answer_events() -> None:
     event_names = [name for name, _ in events]
     assert "status" in event_names
     assert "answer" in event_names
+    # Every status event carries that node's duration for the frontend's
+    # execution timeline (chat-ui-plan3.md §2.2).
+    for name, data in events:
+        if name == "status":
+            assert isinstance(data["elapsed_ms"], int)
+            assert data["elapsed_ms"] >= 0
     answer_payload = next(data for name, data in events if name == "answer")
     assert "drainage" in answer_payload["final_answer"].lower()
     assert "appliances" in answer_payload["routing_summary"]["topics"]

@@ -21,6 +21,35 @@ describe("RoutingDetails", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("renders the execution timeline with per-node durations and a total", () => {
+    render(
+      <RoutingDetails
+        summary={{ ...BASE_SUMMARY, topics: ["appliances"] }}
+        executionTrace={[
+          { node: "condense", elapsedMs: 800 },
+          { node: "invoke_routing_pipeline", elapsedMs: 2400 },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Execution")).toBeInTheDocument();
+    expect(screen.getByText("condense")).toBeInTheDocument();
+    expect(screen.getByText("800 ms")).toBeInTheDocument();
+    expect(screen.getByText("2.4 s")).toBeInTheDocument();
+    expect(screen.getByText("3.2 s")).toBeInTheDocument(); // total
+  });
+
+  it("renders the execution timeline even for a routing-free (meta) turn", () => {
+    render(
+      <RoutingDetails
+        summary={BASE_SUMMARY}
+        executionTrace={[{ node: "answer_from_history", elapsedMs: 1200 }]}
+      />,
+    );
+    expect(screen.getByText("Execution")).toBeInTheDocument();
+    expect(screen.getByText("answer_from_history")).toBeInTheDocument();
+  });
+
   it("renders the topic/subtopic/chapter breadcrumb and cited passages", () => {
     render(
       <RoutingDetails

@@ -64,8 +64,8 @@ test("sends a message, shows streaming status, then renders the Markdown answer 
       status: 200,
       contentType: "text/event-stream",
       body: sseBody([
-        { event: "status", data: { node: "condense" } },
-        { event: "status", data: { node: "rag_retriever" } },
+        { event: "status", data: { node: "condense", elapsed_ms: 750 } },
+        { event: "status", data: { node: "invoke_routing_pipeline", elapsed_ms: 2300 } },
         {
           event: "answer",
           data: {
@@ -93,6 +93,18 @@ test("sends a message, shows streaming status, then renders the Markdown answer 
   const routingDetailsPanel = page.getByRole("group");
   await expect(routingDetailsPanel.getByText("appliances \u203a washing_machines \u203a chapter_03_faults")).toBeVisible();
   await expect(routingDetailsPanel.getByText(/E21: Drainage problem\. Check the pump filter/)).toBeVisible();
+  // The execution timeline (chat-ui-plan3.md §2.2) shows each node's duration.
+  await expect(routingDetailsPanel.getByText("invoke_routing_pipeline")).toBeVisible();
+  await expect(routingDetailsPanel.getByText("2.3 s")).toBeVisible();
+
+  // Clickable citation (chat-ui-plan3.md §2 item 1): the chip opens the
+  // full passage in a preview panel.
+  await page.getByRole("button", { name: "chapter_03_faults" }).click();
+  const preview = page.getByRole("dialog", { name: /chapter_03_faults/ });
+  await expect(preview.getByText(/Check the pump filter and drain hose/)).toBeVisible();
+  await expect(preview.getByText(/lower = closer match/)).toBeVisible();
+  await preview.getByRole("button", { name: "Close" }).click();
+  await expect(preview).not.toBeVisible();
 });
 
 test("shows an error banner with a working Retry button on a backend failure", async ({ page }) => {

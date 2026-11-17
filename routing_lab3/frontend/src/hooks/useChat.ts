@@ -9,7 +9,7 @@ import {
   sendChatMessage,
   streamChatMessage,
 } from "../api/client";
-import type { RoutingSummary, ThreadSummary } from "../api/client";
+import type { ExecutionStep, RoutingSummary, ThreadSummary } from "../api/client";
 
 export interface ChatMessage {
   id: string;
@@ -30,6 +30,11 @@ export interface ChatMessage {
    * the client stopped waiting; the server-side turn may still have
    * completed and will appear on the next history restore. */
   stopped?: boolean;
+  /** The node-by-node execution sequence (with per-node durations) this
+   * answer streamed through - the inspector's timeline
+   * (chat-ui-plan3.md §2.2). Only present on live-streamed turns, not
+   * restored history. */
+  executionTrace?: ExecutionStep[];
 }
 
 const THREAD_ID_STORAGE_KEY = "routing-lab3-chat-thread-id";
@@ -178,7 +183,16 @@ export function useChat() {
               if (event.type === "status") {
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantMessageId ? { ...m, statusNode: event.node } : m,
+                    m.id === assistantMessageId
+                      ? {
+                          ...m,
+                          statusNode: event.node,
+                          executionTrace: [
+                            ...(m.executionTrace ?? []),
+                            { node: event.node, elapsedMs: event.elapsedMs },
+                          ],
+                        }
+                      : m,
                   ),
                 );
               } else {

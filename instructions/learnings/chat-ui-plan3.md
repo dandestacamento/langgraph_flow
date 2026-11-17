@@ -162,6 +162,19 @@ does the job" rule from plan1 §2.6.
    during testing.
 3. **Phase C - citations & inspector (§2.1, §2.2).** The user-facing evidence panel first, then
    the developer inspector it shares rendering with; backend adds status-event timestamps.
+   **Done**: citation chips under each answer (one per retrieved passage) open a right-side
+   `PassagePreview` dialog with the full passage text, topic›subtopic breadcrumb, document id,
+   and the score explicitly labeled "L2 distance (lower = closer match)" - resolving a real
+   user question about what the score meant. Inspector v1: `/chat/stream` status events now
+   carry `elapsed_ms` (time since the previous event ≈ that node's duration); the frontend
+   accumulates them into a per-turn execution timeline (node sequence + per-node duration +
+   total) rendered inside the existing collapsed Routing details panel rather than a separate
+   right sidebar - same data, less chrome, and it also renders for conversation-meta turns
+   (showing the `answer_from_history` branch was taken). Live-verified: a real turn showed
+   check_input 19 ms → condense 1.1 s → invoke_routing_pipeline 1.3 s → check_output 3 ms →
+   record_turn 277 ms, total 2.8 s. Limitations, by design: the timeline exists only for
+   live-streamed turns (not restored history - per-node timings aren't persisted), and the
+   MLflow trace ID column waits for tracing to exist (Phase D).
 4. **Phase D - developer pages (§2.3-§2.6).** Graph Explorer, Test Lab (reusing the Streamlit
    dashboard's data contracts), observability page and feedback - sequenced against
    `routing-lab-prod-plan.md`'s infra phases where blocked.
@@ -179,7 +192,7 @@ does the job" rule from plan1 §2.6.
       (Phase A)
 - [x] A 60-second turn can be abandoned client-side without losing the conversation. (Phase B)
 - [x] An idle session warns before it expires instead of failing/redirecting mid-send. (Phase B)
-- [ ] Citations open to their full passage without digging through Routing details. (Phase C)
+- [x] Citations open to their full passage without digging through Routing details. (Phase C)
 - [x] **Regression**: the routing-accuracy ground truth and all existing suites remain green -
       §1.2 adds an LLM call per *conversation* (not per turn) and nothing here touches routing.
       (24 backend / 51 frontend unit / 5 e2e all passing after Phases A+B.)
