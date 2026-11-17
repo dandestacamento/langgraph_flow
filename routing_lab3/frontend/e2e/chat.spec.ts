@@ -79,8 +79,12 @@ test("sends a message, shows streaming status, then renders the Markdown answer 
   });
 
   await login(page);
-  await page.getByPlaceholder("Type your message…").fill("What does washing machine error E21 mean?");
-  await page.getByRole("button", { name: "Send" }).click();
+  // Enter-to-send (Shift+Enter is newline) - exercises the composer's
+  // keyboard path in a real browser, not just jsdom.
+  const composer = page.getByPlaceholder("Type your message…");
+  await composer.fill("What does washing machine error E21 mean?");
+  await composer.press("Shift+Enter");
+  await composer.press("Enter");
 
   await expect(page.getByText("Drainage problem", { exact: false }).first()).toBeVisible();
   await expect(page.locator("strong", { hasText: "E21" })).toBeVisible();
@@ -183,7 +187,7 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await expect(sidebar.getByText("What does washing machine error E21 mean?")).toBeVisible();
 
   // Switching restores that conversation's past turns from the backend.
-  await sidebar.getByRole("button", { name: /Fridge is too warm/ }).click();
+  await sidebar.getByRole("button", { name: /^Fridge is too warm/ }).click();
   await expect(page.getByText("Check the thermostat.")).toBeVisible();
 
   // "New conversation" starts from a blank window again.

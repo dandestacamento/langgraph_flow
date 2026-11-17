@@ -132,7 +132,8 @@ def _build_checkpointer():
     return checkpointer
 
 
-_chat_graph = build_chat_graph(checkpointer=_build_checkpointer())
+_chat_checkpointer = _build_checkpointer()
+_chat_graph = build_chat_graph(checkpointer=_chat_checkpointer)
 
 # Persists alongside conversation history in the same Postgres database
 # when CHAT_DB_URL is set (see ThreadOwnershipRegistry's own docstring,
@@ -199,6 +200,10 @@ class ClientErrorReport(BaseModel):
     url: str | None = None
 
 
+class ThreadRenameRequest(BaseModel):
+    title: str
+
+
 class ChatResponse(BaseModel):
     thread_id: str
     self_contained_question: str
@@ -242,6 +247,27 @@ def thread_history(thread_id: str, user: str = Depends(get_current_user)) -> lis
         ThreadHistoryTurn(user_message=turn["user_message"], final_answer=turn["final_answer"])
         for turn in turns
     ]
+
+
+@app.patch("/threads/{thread_id}", status_code=204)
+def rename_thread(
+    thread_id: str, request: ThreadRenameRequest, user: str = Depends(get_current_user)
+) -> Response:
+    """Renames one of the authenticated user's own conversations."""
+    if not request.title.strip():
+        raise HTTPException(status_code=422, detail="Title must not be empty.")
+    _thread_ownership.rename(thread_id, user, request.title)
+    return Response(status_code=204)
+
+
+@app.delete("/threads/{thread_id}", status_code=204)
+def delete_thread(thread_id: str, user: str = Depends(get_current_user)) -> Response:
+    """Deletes one of the authenticated user's own conversations: both
+    its ownership/list record and its checkpointed conversation history,
+    so a deleted thread_id can't be resumed with its old context."""
+    _thread_ownership.delete(thread_id, user)
+    _chat_checkpointer.delete_thread(thread_id)
+    return Response(status_code=204)
 
 
 _client_error_logger = logging.getLogger("routing_lab3.client_errors")

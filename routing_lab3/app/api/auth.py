@@ -196,6 +196,35 @@ class ThreadOwnershipRegistry:
             for thread_id, record in own
         ]
 
+    def rename(self, thread_id: str, user: str, title: str) -> None:
+        """Renames a conversation the caller owns (404/403 otherwise)."""
+        self.check_owner(thread_id, user)
+        title = title.strip()[:_TITLE_MAX_CHARS]
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                conn.execute(
+                    "UPDATE thread_owners SET title = %s WHERE thread_id = %s",
+                    (title, thread_id),
+                )
+        else:
+            self._records[thread_id]["title"] = title
+
+    def delete(self, thread_id: str, user: str) -> None:
+        """Removes a conversation's ownership record, provided the caller
+        owns it (404/403 otherwise). The checkpointer's conversation
+        history is deleted separately by the API layer - see
+        app/api/main.py's DELETE /threads/{thread_id}."""
+        self.check_owner(thread_id, user)
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                conn.execute("DELETE FROM thread_owners WHERE thread_id = %s", (thread_id,))
+        else:
+            self._records.pop(thread_id, None)
+
     def _check_and_record_memory(self, thread_id: str, user: str, title: str) -> None:
         record = self._records.get(thread_id)
         if record is None:

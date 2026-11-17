@@ -12,7 +12,7 @@ const components: Components = {
   ul: ({ children }) => <ul className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>,
   ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-0.5">{children}</li>,
-  code: ({ children }) => <code className="rounded bg-slate-200 px-1 text-[0.85em]">{children}</code>,
+  code: ({ children }) => <code className="rounded bg-slate-200 px-1 text-[0.85em] dark:bg-slate-700">{children}</code>,
   a: ({ children, href }) => (
     <a href={href} className="underline" target="_blank" rel="noreferrer">
       {children}

@@ -4,11 +4,17 @@ memory - see instructions/learnings/routing-lab3-chat-app-plan.md
 section 3.
 
     START -> check_input -+-> [blocked] --------------------> record_turn -> END
-                           +-> [safe] -> condense -> invoke_routing_pipeline -> check_output -> record_turn -> END
+                           +-> [safe] -> condense -+-> [meta] -> answer_from_history -> check_output -> record_turn -> END
+                                                    +-> [kb]   -> invoke_routing_pipeline -> check_output -> record_turn -> END
 
 `condense` resolves the latest message into a self-contained question
-(`app.chat.condense.condense_question`); `invoke_routing_pipeline` passes
-that question, completely unmodified, into `app.graph.build_graph()` -
+(`app.chat.condense.condense_question`) and classifies whether it's a
+question about the conversation itself; a conversation-meta turn is
+answered by `answer_from_history` directly from `conversation_history`
+(chat-ui-plan2.md section 3 - history questions are conversation
+memory's job, never knowledge-base RAG's), while a knowledge question
+goes to `invoke_routing_pipeline`, which passes the condensed question,
+completely unmodified, into `app.graph.build_graph()` -
 the same recursive-invocation-of-the-existing-graph pattern
 `app.agents.multihop_agent.execute_multihop` already uses for its own hop
 sub-questions, not a new technique; `record_turn` appends this turn to
@@ -35,6 +41,7 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
+from app.chat.condense import answer_from_history as answer_meta_question
 from app.chat.condense import condense_question
 from app.chat.guardrails import scan_input, scan_output
 from app.chat.state import ChatState
@@ -48,7 +55,11 @@ SECRET_LEAKAGE_FALLBACK = "I'm not able to share that information."
 def check_input(state: ChatState) -> dict:
     result = scan_input(state["user_message"])
     if not result.blocked:
-        return {}
+        # Explicitly reset rather than returning {}: with a checkpointer,
+        # every state key persists across turns, so a blocked reason left
+        # over from a *previous* turn would otherwise short-circuit this
+        # safe one straight to record_turn (and mislabel its response).
+        return {"guardrail_blocked_reason": None}
     return {
         "guardrail_blocked_reason": result.reason,
         "self_contained_question": state["user_message"],
@@ -61,10 +72,24 @@ def route_after_input_check(state: ChatState) -> str:
 
 
 def condense(state: ChatState) -> dict:
-    self_contained_question = condense_question(
-        state.get("conversation_history", []), state["user_message"]
-    )
-    return {"self_contained_question": self_contained_question}
+    result = condense_question(state.get("conversation_history", []), state["user_message"])
+    return {
+        "self_contained_question": result.self_contained_question,
+        "is_conversation_meta": result.is_conversation_meta,
+    }
+
+
+def route_after_condense(state: ChatState) -> str:
+    return "answer_from_history" if state.get("is_conversation_meta") else "invoke_routing_pipeline"
+
+
+def answer_from_history(state: ChatState) -> dict:
+    """Answers a conversation-meta question from the transcript alone.
+    `routing_result` is explicitly reset (not left out): state keys
+    persist across turns via the checkpointer, so without this the
+    *previous* turn's routing trace would be reported as this turn's."""
+    answer = answer_meta_question(state.get("conversation_history", []), state["user_message"])
+    return {"final_answer": answer, "routing_result": {}}
 
 
 def invoke_routing_pipeline(state: ChatState) -> dict:
@@ -102,6 +127,7 @@ def build_chat_graph(checkpointer=None):
 
     graph.add_node("check_input", check_input)
     graph.add_node("condense", condense)
+    graph.add_node("answer_from_history", answer_from_history)
     graph.add_node("invoke_routing_pipeline", invoke_routing_pipeline)
     graph.add_node("check_output", check_output)
     graph.add_node("record_turn", record_turn)
@@ -112,7 +138,15 @@ def build_chat_graph(checkpointer=None):
         route_after_input_check,
         {"record_turn": "record_turn", "condense": "condense"},
     )
-    graph.add_edge("condense", "invoke_routing_pipeline")
+    graph.add_conditional_edges(
+        "condense",
+        route_after_condense,
+        {
+            "answer_from_history": "answer_from_history",
+            "invoke_routing_pipeline": "invoke_routing_pipeline",
+        },
+    )
+    graph.add_edge("answer_from_history", "check_output")
     graph.add_edge("invoke_routing_pipeline", "check_output")
     graph.add_edge("check_output", "record_turn")
     graph.add_edge("record_turn", END)

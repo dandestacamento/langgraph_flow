@@ -10,6 +10,8 @@ const mockedSendChatMessage = vi.mocked(client.sendChatMessage);
 const mockedStreamChatMessage = vi.mocked(client.streamChatMessage);
 const mockedListThreads = vi.mocked(client.listThreads);
 const mockedFetchThreadHistory = vi.mocked(client.fetchThreadHistory);
+const mockedRenameThread = vi.mocked(client.renameThread);
+const mockedDeleteThread = vi.mocked(client.deleteThread);
 
 const EMPTY_SUMMARY: client.RoutingSummary = {
   topics: [],
@@ -225,5 +227,75 @@ describe("useChat", () => {
     await waitFor(() => expect(result.current.threads).toHaveLength(1));
     expect(result.current.threads[0].title).toBe("What does E21 mean?");
     expect(mockedListThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it("regenerateLastTurn re-asks the most recent user message", async () => {
+    mockedStreamChatMessage.mockImplementation(async (_threadId, _message, onEvent) => {
+      onEvent({ type: "answer", final_answer: "First answer.", routing_summary: EMPTY_SUMMARY });
+    });
+
+    const { result } = renderHook(() => useChat());
+    await act(async () => {
+      await result.current.sendMessage("What does E21 mean?");
+    });
+
+    await act(async () => {
+      result.current.regenerateLastTurn();
+    });
+
+    await waitFor(() => expect(mockedStreamChatMessage).toHaveBeenCalledTimes(2));
+    expect(mockedStreamChatMessage).toHaveBeenLastCalledWith(
+      expect.any(String),
+      "What does E21 mean?",
+      expect.any(Function),
+      expect.anything(),
+    );
+  });
+
+  it("renameConversation renames via the API and refreshes the list", async () => {
+    mockedRenameThread.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useChat());
+    await act(async () => {
+      await result.current.renameConversation("thread-1", "  Warm fridge fix  ");
+    });
+
+    expect(mockedRenameThread).toHaveBeenCalledWith("thread-1", "Warm fridge fix");
+    expect(mockedListThreads).toHaveBeenCalledTimes(2); // mount + after rename
+    expect(result.current.error).toBeNull();
+  });
+
+  it("deleteConversation of the active thread starts a fresh conversation", async () => {
+    mockedDeleteThread.mockResolvedValue(undefined);
+    mockedFetchThreadHistory.mockResolvedValue([
+      { user_message: "Old question", final_answer: "Old answer" },
+    ]);
+
+    const { result } = renderHook(() => useChat());
+    await waitFor(() => expect(result.current.messages).toHaveLength(2));
+    const originalThreadId = result.current.threadId;
+
+    mockedFetchThreadHistory.mockResolvedValue([]);
+    await act(async () => {
+      await result.current.deleteConversation(originalThreadId);
+    });
+
+    expect(mockedDeleteThread).toHaveBeenCalledWith(originalThreadId);
+    expect(result.current.threadId).not.toBe(originalThreadId);
+    await waitFor(() => expect(result.current.messages).toHaveLength(0));
+  });
+
+  it("deleteConversation of a non-active thread leaves the current conversation alone", async () => {
+    mockedDeleteThread.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useChat());
+    const originalThreadId = result.current.threadId;
+
+    await act(async () => {
+      await result.current.deleteConversation("some-other-thread");
+    });
+
+    expect(mockedDeleteThread).toHaveBeenCalledWith("some-other-thread");
+    expect(result.current.threadId).toBe(originalThreadId);
   });
 });

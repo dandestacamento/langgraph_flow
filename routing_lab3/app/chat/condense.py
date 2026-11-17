@@ -39,7 +39,13 @@ conversation history actually established.
 
 If the latest message is already self-contained (doesn't depend on any prior turn to understand), \
 return it unchanged. Do not answer the question yourself - only rewrite it. Do not add facts that \
-aren't already implied by the conversation history or the latest message itself."""
+aren't already implied by the conversation history or the latest message itself.
+
+Also classify the latest message: set is_conversation_meta to true ONLY when the message asks \
+about the conversation itself (e.g. "what was my previous question?", "summarize our \
+conversation", "what did you just say?") rather than asking for information about appliances. A \
+follow-up appliance question that merely *references* the conversation (e.g. "how do I fix that \
+error?") is NOT conversation-meta - it should be rewritten and answered from the knowledge base."""
 
 
 class CondensedQuestion(BaseModel):
@@ -48,6 +54,10 @@ class CondensedQuestion(BaseModel):
     self_contained_question: str = Field(
         description="The user's latest message, rewritten as a fully self-contained question "
         "that doesn't require the conversation history to understand."
+    )
+    is_conversation_meta: bool = Field(
+        description="True only when the latest message asks about the conversation itself "
+        "(previous questions/answers, a summary of the chat) rather than about appliances."
     )
 
 
@@ -61,12 +71,18 @@ def _format_history(history: list[ChatTurn]) -> str:
     return "\n".join(lines)
 
 
-def condense_question(conversation_history: list[ChatTurn], latest_message: str) -> str:
+def condense_question(
+    conversation_history: list[ChatTurn], latest_message: str
+) -> CondensedQuestion:
     """Rewrite `latest_message` into a self-contained question, given
-    `conversation_history` so far. The LLM itself decides (per the
-    system prompt) whether `latest_message` already is self-contained,
-    in which case it's returned unchanged - there's no separate
-    heuristic/classifier deciding that ahead of time."""
+    `conversation_history` so far, and classify whether it's a
+    conversation-meta question (about the chat itself) that should be
+    answered from history rather than the knowledge base. The LLM itself
+    decides (per the system prompt) whether `latest_message` already is
+    self-contained, in which case it's returned unchanged - there's no
+    separate heuristic/classifier deciding that ahead of time, and the
+    meta classification rides on this same always-on call rather than
+    adding a second one."""
     llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
         CondensedQuestion
     )
@@ -77,4 +93,27 @@ def condense_question(conversation_history: list[ChatTurn], latest_message: str)
     result: CondensedQuestion = llm.invoke(
         [("system", _CONDENSE_SYSTEM_PROMPT), ("human", human_message)]
     )
-    return result.self_contained_question.strip()
+    return CondensedQuestion(
+        self_contained_question=result.self_contained_question.strip(),
+        is_conversation_meta=result.is_conversation_meta,
+    )
+
+
+_HISTORY_ANSWER_SYSTEM_PROMPT = """You are answering a question about the conversation itself \
+(e.g. "what was my previous question?", "summarize our conversation"), using ONLY the \
+conversation history below. Answer concisely and factually from the transcript. If the history \
+doesn't contain what's asked (e.g. there are no prior turns yet), say so plainly. Do not invent \
+turns that didn't happen, and do not answer appliance questions here."""
+
+
+def answer_from_history(conversation_history: list[ChatTurn], latest_message: str) -> str:
+    """Answer a conversation-meta question directly from the transcript -
+    the chat-ui-plan2.md section 3 route: conversation-history questions
+    are served by conversation memory, never by knowledge-base RAG."""
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
+    human_message = (
+        f"Conversation history:\n{_format_history(conversation_history)}\n\n"
+        f"Question about the conversation: {latest_message}"
+    )
+    result = llm.invoke([("system", _HISTORY_ANSWER_SYSTEM_PROMPT), ("human", human_message)])
+    return str(result.content).strip()

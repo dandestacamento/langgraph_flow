@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Class-based dark mode (chat-ui-plan2.md): Tailwind v4 defaults the
+   `dark:` variant to prefers-color-scheme; this scopes it to a `.dark`
+   class on <html> instead, so the header toggle controls it. */
+@custom-variant dark (&:where(.dark, .dark *));

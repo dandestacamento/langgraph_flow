@@ -209,6 +209,98 @@ def test_thread_history_is_404_for_an_unknown_thread() -> None:
     assert response.status_code == 404
 
 
+def test_conversation_meta_question_is_answered_from_history_not_rag() -> None:
+    """chat-ui-plan2.md section 3: 'what was my previous question?' must
+    be answered from conversation memory, not sent to knowledge-base
+    retrieval (which used to answer 'Insufficient information')."""
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(),
+    )
+
+    response = client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What was my previous question?"},
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "e21" in body["final_answer"].lower()
+    assert "insufficient information" not in body["final_answer"].lower()
+    # No knowledge-base routing ran for this turn - and the previous
+    # turn's routing trace must not leak into it either.
+    assert body["routing_summary"]["topics"] == []
+
+
+def test_rename_thread_updates_the_listed_title() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+
+    response = client.patch(
+        f"/threads/{thread_id}", json={"title": "Washing machine E21"}, headers=_auth_headers(sub=user)
+    )
+    assert response.status_code == 204
+
+    threads = client.get("/threads", headers=_auth_headers(sub=user)).json()
+    assert threads[0]["title"] == "Washing machine E21"
+
+
+def test_rename_rejects_another_users_thread_and_empty_titles() -> None:
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub="user-a"),
+    )
+
+    forbidden = client.patch(
+        f"/threads/{thread_id}", json={"title": "Hijacked"}, headers=_auth_headers(sub="user-b")
+    )
+    assert forbidden.status_code == 403
+
+    empty = client.patch(
+        f"/threads/{thread_id}", json={"title": "   "}, headers=_auth_headers(sub="user-a")
+    )
+    assert empty.status_code == 422
+
+
+def test_delete_thread_removes_it_from_the_list_and_its_history() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+
+    response = client.delete(f"/threads/{thread_id}", headers=_auth_headers(sub=user))
+    assert response.status_code == 204
+
+    assert client.get("/threads", headers=_auth_headers(sub=user)).json() == []
+    # The ownership record is gone (404, not an empty 200) and the
+    # checkpointed history is gone with it.
+    assert client.get(f"/threads/{thread_id}/history", headers=_auth_headers(sub=user)).status_code == 404
+
+
+def test_delete_rejects_another_users_thread() -> None:
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub="user-a"),
+    )
+
+    response = client.delete(f"/threads/{thread_id}", headers=_auth_headers(sub="user-b"))
+    assert response.status_code == 403
+
+
 def test_client_error_is_logged_and_returns_204(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level("ERROR", logger="routing_lab3.client_errors"):
         response = client.post(

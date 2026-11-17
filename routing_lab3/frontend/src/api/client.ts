@@ -205,6 +205,32 @@ export async function fetchThreadHistory(threadId: string): Promise<ThreadHistor
   return response.json();
 }
 
+/** Renames one of the user's own conversations: PATCH /threads/{id}. */
+export async function renameThread(threadId: string, title: string): Promise<void> {
+  const token = await getValidToken();
+  const response = await fetch(`${API_BASE_URL}/threads/${encodeURIComponent(threadId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ title }),
+  });
+  if (!response.ok) {
+    throw new Error(`Thread rename failed: ${response.status} ${response.statusText}`);
+  }
+}
+
+/** Deletes one of the user's own conversations (list record + its
+ * checkpointed history): DELETE /threads/{id}. */
+export async function deleteThread(threadId: string): Promise<void> {
+  const token = await getValidToken();
+  const response = await fetch(`${API_BASE_URL}/threads/${encodeURIComponent(threadId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Thread delete failed: ${response.status} ${response.statusText}`);
+  }
+}
+
 /** Reports an error the ErrorBoundary caught to POST /client-error
  * (which logs it backend-side, Loki-ready - see app/api/main.py).
  * Never throws: error *reporting* failing must not cascade into the

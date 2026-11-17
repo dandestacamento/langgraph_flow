@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchThreadHistory, listThreads, sendChatMessage, streamChatMessage } from "../api/client";
+import {
+  deleteThread,
+  fetchThreadHistory,
+  listThreads,
+  renameThread,
+  sendChatMessage,
+  streamChatMessage,
+} from "../api/client";
 import type { RoutingSummary, ThreadSummary } from "../api/client";
 
 export interface ChatMessage {
@@ -245,6 +252,53 @@ export function useChat() {
     [isSending, threadId],
   );
 
+  /** Re-asks the most recent user message ("Regenerate") - in this
+   * architecture that's a new turn through the full pipeline, not a
+   * resample of the previous one. */
+  const regenerateLastTurn = useCallback(() => {
+    if (isSending) return;
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    if (lastUserMessage) void sendMessage(lastUserMessage.content);
+  }, [isSending, messages, sendMessage]);
+
+  const renameConversation = useCallback(
+    async (targetThreadId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      try {
+        await renameThread(targetThreadId, trimmed);
+        refreshThreads();
+      } catch (err) {
+        setError(describeError(err));
+      }
+    },
+    [refreshThreads],
+  );
+
+  const deleteConversation = useCallback(
+    async (targetThreadId: string) => {
+      if (isSending) return;
+      try {
+        await deleteThread(targetThreadId);
+      } catch (err) {
+        setError(describeError(err));
+        return;
+      }
+      refreshThreads();
+      // Deleting the conversation that's currently open starts a fresh
+      // one - its messages no longer exist server-side.
+      if (targetThreadId === threadId) {
+        historyLoadSeqRef.current += 1;
+        setThreadId(newThreadId());
+        setIsLoadingHistory(true);
+        setMessages([]);
+        setError(null);
+        lastFailedMessageRef.current = null;
+      }
+    },
+    [isSending, threadId, refreshThreads],
+  );
+
   return {
     threadId,
     threads,
@@ -254,7 +308,10 @@ export function useChat() {
     error,
     sendMessage,
     retryLastMessage,
+    regenerateLastTurn,
     newConversation,
     switchConversation,
+    renameConversation,
+    deleteConversation,
   };
 }

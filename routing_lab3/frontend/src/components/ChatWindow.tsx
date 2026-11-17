@@ -7,15 +7,22 @@ import { RoutingDetails } from "./RoutingDetails";
 
 const NEAR_BOTTOM_THRESHOLD_PX = 96;
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onRegenerate,
+}: {
+  message: ChatMessage;
+  /** Set only on the last completed assistant message: re-asks the turn. */
+  onRegenerate?: () => void;
+}) {
   const isUser = message.role === "user";
   return (
     <div className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm sm:max-w-[75%] ${
           isUser
-            ? "whitespace-pre-wrap bg-slate-900 text-white"
-            : "border border-slate-200 bg-slate-100 text-slate-900"
+            ? "whitespace-pre-wrap bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900"
+            : "border border-slate-200 bg-slate-100 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         }`}
       >
         {message.content ? (
@@ -25,21 +32,30 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             <MarkdownMessage content={message.content} />
           )
         ) : message.statusNode ? (
-          <span className="text-slate-500 italic">Working: {message.statusNode}…</span>
+          <span className="text-slate-500 italic dark:text-slate-400">Working: {message.statusNode}…</span>
         ) : (
-          <span className="text-slate-500 italic">Thinking…</span>
+          <span className="text-slate-500 italic dark:text-slate-400">Thinking…</span>
         )}
       </div>
       {!isUser && message.guardrailBlockedReason && (
-        <span className="mt-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+        <span className="mt-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
           {message.guardrailBlockedReason === "prompt_injection"
             ? "Blocked: this message was flagged as a prompt-injection attempt."
             : "Redacted: part of this answer looked like a leaked credential."}
         </span>
       )}
       {!isUser && message.content && (
-        <div className="mt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <div className="mt-1 flex items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
           <CopyButton text={message.content} />
+          {onRegenerate && (
+            <button
+              type="button"
+              onClick={onRegenerate}
+              className="rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              Regenerate
+            </button>
+          )}
         </div>
       )}
       {!isUser && message.routingSummary && (
@@ -54,9 +70,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 export function ChatWindow({
   messages,
   isLoadingHistory = false,
+  onRegenerate,
 }: {
   messages: ChatMessage[];
   isLoadingHistory?: boolean;
+  /** When set, the last completed assistant message gets a Regenerate
+   * button that re-asks the turn's question. */
+  onRegenerate?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -124,14 +144,22 @@ export function ChatWindow({
         className="h-full space-y-4 overflow-y-auto px-4 py-6"
       >
         {messages.length === 0 && (
-          <p className="mt-10 text-center text-sm text-slate-400">
+          <p className="mt-10 text-center text-sm text-slate-400 dark:text-slate-500">
             {isLoadingHistory
               ? "Loading conversation…"
               : "Ask a question about appliance troubleshooting to get started."}
           </p>
         )}
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+        {messages.map((message, index) => (
+          <MessageBubble
+            key={message.id}
+            message={message}
+            onRegenerate={
+              index === messages.length - 1 && message.role === "assistant" && message.content
+                ? onRegenerate
+                : undefined
+            }
+          />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -139,7 +167,7 @@ export function ChatWindow({
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 px-3 py-1.5 text-xs text-white shadow-lg"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 px-3 py-1.5 text-xs text-white shadow-lg dark:bg-slate-200 dark:text-slate-900"
         >
           Jump to latest ↓
         </button>

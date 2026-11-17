@@ -16,7 +16,7 @@ export function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleClick}
-      className="text-xs text-slate-400 hover:text-slate-600"
+      className="text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
       aria-label="Copy message"
     >
       {copied ? "Copied" : "Copy"}

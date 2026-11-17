@@ -40,6 +40,13 @@ class ChatState(TypedDict):
     # `graph.invoke_routing_pipeline`.
     self_contained_question: str
 
+    # True when `condense.condense_question` classified this turn as a
+    # question about the conversation itself ("what was my previous
+    # question?"), in which case `graph.answer_from_history` answers it
+    # from conversation_history and the routing pipeline never runs -
+    # chat-ui-plan2.md section 3's "Conversation History" route.
+    is_conversation_meta: bool
+
     # The existing pipeline's full output state (selected_topics,
     # retrieved_passages, tool_results, execution_log, ...) for this
     # turn - kept around, not flattened into conversation_history, so a
