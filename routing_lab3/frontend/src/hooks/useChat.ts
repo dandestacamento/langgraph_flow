@@ -137,7 +137,17 @@ export function useChat() {
         setMessages(
           turns.flatMap((turn): ChatMessage[] => [
             { id: crypto.randomUUID(), role: "user", content: turn.user_message },
-            { id: crypto.randomUUID(), role: "assistant", content: turn.final_answer },
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: turn.final_answer,
+              // Only attach a well-formed summary - turns recorded
+              // before per-turn summaries were persisted return {}.
+              routingSummary:
+                turn.routing_summary && "passages" in turn.routing_summary
+                  ? turn.routing_summary
+                  : undefined,
+            },
           ]),
         );
       })

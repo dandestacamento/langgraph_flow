@@ -44,6 +44,7 @@ from langgraph.graph import END, START, StateGraph
 from app.chat.condense import answer_from_history as answer_meta_question
 from app.chat.condense import condense_question
 from app.chat.guardrails import scan_input, scan_output
+from app.chat.routing_summary import build_routing_summary
 from app.chat.state import ChatState
 from app.graph import build_graph
 from app.state import initial_state
@@ -64,6 +65,11 @@ def check_input(state: ChatState) -> dict:
         "guardrail_blocked_reason": result.reason,
         "self_contained_question": state["user_message"],
         "final_answer": PROMPT_INJECTION_REFUSAL,
+        # Reset explicitly: a blocked turn skips the pipeline, so without
+        # this the *previous* turn's routing_result would be recorded as
+        # (and reported for) this one - same staleness class as
+        # answer_from_history's reset below.
+        "routing_result": {},
     }
 
 
@@ -118,6 +124,11 @@ def record_turn(state: ChatState) -> dict:
         "user_message": state["user_message"],
         "self_contained_question": state["self_contained_question"],
         "final_answer": state["final_answer"],
+        # Persisted per turn so a restored conversation keeps its
+        # citations/routing details (chat-ui-plan3.md §2.1) - the trimmed
+        # summary, not the full routing_result, for the same reasons
+        # routing_summary.py trims it for the API response.
+        "routing_summary": build_routing_summary(state.get("routing_result", {})),
     }
     return {"conversation_history": [turn]}
 

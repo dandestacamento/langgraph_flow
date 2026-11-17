@@ -22,11 +22,18 @@ class ChatTurn(TypedDict):
     """One recorded turn: the user's original message, the
     self-contained question `condense_question()` resolved it to (kept
     around for debugging why a follow-up was or wasn't understood
-    correctly), and the final answer the existing pipeline produced."""
+    correctly), the final answer the existing pipeline produced, and the
+    trimmed routing summary behind it (app/chat/routing_summary.py) -
+    persisted per turn so citations/routing details survive a page
+    refresh or conversation switch instead of existing only for
+    live-streamed turns (a real gap found in use: 'the citation is not
+    clickable' after a reload). Turns recorded before this field existed
+    simply lack the key - readers must .get() it."""
 
     user_message: str
     self_contained_question: str
     final_answer: str
+    routing_summary: dict
 
 
 class ChatState(TypedDict):

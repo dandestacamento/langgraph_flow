@@ -193,6 +193,11 @@ def test_thread_history_returns_the_recorded_turns() -> None:
     assert turns[0]["user_message"] == "What is the price of the WM-900 washing machine?"
     assert turns[0]["final_answer"]
     assert turns[1]["user_message"] == "Is it covered under warranty?"
+    # The per-turn routing summary is persisted and restored, so
+    # citations survive a page refresh ('the citation is not clickable'
+    # bug - chat-ui-plan3.md §2.1).
+    assert turns[0]["routing_summary"]["topics"] == ["appliances"]
+    assert turns[0]["routing_summary"]["passages"]["appliances"]
 
 
 def test_thread_history_rejects_another_users_thread() -> None:

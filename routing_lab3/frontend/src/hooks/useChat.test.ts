@@ -140,17 +140,34 @@ describe("useChat", () => {
 
   it("restores the active conversation's past turns on mount", async () => {
     mockedFetchThreadHistory.mockResolvedValue([
-      { user_message: "What does E21 mean?", final_answer: "E21 is a drainage fault." },
-      { user_message: "How do I fix it?", final_answer: "Clean the pump filter." },
+      {
+        user_message: "What does E21 mean?",
+        final_answer: "E21 is a drainage fault.",
+        routing_summary: {
+          ...EMPTY_SUMMARY,
+          topics: ["appliances"],
+          passages: {
+            appliances: [
+              { chapter_id: "chapter_03_faults", document_id: "d1", subtopic: null, score: 0.79, text: "E21…" },
+            ],
+          },
+        },
+      },
+      // A turn recorded before per-turn summaries existed: {}
+      { user_message: "How do I fix it?", final_answer: "Clean the pump filter.", routing_summary: {} },
     ]);
 
     const { result } = renderHook(() => useChat());
     await waitFor(() => expect(result.current.messages).toHaveLength(4));
     expect(result.current.messages[0]).toMatchObject({ role: "user", content: "What does E21 mean?" });
+    // Restored citations survive the reload...
+    expect(result.current.messages[1].routingSummary?.topics).toEqual(["appliances"]);
+    // ...and a pre-summary turn degrades to a plain message.
     expect(result.current.messages[3]).toMatchObject({
       role: "assistant",
       content: "Clean the pump filter.",
     });
+    expect(result.current.messages[3].routingSummary).toBeUndefined();
     expect(result.current.isLoadingHistory).toBe(false);
   });
 

@@ -74,12 +74,12 @@ export interface ThreadSummary {
 }
 
 /** One restored past turn of a conversation - mirrors app/api/main.py's
- * `ThreadHistoryTurn`. Deliberately has no routing summary: the backend
- * only keeps the most recent turn's routing_result, so restored history
- * renders as plain messages without the "Routing details" panel. */
+ * `ThreadHistoryTurn`. `routing_summary` is `{}` for turns recorded
+ * before per-turn summaries were persisted. */
 export interface ThreadHistoryTurn {
   user_message: string;
   final_answer: string;
+  routing_summary?: RoutingSummary | Record<string, never>;
 }
 
 export interface StreamStatusEvent {

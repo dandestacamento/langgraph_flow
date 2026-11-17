@@ -192,7 +192,13 @@ test("lists past conversations in the sidebar, switches between them, and starts
   );
   await page.route("**/api/threads/*/history", (route) => {
     const turns = route.request().url().includes("thread-fridge")
-      ? [{ user_message: "Fridge is too warm", final_answer: "Check the thermostat." }]
+      ? [
+          {
+            user_message: "Fridge is too warm",
+            final_answer: "Check the thermostat.",
+            routing_summary: ROUTING_SUMMARY_FIXTURE,
+          },
+        ]
       : [];
     return route.fulfill({ json: turns });
   });
@@ -205,11 +211,18 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await expect(sidebar.getByText("What does washing machine error E21 mean?")).toBeVisible();
 
   // Switching restores that conversation's past turns from the backend,
-  // and the header + browser tab reflect the active conversation.
+  // the header + browser tab reflect the active conversation, and the
+  // restored turn keeps its clickable citations ('the citation is not
+  // clickable' regression - restored history used to lose them).
   await sidebar.getByRole("button", { name: /^Fridge is too warm/ }).click();
   await expect(page.getByText("Check the thermostat.")).toBeVisible();
   await expect(page.getByTitle("Fridge is too warm")).toBeVisible();
   await expect(page).toHaveTitle("Fridge is too warm - Appliance Troubleshooting Chat");
+  await page.getByRole("button", { name: "chapter_03_faults" }).click();
+  await expect(
+    page.getByRole("dialog").getByText(/Check the pump filter and drain hose/),
+  ).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
 
   // "New conversation" starts from a blank window again.
   await sidebar.getByRole("button", { name: "+ New conversation" }).click();

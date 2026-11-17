@@ -172,9 +172,14 @@ does the job" rule from plan1 §2.6.
    right sidebar - same data, less chrome, and it also renders for conversation-meta turns
    (showing the `answer_from_history` branch was taken). Live-verified: a real turn showed
    check_input 19 ms → condense 1.1 s → invoke_routing_pipeline 1.3 s → check_output 3 ms →
-   record_turn 277 ms, total 2.8 s. Limitations, by design: the timeline exists only for
-   live-streamed turns (not restored history - per-node timings aren't persisted), and the
-   MLflow trace ID column waits for tracing to exist (Phase D).
+   record_turn 277 ms, total 2.8 s. **Follow-up fix (found by a real user reload)**: citations
+   originally existed only on live-streamed turns, because `conversation_history` persisted just
+   the message text - a restored conversation showed the answer's plain-text "Sources:" line and
+   nothing clickable. `record_turn` now persists each turn's trimmed routing summary and
+   `GET /threads/{id}/history` returns it, so citations and Routing details survive reloads and
+   conversation switches; turns recorded before the field existed degrade to plain messages.
+   Remaining limitations, by design: per-node execution timings are still live-turns-only (not
+   persisted), and the MLflow trace ID column waits for tracing to exist (Phase D).
 4. **Phase D - developer pages (§2.3-§2.6).** Graph Explorer, Test Lab (reusing the Streamlit
    dashboard's data contracts), observability page and feedback - sequenced against
    `routing-lab-prod-plan.md`'s infra phases where blocked.

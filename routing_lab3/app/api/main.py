@@ -202,14 +202,14 @@ class ThreadSummary(BaseModel):
 
 class ThreadHistoryTurn(BaseModel):
     """One past turn of a conversation, restored from the checkpointer's
-    `conversation_history` (app/chat/state.py's ChatTurn). The per-turn
-    routing_summary is deliberately absent: only the *last* turn's
-    routing_result is kept in graph state (earlier ones are overwritten),
-    so restored history renders as plain messages without the
-    'Routing details' panel - an accepted trade-off, not an oversight."""
+    `conversation_history` (app/chat/state.py's ChatTurn). Includes the
+    per-turn routing summary so citations/routing details survive a page
+    refresh; turns recorded before that field existed return `{}` (the
+    frontend renders them as plain messages)."""
 
     user_message: str
     final_answer: str
+    routing_summary: dict = {}
 
 
 class ClientErrorReport(BaseModel):
@@ -266,7 +266,11 @@ def thread_history(thread_id: str, user: str = Depends(get_current_user)) -> lis
     snapshot = _chat_graph.get_state({"configurable": {"thread_id": thread_id}})
     turns = (snapshot.values or {}).get("conversation_history", [])
     return [
-        ThreadHistoryTurn(user_message=turn["user_message"], final_answer=turn["final_answer"])
+        ThreadHistoryTurn(
+            user_message=turn["user_message"],
+            final_answer=turn["final_answer"],
+            routing_summary=turn.get("routing_summary", {}),
+        )
         for turn in turns
     ]
 
