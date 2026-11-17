@@ -62,6 +62,12 @@ variables:
   # installs isolated from whatever's installed in that dev venv for
   # everyday work, even though both run on the same physical machine.
   CI_VENV: $(Agent.TempDirectory)/ci-venv
+  # Cache@2's own `path` input must be a folder it fully owns, not a
+  # single file (confirmed the hard way: pointing it directly at
+  # routing_lab3/.llm_cache.db made its post-job save step fail) - this
+  # is a dedicated folder Cache@2 manages, with explicit copy-in/
+  # copy-out steps around app/cache.py's actual .llm_cache.db below.
+  LLM_CACHE_DIR: $(Pipeline.Workspace)/.llm-cache-dir
 
 steps:
   # No UsePythonVersion@0 task here - that task relies on a tool cache
@@ -112,14 +118,19 @@ steps:
   # fallback (so this run still restores the most recent prior run's
   # cache first) - a deliberately *accumulating* cache, unlike the
   # Chroma one above, which only needs to invalidate when
-  # knowledge_base/ changes.
+  # knowledge_base/ changes. Restores into LLM_CACHE_DIR (a folder),
+  # not the actual .llm_cache.db path directly - see LLM_CACHE_DIR's
+  # own comment above for why.
   - task: Cache@2
     inputs:
       key: 'llm-cache | "$(Agent.OS)" | $(Build.BuildId)'
       restoreKeys: |
         llm-cache | "$(Agent.OS)"
-      path: routing_lab3/.llm_cache.db
+      path: $(LLM_CACHE_DIR)
     displayName: "Cache LLM response cache (accumulates across runs)"
+
+  - script: if exist "$(LLM_CACHE_DIR)\.llm_cache.db" copy /Y "$(LLM_CACHE_DIR)\.llm_cache.db" "routing_lab3\.llm_cache.db"
+    displayName: "Restore cached LLM response cache into working tree"
 
   - script: $(CI_VENV)\Scripts\python.exe -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
     workingDirectory: routing_lab3
@@ -129,6 +140,19 @@ steps:
       # name - Azure Pipelines does not expose secret variables as
       # environment variables to scripts unless mapped here.
       OPENAI_API_KEY: $(OPENAI_API_KEY)
+
+  # Copies the (now more complete) cache back out to LLM_CACHE_DIR
+  # before the job ends, so Cache@2's deferred post-job save step
+  # (see its own entry above - these saves always run at the very end
+  # of the job, regardless of where the Cache@2 task itself sits in
+  # this file) picks up this run's newly-cached responses for the next
+  # run to restore. condition: always() so even a failing test run
+  # still saves whatever got cached along the way.
+  - script: |
+      if not exist "$(LLM_CACHE_DIR)" mkdir "$(LLM_CACHE_DIR)"
+      if exist "routing_lab3\.llm_cache.db" copy /Y "routing_lab3\.llm_cache.db" "$(LLM_CACHE_DIR)\.llm_cache.db"
+    condition: always()
+    displayName: "Save LLM response cache for next run"
 
   - task: PublishTestResults@2
     condition: succeededOrFailed()
