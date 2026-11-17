@@ -47,6 +47,7 @@ Run with:
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -62,7 +63,7 @@ import os  # noqa: E402
 
 from fastapi import Depends, FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import StreamingResponse  # noqa: E402
+from fastapi.responses import Response, StreamingResponse  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 from openai import RateLimitError, UnprocessableEntityError  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
@@ -167,6 +168,37 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class ThreadSummary(BaseModel):
+    """One row of the conversation list (chat-ui-plan1.md Phase E) -
+    served straight from `ThreadOwnershipRegistry`'s records."""
+
+    thread_id: str
+    title: str
+    updated_at: str
+
+
+class ThreadHistoryTurn(BaseModel):
+    """One past turn of a conversation, restored from the checkpointer's
+    `conversation_history` (app/chat/state.py's ChatTurn). The per-turn
+    routing_summary is deliberately absent: only the *last* turn's
+    routing_result is kept in graph state (earlier ones are overwritten),
+    so restored history renders as plain messages without the
+    'Routing details' panel - an accepted trade-off, not an oversight."""
+
+    user_message: str
+    final_answer: str
+
+
+class ClientErrorReport(BaseModel):
+    """What the frontend's error boundary (src/components/
+    ErrorBoundary.tsx) reports when it catches a render crash."""
+
+    message: str
+    stack: str | None = None
+    component_stack: str | None = None
+    url: str | None = None
+
+
 class ChatResponse(BaseModel):
     thread_id: str
     self_contained_question: str
@@ -189,12 +221,58 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/threads", response_model=list[ThreadSummary])
+def list_threads(user: str = Depends(get_current_user)) -> list[ThreadSummary]:
+    """The authenticated user's conversations, most recently active
+    first - only ever their own (chat-ui-plan1.md Phase E's exit
+    criterion), since the registry filters by the token's `sub`."""
+    return [ThreadSummary(**thread) for thread in _thread_ownership.list_threads(user)]
+
+
+@app.get("/threads/{thread_id}/history", response_model=list[ThreadHistoryTurn])
+def thread_history(thread_id: str, user: str = Depends(get_current_user)) -> list[ThreadHistoryTurn]:
+    """Past turns of one conversation, so the frontend can restore a
+    switched-to (or refreshed) conversation's messages. 404 for a
+    thread_id the registry has never seen, 403 for another user's -
+    read-only, so this never *records* ownership the way /chat does."""
+    _thread_ownership.check_owner(thread_id, user)
+    snapshot = _chat_graph.get_state({"configurable": {"thread_id": thread_id}})
+    turns = (snapshot.values or {}).get("conversation_history", [])
+    return [
+        ThreadHistoryTurn(user_message=turn["user_message"], final_answer=turn["final_answer"])
+        for turn in turns
+    ]
+
+
+_client_error_logger = logging.getLogger("routing_lab3.client_errors")
+
+
+@app.post("/client-error", status_code=204)
+def report_client_error(
+    report: ClientErrorReport, user: str = Depends(get_current_user)
+) -> Response:
+    """Receives the frontend error boundary's crash reports and emits
+    them through standard Python logging - once the self-hosted
+    Grafana/Loki stack (routing-lab-prod-plan.md section 2.5) is live,
+    this process's log stream (and therefore these entries) flows into
+    it with no change here; deliberately not a proprietary SaaS SDK."""
+    _client_error_logger.error(
+        "Frontend error from user %s at %s: %s\nStack: %s\nComponent stack: %s",
+        user,
+        report.url or "<unknown url>",
+        report.message,
+        report.stack or "<none>",
+        report.component_stack or "<none>",
+    )
+    return Response(status_code=204)
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, user: str = Depends(get_current_user)) -> ChatResponse:
     """One synchronous turn: invokes the chat graph and returns the full
     result. Simpler to call/test than `/chat/stream` - use this for
     anything that doesn't need incremental progress updates."""
-    _thread_ownership.check_and_record(request.thread_id, user)
+    _thread_ownership.check_and_record(request.thread_id, user, title=request.message)
     _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
     try:
@@ -239,7 +317,7 @@ def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> 
     `invoke_routing_pipeline` ever running (a blocked prompt-injection
     attempt), so the running `final_answer`/`routing_result` are tracked
     across every node update rather than read off one specific node."""
-    _thread_ownership.check_and_record(request.thread_id, user)
+    _thread_ownership.check_and_record(request.thread_id, user, title=request.message)
     _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
 

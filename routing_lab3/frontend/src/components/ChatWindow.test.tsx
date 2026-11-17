@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ChatMessage } from "../hooks/useChat";
@@ -45,5 +45,29 @@ describe("ChatWindow", () => {
     render(<ChatWindow messages={messages} />);
 
     expect(screen.getByText(/flagged as a prompt-injection attempt/)).toBeInTheDocument();
+  });
+
+  it("hides 'Jump to latest' once the conversation is cleared, even after scrolling up", async () => {
+    const messages: ChatMessage[] = [
+      { id: "1", role: "user", content: "What does E21 mean?" },
+      { id: "2", role: "assistant", content: "E21 is a drainage fault." },
+    ];
+    const { rerender } = render(<ChatWindow messages={messages} />);
+
+    // Simulate a long conversation the user has scrolled to the top of.
+    const scrollRegion = screen.getByTestId("chat-scroll-region");
+    Object.defineProperty(scrollRegion, "scrollHeight", { value: 2000, configurable: true });
+    Object.defineProperty(scrollRegion, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(scrollRegion, "scrollTop", { value: 0, configurable: true });
+    fireEvent.scroll(scrollRegion);
+    expect(await screen.findByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+
+    // Clearing the conversation ("New conversation"/switch) removes the
+    // overflow - no scroll event fires, but the button must still go.
+    Object.defineProperty(scrollRegion, "scrollHeight", { value: 400, configurable: true });
+    rerender(<ChatWindow messages={[]} />);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument(),
+    );
   });
 });

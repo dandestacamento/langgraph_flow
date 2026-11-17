@@ -51,9 +51,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatWindow({ messages }: { messages: ChatMessage[] }) {
+export function ChatWindow({
+  messages,
+  isLoadingHistory = false,
+}: {
+  messages: ChatMessage[];
+  isLoadingHistory?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(0);
   // Tracks whether the user is near the bottom of the scroll area, so a
   // new message only auto-scrolls when they haven't deliberately
   // scrolled up to re-read earlier context - don't fight that choice.
@@ -75,12 +82,34 @@ export function ChatWindow({ messages }: { messages: ChatMessage[] }) {
   useEffect(() => {
     // Always scroll to the user's own freshly-sent message (a deliberate
     // action), but only follow an incoming/streaming assistant update if
-    // the user hasn't scrolled up to re-read earlier context.
+    // the user hasn't scrolled up to re-read earlier context. A
+    // conversation restored in one update (empty -> populated, i.e. a
+    // switch or page load) starts at its latest message instantly.
     const lastMessage = messages[messages.length - 1];
     const justSentByUser = lastMessage?.role === "user";
-    if (isNearBottom || justSentByUser) {
+    const justRestored = prevMessageCountRef.current === 0 && messages.length > 0;
+    prevMessageCountRef.current = messages.length;
+    if (justRestored) {
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    } else if (isNearBottom || justSentByUser) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
+
+    // Re-measure once this message-list change has been laid out:
+    // clearing or switching a conversation fires no scroll event, so
+    // without this a stale "scrolled up" state from the previous
+    // conversation keeps "Jump to latest" visible over a window with
+    // nothing actually hidden below it.
+    const frame = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      if (
+        container &&
+        container.scrollHeight - container.clientHeight < NEAR_BOTTOM_THRESHOLD_PX
+      ) {
+        setIsNearBottom(true);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [messages, isNearBottom]);
 
   function scrollToBottom() {
@@ -89,10 +118,16 @@ export function ChatWindow({ messages }: { messages: ChatMessage[] }) {
 
   return (
     <div className="relative flex-1 overflow-hidden">
-      <div ref={containerRef} className="h-full space-y-4 overflow-y-auto px-4 py-6">
+      <div
+        ref={containerRef}
+        data-testid="chat-scroll-region"
+        className="h-full space-y-4 overflow-y-auto px-4 py-6"
+      >
         {messages.length === 0 && (
           <p className="mt-10 text-center text-sm text-slate-400">
-            Ask a question about appliance troubleshooting to get started.
+            {isLoadingHistory
+              ? "Loading conversation…"
+              : "Ask a question about appliance troubleshooting to get started."}
           </p>
         )}
         {messages.map((message) => (

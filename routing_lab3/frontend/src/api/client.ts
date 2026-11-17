@@ -65,6 +65,23 @@ export interface ChatResponse {
   guardrail_blocked_reason?: string | null;
 }
 
+/** One row of the authenticated user's conversation list - mirrors
+ * app/api/main.py's `ThreadSummary`. */
+export interface ThreadSummary {
+  thread_id: string;
+  title: string;
+  updated_at: string;
+}
+
+/** One restored past turn of a conversation - mirrors app/api/main.py's
+ * `ThreadHistoryTurn`. Deliberately has no routing summary: the backend
+ * only keeps the most recent turn's routing_result, so restored history
+ * renders as plain messages without the "Routing details" panel. */
+export interface ThreadHistoryTurn {
+  user_message: string;
+  final_answer: string;
+}
+
 export interface StreamStatusEvent {
   type: "status";
   node: string;
@@ -156,5 +173,60 @@ export async function streamChatMessage(
         throw new Error(data.detail ?? "The assistant could not complete this response.");
       }
     }
+  }
+}
+
+/** The authenticated user's conversations, most recently active first:
+ * GET /threads. */
+export async function listThreads(): Promise<ThreadSummary[]> {
+  const token = await getValidToken();
+  const response = await fetch(`${API_BASE_URL}/threads`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Thread list request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/** Past turns of one conversation: GET /threads/{id}/history. A 404
+ * (a brand-new thread_id the backend hasn't seen a message for yet)
+ * is a normal empty conversation, not an error. */
+export async function fetchThreadHistory(threadId: string): Promise<ThreadHistoryTurn[]> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/threads/${encodeURIComponent(threadId)}/history`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (response.status === 404) return [];
+  if (!response.ok) {
+    throw new Error(`Thread history request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/** Reports an error the ErrorBoundary caught to POST /client-error
+ * (which logs it backend-side, Loki-ready - see app/api/main.py).
+ * Never throws: error *reporting* failing must not cascade into the
+ * already-broken UI. */
+export async function reportClientError(report: {
+  message: string;
+  stack?: string;
+  componentStack?: string;
+}): Promise<void> {
+  try {
+    const token = await getValidToken();
+    await fetch(`${API_BASE_URL}/client-error`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        message: report.message,
+        stack: report.stack ?? null,
+        component_stack: report.componentStack ?? null,
+        url: window.location.href,
+      }),
+    });
+  } catch {
+    // Swallowed deliberately - see docstring.
   }
 }

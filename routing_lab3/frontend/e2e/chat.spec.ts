@@ -26,6 +26,14 @@ async function login(page: Page, username = "demo", password = "demo-password"):
   await page.waitForURL("**/localhost:5173/**");
 }
 
+/** The app now (Phase E) loads the conversation list and the active
+ * thread's history at startup - mock both with empty defaults so the
+ * pre-existing tests stay deterministic without a live backend. */
+async function mockEmptyThreadRoutes(page: Page): Promise<void> {
+  await page.route("**/api/threads", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/threads/*/history", (route) => route.fulfill({ json: [] }));
+}
+
 const ROUTING_SUMMARY_FIXTURE = {
   topics: ["appliances"],
   subtopics: { appliances: "washing_machines" },
@@ -50,6 +58,7 @@ const ROUTING_SUMMARY_FIXTURE = {
 test("sends a message, shows streaming status, then renders the Markdown answer with routing details", async ({
   page,
 }) => {
+  await mockEmptyThreadRoutes(page);
   await page.route("**/api/chat/stream", async (route) => {
     await route.fulfill({
       status: 200,
@@ -83,6 +92,7 @@ test("sends a message, shows streaming status, then renders the Markdown answer 
 });
 
 test("shows an error banner with a working Retry button on a backend failure", async ({ page }) => {
+  await mockEmptyThreadRoutes(page);
   let callCount = 0;
   await page.route("**/api/chat/stream", async (route) => {
     callCount += 1;
@@ -113,6 +123,7 @@ test("shows an error banner with a working Retry button on a backend failure", a
 });
 
 test("has no serious/critical accessibility violations once a conversation is populated", async ({ page }) => {
+  await mockEmptyThreadRoutes(page);
   await page.route("**/api/chat/stream", async (route) => {
     await route.fulfill({
       status: 200,
@@ -136,4 +147,49 @@ test("has no serious/critical accessibility violations once a conversation is po
     (violation) => violation.impact === "serious" || violation.impact === "critical",
   );
   expect(seriousOrCritical, JSON.stringify(seriousOrCritical, null, 2)).toEqual([]);
+});
+
+test("lists past conversations in the sidebar, switches between them, and starts a new one", async ({
+  page,
+}) => {
+  await page.route("**/api/threads", (route) =>
+    route.fulfill({
+      json: [
+        {
+          thread_id: "thread-fridge",
+          title: "Fridge is too warm",
+          updated_at: "2026-01-02T00:00:00Z",
+        },
+        {
+          thread_id: "thread-e21",
+          title: "What does washing machine error E21 mean?",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/threads/*/history", (route) => {
+    const turns = route.request().url().includes("thread-fridge")
+      ? [{ user_message: "Fridge is too warm", final_answer: "Check the thermostat." }]
+      : [];
+    return route.fulfill({ json: turns });
+  });
+
+  await login(page);
+
+  // The sidebar lists both conversations the backend returned.
+  const sidebar = page.getByRole("navigation", { name: "Conversations" });
+  await expect(sidebar.getByText("Fridge is too warm")).toBeVisible();
+  await expect(sidebar.getByText("What does washing machine error E21 mean?")).toBeVisible();
+
+  // Switching restores that conversation's past turns from the backend.
+  await sidebar.getByRole("button", { name: /Fridge is too warm/ }).click();
+  await expect(page.getByText("Check the thermostat.")).toBeVisible();
+
+  // "New conversation" starts from a blank window again.
+  await sidebar.getByRole("button", { name: "+ New conversation" }).click();
+  await expect(page.getByText("Check the thermostat.")).not.toBeVisible();
+  await expect(
+    page.getByText("Ask a question about appliance troubleshooting to get started."),
+  ).toBeVisible();
 });

@@ -277,6 +277,40 @@ consistent with the rest of this repo's stack.
    `routing-lab-prod-plan.md` Phase D (observability stack live). **Exit criteria**: a user sees
    only their own past conversations, and a deliberately induced frontend error shows up in Grafana
    within the same SLA `routing-lab-prod-plan.md` §5 already defines for backend alerts.
+   **Done (multi-conversation UX + the Loki-independent half of observability)**: backend grew
+   `GET /threads` (the authenticated user's conversations, most recent first) and
+   `GET /threads/{thread_id}/history` (past turns restored from the checkpointer's
+   `conversation_history`; 404 unknown / 403 someone else's) - both served from
+   `ThreadOwnershipRegistry`, which now also records a title (the opening message, truncated) and a
+   last-activity timestamp per thread, with `ADD COLUMN IF NOT EXISTS` migration for pre-Phase-E
+   Postgres tables. Restored history is deliberately plain turns without per-turn routing summaries:
+   only the *last* turn's `routing_result` survives in graph state, an accepted trade-off documented
+   on the endpoint. Frontend: `ConversationSidebar.tsx` (lazy-loaded via `React.lazy`, exactly the
+   component §2.6 predicted should be code-split - it builds as its own ~1.6 KB chunk), a "New
+   conversation" action, switching that restores a conversation's turns from the backend, and - a
+   side benefit of the history endpoint - a page refresh now restores the visible messages too,
+   instead of showing an empty window over a remembered backend conversation. `useChat` guards
+   against a slow in-flight history restore clobbering a newly sent turn (a monotonic sequence ref,
+   bumped on send/switch/new). Error reporting: a React `ErrorBoundary` (class component - React has
+   no hook equivalent) reports crashes to a new authenticated `POST /client-error` endpoint that
+   emits them through standard Python logging - Loki-ready, no SaaS SDK - but the "appears in
+   Grafana" half of the exit criterion genuinely remains blocked on `routing-lab-prod-plan.md`
+   Phase D's observability stack, which still doesn't exist; this phase deliberately did not
+   deploy Grafana/Loki just to tick that box.
+
+   **Verified end-to-end for real**: logged in as the `demo` user through real Keycloak, held two
+   separate conversations through the real backend, watched the sidebar list them newest-first
+   (titled by their opening messages), switched back and saw the first conversation's turns
+   restored from the real checkpointer, and sent a follow-up on the switched-to thread that
+   resumed its server-side history (no 403, turn appended, list reordered). Automated coverage:
+   7 new backend tests (per-user thread listing/ordering/titles, history restore, 403/404, the
+   client-error log capture, auth requirements), 9 new frontend unit/component tests
+   (history restore, new/switch conversation, list refresh after send, sidebar rendering/disabled
+   states, error-boundary fallback + reporting), and a 4th Playwright e2e test driving the real
+   sidebar flow. **One real regression caught by the existing a11y e2e test, not by eye**: the
+   sidebar's first styling used `text-slate-400` on `bg-slate-50`, a genuine WCAG AA
+   color-contrast failure (`axe-core` flagged it serious; exactly the §2.2 badge-contrast class of
+   bug) - fixed to `text-slate-600` and re-verified zero serious/critical violations.
 
 ---
 
@@ -292,8 +326,13 @@ consistent with the rest of this repo's stack.
       Keycloak URL, which is still build-time, not runtime-configurable - see Phase D's write-up.)
 - [x] Logging in via Keycloak works end-to-end; a token from one user cannot resume another user's
       `thread_id` (the gap identified in §2.3/§6). (Phase D)
+- [x] A user sees only their own past conversations, listed most-recent-first, can switch between
+      them with full history restored from the server, and can start a new one. (Phase E)
 - [ ] A deliberately induced frontend error (e.g. throwing inside a component) is caught by the
-      error boundary and appears in Grafana/Loki, not just the browser console.
+      error boundary and appears in Grafana/Loki, not just the browser console. (Phase E built the
+      boundary + the backend `POST /client-error` logging endpoint it reports to - the remaining
+      gap is solely that the Grafana/Loki stack itself, `routing-lab-prod-plan.md` §2.5, doesn't
+      exist yet.)
 - [ ] Bundle size stays within the budget set in §2.5; a regression here is visible in CI, not
       discovered after deployment.
 - [ ] **Regression**: `routing_lab3/tests/`' existing 228-row/10-level routing-accuracy ground

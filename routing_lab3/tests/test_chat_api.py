@@ -132,6 +132,104 @@ def test_thread_ownership_rejects_a_different_user() -> None:
     assert second.status_code == 403
 
 
+def test_threads_lists_only_the_current_users_conversations_most_recent_first() -> None:
+    """Chat-ui-plan1.md Phase E's exit criterion: a user sees only their
+    own past conversations - and in recency order, titled by their
+    opening message."""
+    user = f"user-{uuid.uuid4()}"
+    other_user = f"user-{uuid.uuid4()}"
+    first_thread = f"test-{uuid.uuid4()}"
+    second_thread = f"test-{uuid.uuid4()}"
+    foreign_thread = f"test-{uuid.uuid4()}"
+
+    client.post(
+        "/chat",
+        json={"thread_id": first_thread, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+    client.post(
+        "/chat",
+        json={"thread_id": second_thread, "message": "What is the price of the WM-900 washing machine?"},
+        headers=_auth_headers(sub=user),
+    )
+    client.post(
+        "/chat",
+        json={"thread_id": foreign_thread, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=other_user),
+    )
+
+    response = client.get("/threads", headers=_auth_headers(sub=user))
+    assert response.status_code == 200
+    threads = response.json()
+    assert [t["thread_id"] for t in threads] == [second_thread, first_thread]
+    assert threads[1]["title"] == "What does washing machine error E21 mean?"
+    assert all(t["updated_at"] for t in threads)
+
+
+def test_threads_requires_authentication() -> None:
+    assert client.get("/threads").status_code == 401
+
+
+def test_thread_history_returns_the_recorded_turns() -> None:
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What is the price of the WM-900 washing machine?"},
+        headers=_auth_headers(),
+    )
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "Is it covered under warranty?"},
+        headers=_auth_headers(),
+    )
+
+    response = client.get(f"/threads/{thread_id}/history", headers=_auth_headers())
+    assert response.status_code == 200
+    turns = response.json()
+    assert len(turns) == 2
+    assert turns[0]["user_message"] == "What is the price of the WM-900 washing machine?"
+    assert turns[0]["final_answer"]
+    assert turns[1]["user_message"] == "Is it covered under warranty?"
+
+
+def test_thread_history_rejects_another_users_thread() -> None:
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub="user-a"),
+    )
+
+    response = client.get(f"/threads/{thread_id}/history", headers=_auth_headers(sub="user-b"))
+    assert response.status_code == 403
+
+
+def test_thread_history_is_404_for_an_unknown_thread() -> None:
+    response = client.get(f"/threads/test-{uuid.uuid4()}/history", headers=_auth_headers())
+    assert response.status_code == 404
+
+
+def test_client_error_is_logged_and_returns_204(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("ERROR", logger="routing_lab3.client_errors"):
+        response = client.post(
+            "/client-error",
+            json={
+                "message": "Deliberate render crash",
+                "stack": "Error: Deliberate render crash\n  at Crashing",
+                "component_stack": "  at App",
+                "url": "http://localhost:5173/",
+            },
+            headers=_auth_headers(),
+        )
+    assert response.status_code == 204
+    assert "Deliberate render crash" in caplog.text
+
+
+def test_client_error_requires_authentication() -> None:
+    response = client.post("/client-error", json={"message": "crash"})
+    assert response.status_code == 401
+
+
 def test_chat_stream_endpoint_emits_status_then_answer_events() -> None:
     thread_id = f"test-{uuid.uuid4()}"
     with client.stream(

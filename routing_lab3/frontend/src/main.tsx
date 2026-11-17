@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import App from "./App.tsx";
 import { initKeycloak } from "./auth/keycloak";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
 
 const rootElement = document.getElementById("root")!;
@@ -22,7 +23,9 @@ initKeycloak()
     }
     root.render(
       <StrictMode>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </StrictMode>,
     );
   })

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { sendChatMessage, streamChatMessage } from "../api/client";
-import type { RoutingSummary } from "../api/client";
+import { fetchThreadHistory, listThreads, sendChatMessage, streamChatMessage } from "../api/client";
+import type { RoutingSummary, ThreadSummary } from "../api/client";
 
 export interface ChatMessage {
   id: string;
@@ -30,6 +30,12 @@ function getOrCreateThreadId(): string {
   return generated;
 }
 
+function newThreadId(): string {
+  const generated = crypto.randomUUID();
+  localStorage.setItem(THREAD_ID_STORAGE_KEY, generated);
+  return generated;
+}
+
 /** A `TypeError` is what `fetch` itself throws for a connectivity failure
  * (DNS/refused/offline) - distinct from an HTTP error response, which
  * `sendChatMessage`/`streamChatMessage` instead reject with a regular
@@ -49,26 +55,89 @@ function describeError(err: unknown): string {
  * browser-level analogue of smarthome-csr's `st.session_state` pattern)
  * and the message list, and wraps the streaming/non-streaming API calls
  * in app/api/client.ts.
+ *
+ * Phase E (chat-ui-plan1.md): also owns the user's conversation *list*
+ * (`threads`, refreshed after every successful send), restores a
+ * conversation's past turns when it becomes active (on first load and
+ * on `switchConversation`), and supports starting a fresh one
+ * (`newConversation`).
  */
 export function useChat() {
-  const [threadId] = useState(getOrCreateThreadId);
+  const [threadId, setThreadId] = useState(getOrCreateThreadId);
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
+  // Starts true: the mount-time history restore below is already in
+  // flight by first render. Set back to true from the switch/new event
+  // handlers (not inside the effect) when the active thread changes.
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by retryLastMessage to re-run the history-restore effect
+  // after a failed load (e.g. the backend was unreachable).
+  const [historyReloadNonce, setHistoryReloadNonce] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   // The most recent message that failed to send, kept only so "Retry"
   // can resend the exact same text - cleared on any successful send.
   const lastFailedMessageRef = useRef<string | null>(null);
+  // Monotonic guard: a history load only applies if nothing (a thread
+  // switch, a send) superseded it while its fetch was in flight.
+  const historyLoadSeqRef = useRef(0);
 
   useEffect(() => {
     return () => abortControllerRef.current?.abort();
   }, []);
+
+  // Non-fatal by design: the chat itself works without the sidebar's
+  // list, so a failure here degrades to an empty list, not an error
+  // banner blocking the composer.
+  const refreshThreads = useCallback(() => {
+    listThreads()
+      .then(setThreads)
+      .catch(() => {
+        // Degrade gracefully - see above.
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshThreads();
+  }, [refreshThreads]);
+
+  // Restore the active conversation's past turns whenever it changes
+  // (including the initial mount - before this, a page refresh kept the
+  // backend-side history but showed an empty window).
+  useEffect(() => {
+    const seq = ++historyLoadSeqRef.current;
+    fetchThreadHistory(threadId)
+      .then((turns) => {
+        if (seq !== historyLoadSeqRef.current) return;
+        setMessages(
+          turns.flatMap((turn): ChatMessage[] => [
+            { id: crypto.randomUUID(), role: "user", content: turn.user_message },
+            { id: crypto.randomUUID(), role: "assistant", content: turn.final_answer },
+          ]),
+        );
+      })
+      .catch(() => {
+        // A failed restore must be *visible*, not a silently blank
+        // window a user can mistake for a deleted conversation - the
+        // error banner's Retry re-runs this load (see retryLastMessage).
+        if (seq !== historyLoadSeqRef.current) return;
+        setError("Couldn't load this conversation's history - check your connection and try again.");
+      })
+      .finally(() => {
+        if (seq === historyLoadSeqRef.current) setIsLoadingHistory(false);
+      });
+  }, [threadId, historyReloadNonce]);
 
   const sendMessage = useCallback(
     async (text: string, useStreaming = true) => {
       const trimmed = text.trim();
       if (!trimmed || isSending) return;
 
+      // A send supersedes any still-in-flight history load - without
+      // this, a slow restore could resolve late and wipe the new turn.
+      historyLoadSeqRef.current += 1;
+      setIsLoadingHistory(false);
       setError(null);
       setIsSending(true);
       const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: trimmed };
@@ -127,6 +196,9 @@ export function useChat() {
           );
         }
         lastFailedMessageRef.current = null;
+        // A successful turn changes this thread's title (if new) and
+        // recency ordering - refresh the list to reflect it.
+        refreshThreads();
       } catch (err) {
         lastFailedMessageRef.current = trimmed;
         setError(describeError(err));
@@ -135,14 +207,54 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [threadId, isSending],
+    [threadId, isSending, refreshThreads],
   );
 
   const retryLastMessage = useCallback(() => {
     if (lastFailedMessageRef.current) {
       void sendMessage(lastFailedMessageRef.current);
+      return;
     }
+    // No failed *send* to retry - the error banner is up because a
+    // history restore failed, so Retry re-runs that load instead.
+    setError(null);
+    setIsLoadingHistory(true);
+    setHistoryReloadNonce((nonce) => nonce + 1);
   }, [sendMessage]);
 
-  return { threadId, messages, isSending, error, sendMessage, retryLastMessage };
+  const newConversation = useCallback(() => {
+    if (isSending) return;
+    historyLoadSeqRef.current += 1; // discard any in-flight restore
+    setThreadId(newThreadId());
+    setIsLoadingHistory(true);
+    setMessages([]);
+    setError(null);
+    lastFailedMessageRef.current = null;
+  }, [isSending]);
+
+  const switchConversation = useCallback(
+    (nextThreadId: string) => {
+      if (isSending || nextThreadId === threadId) return;
+      localStorage.setItem(THREAD_ID_STORAGE_KEY, nextThreadId);
+      setThreadId(nextThreadId); // history restores via the effect above
+      setIsLoadingHistory(true);
+      setMessages([]);
+      setError(null);
+      lastFailedMessageRef.current = null;
+    },
+    [isSending, threadId],
+  );
+
+  return {
+    threadId,
+    threads,
+    messages,
+    isSending,
+    isLoadingHistory,
+    error,
+    sendMessage,
+    retryLastMessage,
+    newConversation,
+    switchConversation,
+  };
 }

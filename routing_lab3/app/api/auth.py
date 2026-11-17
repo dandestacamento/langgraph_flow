@@ -17,6 +17,7 @@ HTTP response shape - see tests/test_chat_api.py.
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Callable
 
 import jwt
@@ -75,12 +76,23 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(_bearer
     return payload["sub"]
 
 
+# Conversation titles are the first user message, truncated - enough for
+# a list view, without storing a second full copy of the message.
+_TITLE_MAX_CHARS = 80
+
+
 class ThreadOwnershipRegistry:
     """Fixes the gap flagged in instructions/learnings/chat-ui-plan1.md
     section 6: before this existed, any authenticated caller could
     resume *any* thread_id, including one started by a different user.
     Records which user first used each thread_id and rejects (403) a
     later request for that thread_id from anyone else.
+
+    Also stores a per-thread title (the first user message, truncated)
+    and a last-activity timestamp, so the conversation list the frontend
+    needs (chat-ui-plan1.md Phase E's `GET /threads`) is served from the
+    same record that already had to exist for the ownership check -
+    no separate "conversations" table to keep in sync.
 
     In-memory by default. Pass a Postgres connection string (the same
     `CHAT_DB_URL` app/api/main.py uses for `PostgresSaver`) to persist
@@ -89,7 +101,8 @@ class ThreadOwnershipRegistry:
     as this class's own earlier docstring noted they needed to."""
 
     def __init__(self, conn_string: str | None = None) -> None:
-        self._owners: dict[str, str] = {}
+        # thread_id -> {"user_sub", "title", "updated_at" (datetime)}
+        self._records: dict[str, dict] = {}
         self._conn_string = conn_string
         if conn_string:
             import psycopg
@@ -97,24 +110,109 @@ class ThreadOwnershipRegistry:
             with psycopg.connect(conn_string, autocommit=True) as conn:
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS thread_owners ("
-                    "thread_id TEXT PRIMARY KEY, user_sub TEXT NOT NULL)"
+                    "thread_id TEXT PRIMARY KEY, user_sub TEXT NOT NULL, "
+                    "title TEXT NOT NULL DEFAULT '', "
+                    "updated_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+                )
+                # Pre-Phase-E databases created this table with only the
+                # two ownership columns - add the list-view columns in
+                # place rather than requiring a wipe of existing
+                # conversation ownership records.
+                conn.execute(
+                    "ALTER TABLE thread_owners "
+                    "ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT ''"
+                )
+                conn.execute(
+                    "ALTER TABLE thread_owners "
+                    "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
                 )
 
-    def check_and_record(self, thread_id: str, user: str) -> None:
+    def check_and_record(self, thread_id: str, user: str, title: str = "") -> None:
+        """403s unless `user` owns (or is the first user of) `thread_id`.
+        Records the title on first use only (it's the conversation's
+        opening message) and bumps the last-activity timestamp on every
+        successful call."""
+        title = title.strip()[:_TITLE_MAX_CHARS]
         if self._conn_string:
-            self._check_and_record_db(thread_id, user)
+            self._check_and_record_db(thread_id, user, title)
         else:
-            self._check_and_record_memory(thread_id, user)
+            self._check_and_record_memory(thread_id, user, title)
 
-    def _check_and_record_memory(self, thread_id: str, user: str) -> None:
-        owner = self._owners.setdefault(thread_id, user)
+    def check_owner(self, thread_id: str, user: str) -> None:
+        """Read-only ownership check for `GET` endpoints: 404 for a
+        thread_id this registry has never seen (nothing to leak about
+        whether it exists elsewhere), 403 for someone else's."""
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                row = conn.execute(
+                    "SELECT user_sub FROM thread_owners WHERE thread_id = %s", (thread_id,)
+                ).fetchone()
+            owner = row[0] if row is not None else None
+        else:
+            record = self._records.get(thread_id)
+            owner = record["user_sub"] if record is not None else None
+
+        if owner is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown conversation."
+            )
         if owner != user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This conversation belongs to a different user.",
             )
 
-    def _check_and_record_db(self, thread_id: str, user: str) -> None:
+    def list_threads(self, user: str) -> list[dict]:
+        """This user's conversations, most recently active first - each
+        as {"thread_id", "title", "updated_at" (ISO-8601 string)}."""
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                rows = conn.execute(
+                    "SELECT thread_id, title, updated_at FROM thread_owners "
+                    "WHERE user_sub = %s ORDER BY updated_at DESC",
+                    (user,),
+                ).fetchall()
+            return [
+                {"thread_id": row[0], "title": row[1], "updated_at": row[2].isoformat()}
+                for row in rows
+            ]
+
+        own = [
+            (thread_id, record)
+            for thread_id, record in self._records.items()
+            if record["user_sub"] == user
+        ]
+        own.sort(key=lambda item: item[1]["updated_at"], reverse=True)
+        return [
+            {
+                "thread_id": thread_id,
+                "title": record["title"],
+                "updated_at": record["updated_at"].isoformat(),
+            }
+            for thread_id, record in own
+        ]
+
+    def _check_and_record_memory(self, thread_id: str, user: str, title: str) -> None:
+        record = self._records.get(thread_id)
+        if record is None:
+            self._records[thread_id] = {
+                "user_sub": user,
+                "title": title,
+                "updated_at": datetime.now(timezone.utc),
+            }
+            return
+        if record["user_sub"] != user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This conversation belongs to a different user.",
+            )
+        record["updated_at"] = datetime.now(timezone.utc)
+
+    def _check_and_record_db(self, thread_id: str, user: str, title: str) -> None:
         import psycopg
 
         # ON CONFLICT DO NOTHING makes "insert the owner if this
@@ -125,16 +223,19 @@ class ThreadOwnershipRegistry:
         # per routing-lab-prod-plan.md section 2.6).
         with psycopg.connect(self._conn_string, autocommit=True) as conn:
             conn.execute(
-                "INSERT INTO thread_owners (thread_id, user_sub) VALUES (%s, %s) "
+                "INSERT INTO thread_owners (thread_id, user_sub, title) VALUES (%s, %s, %s) "
                 "ON CONFLICT (thread_id) DO NOTHING",
-                (thread_id, user),
+                (thread_id, user, title),
             )
             row = conn.execute(
                 "SELECT user_sub FROM thread_owners WHERE thread_id = %s", (thread_id,)
             ).fetchone()
-
-        if row is not None and row[0] != user:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This conversation belongs to a different user.",
+            if row is not None and row[0] != user:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This conversation belongs to a different user.",
+                )
+            conn.execute(
+                "UPDATE thread_owners SET updated_at = now() WHERE thread_id = %s",
+                (thread_id,),
             )
