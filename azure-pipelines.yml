@@ -101,6 +101,26 @@ steps:
       path: routing_lab3/.chroma
     displayName: "Cache Chroma vector index"
 
+  # app/cache.py's persistent SQLite LLM/embedding response cache
+  # (routing_lab3/.llm_cache.db, gitignored, so a fresh checkout never
+  # has one) - without this, every one of the ~432 tests' LLM calls is
+  # a real, uncached OpenAI round-trip on every single run, which is
+  # what made the first real pipeline run take 30+ minutes instead of
+  # the ~80 seconds a locally-warmed cache gives. Keyed on
+  # $(Build.BuildId) (always a miss, so this run's newly-cached
+  # responses get saved at the end) with a fixed-prefix restoreKeys
+  # fallback (so this run still restores the most recent prior run's
+  # cache first) - a deliberately *accumulating* cache, unlike the
+  # Chroma one above, which only needs to invalidate when
+  # knowledge_base/ changes.
+  - task: Cache@2
+    inputs:
+      key: 'llm-cache | "$(Agent.OS)" | $(Build.BuildId)'
+      restoreKeys: |
+        llm-cache | "$(Agent.OS)"
+      path: routing_lab3/.llm_cache.db
+    displayName: "Cache LLM response cache (accumulates across runs)"
+
   - script: $(CI_VENV)\Scripts\python.exe -m pytest -q --junitxml=$(Agent.TempDirectory)/pytest-results.xml
     workingDirectory: routing_lab3
     displayName: "Run backend test suite (pytest)"
