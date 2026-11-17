@@ -33,11 +33,23 @@ export async function initKeycloak(): Promise<boolean> {
  * seconds of expiring - keycloak-js's own recommended pattern, used
  * instead of reading `keycloak.token` directly and risking a request
  * going out with a token that's about to (or just did) expire.
+ *
+ * If the refresh itself fails (the SSO session/refresh token has
+ * expired - e.g. the tab sat idle past the realm's session timeout),
+ * redirects through Keycloak's login page rather than surfacing a
+ * cryptic error banner the Retry button can never fix. Nothing is lost:
+ * conversation history lives server-side and is restored after login.
  */
 export async function getValidToken(): Promise<string> {
-  await keycloak.updateToken(30);
+  try {
+    await keycloak.updateToken(30);
+  } catch {
+    await keycloak.login();
+    throw new Error("Session expired - redirecting to sign-in…");
+  }
   if (!keycloak.token) {
-    throw new Error("Not authenticated.");
+    await keycloak.login();
+    throw new Error("Session expired - redirecting to sign-in…");
   }
   return keycloak.token;
 }
