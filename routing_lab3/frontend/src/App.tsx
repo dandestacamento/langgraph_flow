@@ -4,11 +4,24 @@ import { ChatWindow } from "./components/ChatWindow";
 import { Composer } from "./components/Composer";
 import keycloak from "./auth/keycloak";
 import { useChat } from "./hooks/useChat";
+import { useSessionExpiryWarning } from "./hooks/useSessionExpiryWarning";
 import { useTheme } from "./hooks/useTheme";
 
 // Code-split: the sidebar isn't needed for first paint of the chat
 // itself (chat-ui-plan1.md section 2.6 named it as the lazy candidate).
 const ConversationSidebar = lazy(() => import("./components/ConversationSidebar"));
+
+// One validated ground-truth question per knowledge-base topic
+// (chat-ui-plan3.md §1.4) - the empty state otherwise gives no hint
+// that the assistant knows more than appliances.
+const STARTER_PROMPTS = [
+  "What does refrigerator error code E05 indicate?",
+  "Which refrigerator model has the largest capacity, and what's its price?",
+  "What is SmartHome's refund policy for a change-of-mind return?",
+  "What's the difference between APR and APY?",
+  "How are Azure NSG rules evaluated when there's more than one matching rule?",
+  "What is a Python decorator?",
+];
 
 function App() {
   const {
@@ -18,15 +31,19 @@ function App() {
     isSending,
     isLoadingHistory,
     error,
+    recentlyDeleted,
     sendMessage,
+    stopStreaming,
     retryLastMessage,
     regenerateLastTurn,
     newConversation,
     switchConversation,
     renameConversation,
     deleteConversation,
+    undoDelete,
   } = useChat();
   const { theme, toggleTheme } = useTheme();
+  const { showWarning: showExpiryWarning, staySignedIn } = useSessionExpiryWarning();
   const username = keycloak.tokenParsed?.preferred_username as string | undefined;
   // Mobile-only: the sidebar is a toggleable overlay below md, a fixed
   // column at md and up (where `sidebarOpen` is simply irrelevant).
@@ -126,7 +143,21 @@ function App() {
             messages={messages}
             isLoadingHistory={isLoadingHistory}
             onRegenerate={isSending ? undefined : regenerateLastTurn}
+            starterPrompts={STARTER_PROMPTS}
+            onStarterPrompt={(prompt) => sendMessage(prompt)}
           />
+          {showExpiryWarning && (
+            <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-amber-700 dark:text-amber-400">
+              <span>Your session is about to expire.</span>
+              <button
+                type="button"
+                onClick={() => void staySignedIn()}
+                className="shrink-0 rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-950"
+              >
+                Stay signed in
+              </button>
+            </div>
+          )}
           {error && (
             <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-red-600 dark:text-red-400">
               <span>{error}</span>
@@ -139,9 +170,24 @@ function App() {
               </button>
             </div>
           )}
-          <Composer onSend={(text) => sendMessage(text)} disabled={isSending} />
+          <Composer onSend={(text) => sendMessage(text)} disabled={isSending} onStop={stopStreaming} />
         </div>
       </div>
+      {recentlyDeleted && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-slate-200 dark:text-slate-900"
+        >
+          <span className="max-w-xs truncate">Deleted "{recentlyDeleted.title}"</span>
+          <button
+            type="button"
+            onClick={() => void undoDelete()}
+            className="shrink-0 font-semibold underline"
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }

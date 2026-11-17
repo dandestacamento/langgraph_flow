@@ -5,6 +5,7 @@ import {
   fetchThreadHistory,
   listThreads,
   renameThread,
+  restoreThread,
   sendChatMessage,
   streamChatMessage,
 } from "../api/client";
@@ -25,6 +26,10 @@ export interface ChatMessage {
    * null/undefined otherwise. Rendered as a small badge, not hidden,
    * so a blocked/redacted answer isn't mistaken for a normal one. */
   guardrailBlockedReason?: string | null;
+  /** True when the user clicked Stop while this answer was streaming -
+   * the client stopped waiting; the server-side turn may still have
+   * completed and will appear on the next history restore. */
+  stopped?: boolean;
 }
 
 const THREAD_ID_STORAGE_KEY = "routing-lab3-chat-thread-id";
@@ -82,7 +87,14 @@ export function useChat() {
   // Bumped by retryLastMessage to re-run the history-restore effect
   // after a failed load (e.g. the backend was unreachable).
   const [historyReloadNonce, setHistoryReloadNonce] = useState(0);
+  // The just-soft-deleted conversation, held briefly so an Undo toast
+  // can restore it (chat-ui-plan3.md §1.1); cleared after a few seconds.
+  const [recentlyDeleted, setRecentlyDeleted] = useState<{
+    threadId: string;
+    title: string;
+  } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The most recent message that failed to send, kept only so "Retry"
   // can resend the exact same text - cleared on any successful send.
   const lastFailedMessageRef = useRef<string | null>(null);
@@ -207,15 +219,35 @@ export function useChat() {
         // recency ordering - refresh the list to reflect it.
         refreshThreads();
       } catch (err) {
-        lastFailedMessageRef.current = trimmed;
-        setError(describeError(err));
-        setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
+        if (err instanceof DOMException && err.name === "AbortError") {
+          // The user clicked Stop (chat-ui-plan3.md §1.5): keep the turn
+          // visible with an honest note - the server-side turn may still
+          // complete and will appear on the next history restore.
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? { ...m, statusNode: undefined, stopped: true }
+                : m,
+            ),
+          );
+        } else {
+          lastFailedMessageRef.current = trimmed;
+          setError(describeError(err));
+          setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
+        }
       } finally {
         setIsSending(false);
       }
     },
     [threadId, isSending, refreshThreads],
   );
+
+  /** Stops waiting for the in-flight turn (client-side cancel via the
+   * existing AbortController - deliberately NOT a server-side stop; see
+   * chat-ui-plan3.md §1.5 for the semantics). */
+  const stopStreaming = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   const retryLastMessage = useCallback(() => {
     if (lastFailedMessageRef.current) {
@@ -278,13 +310,19 @@ export function useChat() {
   const deleteConversation = useCallback(
     async (targetThreadId: string) => {
       if (isSending) return;
+      const deletedTitle =
+        threads.find((t) => t.thread_id === targetThreadId)?.title ?? "Conversation";
       try {
-        await deleteThread(targetThreadId);
+        await deleteThread(targetThreadId); // soft delete - undo-able below
       } catch (err) {
         setError(describeError(err));
         return;
       }
       refreshThreads();
+      // Hold the Undo affordance open briefly (chat-ui-plan3.md §1.1).
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setRecentlyDeleted({ threadId: targetThreadId, title: deletedTitle });
+      undoTimerRef.current = setTimeout(() => setRecentlyDeleted(null), 8000);
       // Deleting the conversation that's currently open starts a fresh
       // one - its messages no longer exist server-side.
       if (targetThreadId === threadId) {
@@ -296,8 +334,21 @@ export function useChat() {
         lastFailedMessageRef.current = null;
       }
     },
-    [isSending, threadId, refreshThreads],
+    [isSending, threadId, threads, refreshThreads],
   );
+
+  const undoDelete = useCallback(async () => {
+    if (!recentlyDeleted) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    const { threadId: deletedThreadId } = recentlyDeleted;
+    setRecentlyDeleted(null);
+    try {
+      await restoreThread(deletedThreadId);
+      refreshThreads();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }, [recentlyDeleted, refreshThreads]);
 
   return {
     threadId,
@@ -306,12 +357,15 @@ export function useChat() {
     isSending,
     isLoadingHistory,
     error,
+    recentlyDeleted,
     sendMessage,
+    stopStreaming,
     retryLastMessage,
     regenerateLastTurn,
     newConversation,
     switchConversation,
     renameConversation,
     deleteConversation,
+    undoDelete,
   };
 }

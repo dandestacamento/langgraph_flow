@@ -117,3 +117,35 @@ def answer_from_history(conversation_history: list[ChatTurn], latest_message: st
     )
     result = llm.invoke([("system", _HISTORY_ANSWER_SYSTEM_PROMPT), ("human", human_message)])
     return str(result.content).strip()
+
+
+class ConversationTitle(BaseModel):
+    """Structured output for the title-generation call."""
+
+    title: str = Field(
+        description="A specific, descriptive 3-6 word title for the conversation, in sentence "
+        "case, with no trailing punctuation and no quotation marks."
+    )
+
+
+def generate_conversation_title(user_message: str, final_answer: str) -> str:
+    """A short descriptive title from a conversation's first turn
+    (chat-ui-plan3.md §1.2) - so two conversations opened with the same
+    question still read distinctly better than a truncated raw message,
+    and the sidebar stops showing whole questions as titles. One small
+    structured-output call, same shape as condense_question above."""
+    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
+        ConversationTitle
+    )
+    result: ConversationTitle = llm.invoke(
+        [
+            (
+                "system",
+                "Write a specific 3-6 word title for a support conversation that begins with "
+                "the following exchange. Mention the concrete subject (model number, error "
+                "code, policy, concept) rather than generic words like 'question' or 'help'.",
+            ),
+            ("human", f"User: {user_message}\nAssistant: {final_answer}"),
+        ]
+    )
+    return result.title.strip().strip('"')

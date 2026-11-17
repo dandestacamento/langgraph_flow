@@ -162,7 +162,10 @@ def test_threads_lists_only_the_current_users_conversations_most_recent_first() 
     assert response.status_code == 200
     threads = response.json()
     assert [t["thread_id"] for t in threads] == [second_thread, first_thread]
-    assert threads[1]["title"] == "What does washing machine error E21 mean?"
+    # Titles are LLM-generated after the first turn (chat-ui-plan3.md
+    # §1.2) - assert they exist and are short summaries, not the raw
+    # opening messages.
+    assert all(t["title"] for t in threads)
     assert all(t["updated_at"] for t in threads)
 
 
@@ -299,6 +302,101 @@ def test_delete_rejects_another_users_thread() -> None:
 
     response = client.delete(f"/threads/{thread_id}", headers=_auth_headers(sub="user-b"))
     assert response.status_code == 403
+
+
+def test_soft_deleted_thread_cannot_be_resumed_and_can_be_restored() -> None:
+    """chat-ui-plan3.md §1.1: delete is undo-able - the thread leaves the
+    list and rejects resumption while deleted, and restore brings back
+    both the list entry and the full history."""
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+
+    assert client.delete(f"/threads/{thread_id}", headers=_auth_headers(sub=user)).status_code == 204
+    assert client.get("/threads", headers=_auth_headers(sub=user)).json() == []
+    resume = client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "Hello again?"},
+        headers=_auth_headers(sub=user),
+    )
+    assert resume.status_code == 404
+
+    assert (
+        client.post(f"/threads/{thread_id}/restore", headers=_auth_headers(sub=user)).status_code
+        == 204
+    )
+    threads = client.get("/threads", headers=_auth_headers(sub=user)).json()
+    assert [t["thread_id"] for t in threads] == [thread_id]
+    history = client.get(f"/threads/{thread_id}/history", headers=_auth_headers(sub=user)).json()
+    assert len(history) == 1
+    assert history[0]["user_message"] == "What does washing machine error E21 mean?"
+
+
+def test_restore_rejects_another_users_thread() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+    client.delete(f"/threads/{thread_id}", headers=_auth_headers(sub=user))
+
+    response = client.post(f"/threads/{thread_id}/restore", headers=_auth_headers(sub="user-b"))
+    assert response.status_code == 403
+
+
+def test_permanent_delete_removes_the_thread_for_good() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+
+    response = client.delete(
+        f"/threads/{thread_id}?permanent=true", headers=_auth_headers(sub=user)
+    )
+    assert response.status_code == 204
+    # Not restorable: the ownership record itself is gone.
+    assert (
+        client.post(f"/threads/{thread_id}/restore", headers=_auth_headers(sub=user)).status_code
+        == 404
+    )
+
+
+def test_first_turn_generates_a_short_title_and_rename_still_wins() -> None:
+    """chat-ui-plan3.md §1.2: after the first turn the sidebar title is a
+    generated summary, not the raw opening message - and a manual rename
+    is never overwritten by later turns."""
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "What does washing machine error E21 mean?"},
+        headers=_auth_headers(sub=user),
+    )
+
+    threads = client.get("/threads", headers=_auth_headers(sub=user)).json()
+    assert threads[0]["title"]
+    assert threads[0]["title"] != "What does washing machine error E21 mean?"
+    assert len(threads[0]["title"]) <= 80
+
+    client.patch(
+        f"/threads/{thread_id}", json={"title": "My E21 saga"}, headers=_auth_headers(sub=user)
+    )
+    client.post(
+        "/chat",
+        json={"thread_id": thread_id, "message": "Is it covered under warranty?"},
+        headers=_auth_headers(sub=user),
+    )
+    threads = client.get("/threads", headers=_auth_headers(sub=user)).json()
+    assert threads[0]["title"] == "My E21 saga"
 
 
 def test_client_error_is_logged_and_returns_204(caplog: pytest.LogCaptureFixture) -> None:

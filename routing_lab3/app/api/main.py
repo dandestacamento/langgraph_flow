@@ -71,6 +71,7 @@ from pydantic import BaseModel  # noqa: E402
 from app import llm_gateway  # noqa: E402
 from app.api.auth import ThreadOwnershipRegistry, get_current_user  # noqa: E402
 from app.cache import enable_llm_cache  # noqa: E402
+from app.chat.condense import generate_conversation_title  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
 
@@ -140,6 +141,26 @@ _chat_graph = build_chat_graph(checkpointer=_chat_checkpointer)
 # app/api/auth.py); in-memory (and lost together with conversation
 # history on restart) otherwise.
 _thread_ownership = ThreadOwnershipRegistry(conn_string=_CHAT_DB_URL)
+
+# Startup sweep (chat-ui-plan3.md §1.1): conversations soft-deleted more
+# than 30 days ago are purged for real - ownership record and
+# checkpointed history together.
+for _purged_thread_id in _thread_ownership.purge_soft_deleted(older_than_days=30):
+    _chat_checkpointer.delete_thread(_purged_thread_id)
+
+
+def _maybe_generate_title(thread_id: str, user_message: str, final_answer: str, turn_count: int) -> None:
+    """After a conversation's *first* turn, replace the raw-message title
+    with a short LLM-generated one (chat-ui-plan3.md §1.2). Never raises:
+    a title is cosmetic, and must not fail a turn that already succeeded.
+    `set_generated_title` itself skips user-renamed titles."""
+    if turn_count != 1:
+        return
+    try:
+        title = generate_conversation_title(user_message, final_answer)
+        _thread_ownership.set_generated_title(thread_id, title)
+    except Exception:  # noqa: BLE001 - see docstring
+        _client_error_logger.warning("Title generation failed for thread %s", thread_id)
 
 # None (meaning: every call uses OPENAI_API_KEY directly, no per-user
 # budget) unless LITELLM_BASE_URL is set - instructions/learnings/
@@ -261,12 +282,26 @@ def rename_thread(
 
 
 @app.delete("/threads/{thread_id}", status_code=204)
-def delete_thread(thread_id: str, user: str = Depends(get_current_user)) -> Response:
-    """Deletes one of the authenticated user's own conversations: both
-    its ownership/list record and its checkpointed conversation history,
-    so a deleted thread_id can't be resumed with its old context."""
-    _thread_ownership.delete(thread_id, user)
-    _chat_checkpointer.delete_thread(thread_id)
+def delete_thread(
+    thread_id: str, permanent: bool = False, user: str = Depends(get_current_user)
+) -> Response:
+    """Soft-deletes one of the authenticated user's own conversations:
+    it leaves the list and can't be resumed, but POST
+    /threads/{id}/restore undoes it within the purge window
+    (chat-ui-plan3.md §1.1). `?permanent=true` removes the ownership
+    record AND the checkpointed history immediately - the old
+    unrecoverable behavior, now opt-in."""
+    _thread_ownership.delete(thread_id, user, permanent=permanent)
+    if permanent:
+        _chat_checkpointer.delete_thread(thread_id)
+    return Response(status_code=204)
+
+
+@app.post("/threads/{thread_id}/restore", status_code=204)
+def restore_thread(thread_id: str, user: str = Depends(get_current_user)) -> Response:
+    """Undoes a soft delete of the user's own conversation - the
+    frontend's Undo toast (chat-ui-plan3.md §1.1)."""
+    _thread_ownership.restore(thread_id, user)
     return Response(status_code=204)
 
 
@@ -311,6 +346,12 @@ def chat(request: ChatRequest, user: str = Depends(get_current_user)) -> ChatRes
         # docs. RateLimitError/429 is also caught for an actual RPM/TPM
         # cap, which LiteLLM does return as a genuine 429.
         raise HTTPException(status_code=429, detail="LLM budget exceeded for this user.") from exc
+    _maybe_generate_title(
+        request.thread_id,
+        request.message,
+        output["final_answer"],
+        turn_count=len(output.get("conversation_history", [])),
+    )
     return ChatResponse(
         thread_id=request.thread_id,
         self_contained_question=output["self_contained_question"],
@@ -375,6 +416,16 @@ def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> 
                 "guardrail_blocked_reason": guardrail_blocked_reason,
             }
             yield f"event: answer\ndata: {json.dumps(answer_payload)}\n\n"
+            # After the answer is already on the wire (so this adds no
+            # perceived latency), generate the conversation title for a
+            # first turn - chat-ui-plan3.md §1.2.
+            snapshot = _chat_graph.get_state(config)
+            _maybe_generate_title(
+                request.thread_id,
+                request.message,
+                final_answer,
+                turn_count=len((snapshot.values or {}).get("conversation_history", [])),
+            )
         except (RateLimitError, UnprocessableEntityError):
             # See the /chat endpoint's comment above for why both
             # exception types are caught here too.

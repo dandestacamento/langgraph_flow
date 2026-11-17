@@ -218,16 +218,36 @@ export async function renameThread(threadId: string, title: string): Promise<voi
   }
 }
 
-/** Deletes one of the user's own conversations (list record + its
- * checkpointed history): DELETE /threads/{id}. */
-export async function deleteThread(threadId: string): Promise<void> {
+/** Soft-deletes one of the user's own conversations (undo-able via
+ * `restoreThread` until purged): DELETE /threads/{id}. Pass
+ * `permanent: true` for the immediate, unrecoverable delete. */
+export async function deleteThread(threadId: string, permanent = false): Promise<void> {
   const token = await getValidToken();
-  const response = await fetch(`${API_BASE_URL}/threads/${encodeURIComponent(threadId)}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const suffix = permanent ? "?permanent=true" : "";
+  const response = await fetch(
+    `${API_BASE_URL}/threads/${encodeURIComponent(threadId)}${suffix}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
   if (!response.ok) {
     throw new Error(`Thread delete failed: ${response.status} ${response.statusText}`);
+  }
+}
+
+/** Undoes a soft delete: POST /threads/{id}/restore. */
+export async function restoreThread(threadId: string): Promise<void> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/threads/${encodeURIComponent(threadId)}/restore`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Thread restore failed: ${response.status} ${response.statusText}`);
   }
 }
 

@@ -41,4 +41,16 @@ describe("Composer", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onSend).not.toHaveBeenCalled();
   });
+
+  it("replaces Send with a Stop button while a send is in flight", () => {
+    const onStop = vi.fn();
+    const { rerender } = render(<Composer onSend={() => {}} disabled={false} onStop={onStop} />);
+    expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
+
+    rerender(<Composer onSend={() => {}} disabled={true} onStop={onStop} />);
+    const stop = screen.getByRole("button", { name: "Stop" });
+    fireEvent.click(stop);
+    expect(onStop).toHaveBeenCalled();
+  });
 });

@@ -7,6 +7,22 @@ import { RoutingDetails } from "./RoutingDetails";
 
 const NEAR_BOTTOM_THRESHOLD_PX = 96;
 
+// Human phrasing for graph node names shown while a turn streams
+// (chat-ui-plan3.md §1.3) - falls back to the raw name for any node not
+// listed, so new graph nodes degrade gracefully instead of breaking.
+const NODE_STATUS_LABELS: Record<string, string> = {
+  check_input: "Checking your message…",
+  condense: "Understanding your question…",
+  answer_from_history: "Reading our conversation…",
+  invoke_routing_pipeline: "Searching the knowledge base…",
+  check_output: "Checking the answer…",
+  record_turn: "Saving this turn…",
+};
+
+function statusLabel(node: string): string {
+  return NODE_STATUS_LABELS[node] ?? `Working: ${node}…`;
+}
+
 function MessageBubble({
   message,
   onRegenerate,
@@ -31,8 +47,13 @@ function MessageBubble({
           ) : (
             <MarkdownMessage content={message.content} />
           )
+        ) : message.stopped ? (
+          <span className="text-slate-500 italic dark:text-slate-400">
+            Stopped waiting for this answer. It may still finish on the server - reopen this
+            conversation later to see it.
+          </span>
         ) : message.statusNode ? (
-          <span className="text-slate-500 italic dark:text-slate-400">Working: {message.statusNode}…</span>
+          <span className="text-slate-500 italic dark:text-slate-400">{statusLabel(message.statusNode)}</span>
         ) : (
           <span className="text-slate-500 italic dark:text-slate-400">Thinking…</span>
         )}
@@ -71,12 +92,18 @@ export function ChatWindow({
   messages,
   isLoadingHistory = false,
   onRegenerate,
+  starterPrompts,
+  onStarterPrompt,
 }: {
   messages: ChatMessage[];
   isLoadingHistory?: boolean;
   /** When set, the last completed assistant message gets a Regenerate
    * button that re-asks the turn's question. */
   onRegenerate?: () => void;
+  /** Example questions shown as clickable chips on the empty state
+   * (chat-ui-plan3.md §1.4) - reveals what the knowledge base covers. */
+  starterPrompts?: string[];
+  onStarterPrompt?: (prompt: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -144,11 +171,27 @@ export function ChatWindow({
         className="h-full space-y-4 overflow-y-auto px-4 py-6"
       >
         {messages.length === 0 && (
-          <p className="mt-10 text-center text-sm text-slate-400 dark:text-slate-500">
-            {isLoadingHistory
-              ? "Loading conversation…"
-              : "Ask a question about appliance troubleshooting to get started."}
-          </p>
+          <div className="mt-10 space-y-4">
+            <p className="text-center text-sm text-slate-400 dark:text-slate-500">
+              {isLoadingHistory
+                ? "Loading conversation…"
+                : "Ask a question about appliance troubleshooting to get started."}
+            </p>
+            {!isLoadingHistory && starterPrompts && starterPrompts.length > 0 && (
+              <div className="mx-auto flex max-w-md flex-wrap justify-center gap-2">
+                {starterPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => onStarterPrompt?.(prompt)}
+                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         {messages.map((message, index) => (
           <MessageBubble

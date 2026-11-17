@@ -12,6 +12,7 @@ const mockedListThreads = vi.mocked(client.listThreads);
 const mockedFetchThreadHistory = vi.mocked(client.fetchThreadHistory);
 const mockedRenameThread = vi.mocked(client.renameThread);
 const mockedDeleteThread = vi.mocked(client.deleteThread);
+const mockedRestoreThread = vi.mocked(client.restoreThread);
 
 const EMPTY_SUMMARY: client.RoutingSummary = {
   topics: [],
@@ -297,5 +298,57 @@ describe("useChat", () => {
 
     expect(mockedDeleteThread).toHaveBeenCalledWith("some-other-thread");
     expect(result.current.threadId).toBe(originalThreadId);
+  });
+
+  it("offers Undo after a delete, and undoDelete restores the conversation", async () => {
+    mockedDeleteThread.mockResolvedValue(undefined);
+    mockedRestoreThread.mockResolvedValue(undefined);
+    mockedListThreads.mockResolvedValue([
+      { thread_id: "thread-1", title: "Fridge E05", updated_at: "2026-01-01T00:00:00Z" },
+    ]);
+
+    const { result } = renderHook(() => useChat());
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.deleteConversation("thread-1");
+    });
+    expect(result.current.recentlyDeleted).toEqual({ threadId: "thread-1", title: "Fridge E05" });
+
+    await act(async () => {
+      await result.current.undoDelete();
+    });
+    expect(mockedRestoreThread).toHaveBeenCalledWith("thread-1");
+    expect(result.current.recentlyDeleted).toBeNull();
+  });
+
+  it("stopStreaming marks the in-flight turn stopped instead of erroring", async () => {
+    mockedStreamChatMessage.mockImplementation(
+      (_threadId, _message, _onEvent, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError")),
+          );
+        }),
+    );
+
+    const { result } = renderHook(() => useChat());
+    let sendPromise: Promise<void>;
+    act(() => {
+      sendPromise = result.current.sendMessage("What does E21 mean?");
+    });
+    await waitFor(() => expect(result.current.isSending).toBe(true));
+
+    act(() => {
+      result.current.stopStreaming();
+    });
+    await act(async () => {
+      await sendPromise;
+    });
+
+    expect(result.current.isSending).toBe(false);
+    expect(result.current.error).toBeNull();
+    const assistantMessage = result.current.messages[1];
+    expect(assistantMessage).toMatchObject({ role: "assistant", stopped: true, content: "" });
   });
 });

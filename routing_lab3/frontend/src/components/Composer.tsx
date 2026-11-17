@@ -6,9 +6,14 @@ const MAX_TEXTAREA_HEIGHT_PX = 160; // ~6 lines, then it scrolls
 export function Composer({
   onSend,
   disabled,
+  onStop,
 }: {
   onSend: (text: string) => void;
   disabled: boolean;
+  /** When provided and a send is in flight (`disabled`), a Stop button
+   * replaces Send - cancels the client's wait, not the server's turn
+   * (chat-ui-plan3.md §1.5). */
+  onStop?: () => void;
 }) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -60,13 +65,23 @@ export function Composer({
         disabled={disabled}
         className="max-h-40 flex-1 resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:disabled:bg-slate-900 sm:text-sm"
       />
-      <button
-        type="submit"
-        disabled={disabled || !text.trim()}
-        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300 dark:bg-slate-200 dark:text-slate-900 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
-      >
-        Send
-      </button>
+      {disabled && onStop ? (
+        <button
+          type="button"
+          onClick={onStop}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Stop
+        </button>
+      ) : (
+        <button
+          type="submit"
+          disabled={disabled || !text.trim()}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300 dark:bg-slate-200 dark:text-slate-900 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
+        >
+          Send
+        </button>
+      )}
     </form>
   );
 }

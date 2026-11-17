@@ -17,7 +17,7 @@ HTTP response shape - see tests/test_chat_api.py.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 import jwt
@@ -88,10 +88,13 @@ class ThreadOwnershipRegistry:
     Records which user first used each thread_id and rejects (403) a
     later request for that thread_id from anyone else.
 
-    Also stores a per-thread title (the first user message, truncated)
-    and a last-activity timestamp, so the conversation list the frontend
-    needs (chat-ui-plan1.md Phase E's `GET /threads`) is served from the
-    same record that already had to exist for the ownership check -
+    Also stores a per-thread title (the first user message, truncated,
+    replaced by an LLM-generated one after the first turn unless the
+    user renamed it - `title_is_custom`), a last-activity timestamp, and
+    a soft-delete marker (`deleted_at` - chat-ui-plan3.md §1.1: deletes
+    are undo-able for a grace period before being purged for real), so
+    the conversation list the frontend needs is served from the same
+    record that already had to exist for the ownership check -
     no separate "conversations" table to keep in sync.
 
     In-memory by default. Pass a Postgres connection string (the same
@@ -101,7 +104,8 @@ class ThreadOwnershipRegistry:
     as this class's own earlier docstring noted they needed to."""
 
     def __init__(self, conn_string: str | None = None) -> None:
-        # thread_id -> {"user_sub", "title", "updated_at" (datetime)}
+        # thread_id -> {"user_sub", "title", "title_is_custom",
+        #               "updated_at" (datetime), "deleted_at" (datetime|None)}
         self._records: dict[str, dict] = {}
         self._conn_string = conn_string
         if conn_string:
@@ -112,19 +116,27 @@ class ThreadOwnershipRegistry:
                     "CREATE TABLE IF NOT EXISTS thread_owners ("
                     "thread_id TEXT PRIMARY KEY, user_sub TEXT NOT NULL, "
                     "title TEXT NOT NULL DEFAULT '', "
-                    "updated_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+                    "title_is_custom BOOLEAN NOT NULL DEFAULT FALSE, "
+                    "updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
+                    "deleted_at TIMESTAMPTZ)"
                 )
-                # Pre-Phase-E databases created this table with only the
-                # two ownership columns - add the list-view columns in
-                # place rather than requiring a wipe of existing
-                # conversation ownership records.
+                # Earlier phases created this table with fewer columns -
+                # add the newer ones in place rather than requiring a
+                # wipe of existing conversation ownership records.
                 conn.execute(
                     "ALTER TABLE thread_owners "
                     "ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT ''"
                 )
                 conn.execute(
                     "ALTER TABLE thread_owners "
+                    "ADD COLUMN IF NOT EXISTS title_is_custom BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+                conn.execute(
+                    "ALTER TABLE thread_owners "
                     "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+                )
+                conn.execute(
+                    "ALTER TABLE thread_owners ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ"
                 )
 
     def check_and_record(self, thread_id: str, user: str, title: str = "") -> None:
@@ -141,19 +153,10 @@ class ThreadOwnershipRegistry:
     def check_owner(self, thread_id: str, user: str) -> None:
         """Read-only ownership check for `GET` endpoints: 404 for a
         thread_id this registry has never seen (nothing to leak about
-        whether it exists elsewhere), 403 for someone else's."""
-        if self._conn_string:
-            import psycopg
-
-            with psycopg.connect(self._conn_string, autocommit=True) as conn:
-                row = conn.execute(
-                    "SELECT user_sub FROM thread_owners WHERE thread_id = %s", (thread_id,)
-                ).fetchone()
-            owner = row[0] if row is not None else None
-        else:
-            record = self._records.get(thread_id)
-            owner = record["user_sub"] if record is not None else None
-
+        whether it exists elsewhere), 403 for someone else's. A
+        soft-deleted conversation is 404 for its owner - it behaves as
+        gone unless/until restored."""
+        owner, deleted = self._lookup(thread_id)
         if owner is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Unknown conversation."
@@ -163,17 +166,40 @@ class ThreadOwnershipRegistry:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This conversation belongs to a different user.",
             )
+        if deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="This conversation was deleted."
+            )
+
+    def _lookup(self, thread_id: str) -> tuple[str | None, bool]:
+        """(owner, is_soft_deleted) - owner None when never seen."""
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                row = conn.execute(
+                    "SELECT user_sub, deleted_at FROM thread_owners WHERE thread_id = %s",
+                    (thread_id,),
+                ).fetchone()
+            if row is None:
+                return None, False
+            return row[0], row[1] is not None
+        record = self._records.get(thread_id)
+        if record is None:
+            return None, False
+        return record["user_sub"], record["deleted_at"] is not None
 
     def list_threads(self, user: str) -> list[dict]:
-        """This user's conversations, most recently active first - each
-        as {"thread_id", "title", "updated_at" (ISO-8601 string)}."""
+        """This user's non-deleted conversations, most recently active
+        first - each as {"thread_id", "title", "updated_at" (ISO-8601
+        string)}."""
         if self._conn_string:
             import psycopg
 
             with psycopg.connect(self._conn_string, autocommit=True) as conn:
                 rows = conn.execute(
                     "SELECT thread_id, title, updated_at FROM thread_owners "
-                    "WHERE user_sub = %s ORDER BY updated_at DESC",
+                    "WHERE user_sub = %s AND deleted_at IS NULL ORDER BY updated_at DESC",
                     (user,),
                 ).fetchall()
             return [
@@ -184,7 +210,7 @@ class ThreadOwnershipRegistry:
         own = [
             (thread_id, record)
             for thread_id, record in self._records.items()
-            if record["user_sub"] == user
+            if record["user_sub"] == user and record["deleted_at"] is None
         ]
         own.sort(key=lambda item: item[1]["updated_at"], reverse=True)
         return [
@@ -197,7 +223,9 @@ class ThreadOwnershipRegistry:
         ]
 
     def rename(self, thread_id: str, user: str, title: str) -> None:
-        """Renames a conversation the caller owns (404/403 otherwise)."""
+        """Renames a conversation the caller owns (404/403 otherwise).
+        Marks the title user-chosen, so the automatic title generation
+        (set_generated_title) never overwrites it."""
         self.check_owner(thread_id, user)
         title = title.strip()[:_TITLE_MAX_CHARS]
         if self._conn_string:
@@ -205,25 +233,110 @@ class ThreadOwnershipRegistry:
 
             with psycopg.connect(self._conn_string, autocommit=True) as conn:
                 conn.execute(
-                    "UPDATE thread_owners SET title = %s WHERE thread_id = %s",
+                    "UPDATE thread_owners SET title = %s, title_is_custom = TRUE "
+                    "WHERE thread_id = %s",
                     (title, thread_id),
                 )
         else:
             self._records[thread_id]["title"] = title
+            self._records[thread_id]["title_is_custom"] = True
 
-    def delete(self, thread_id: str, user: str) -> None:
-        """Removes a conversation's ownership record, provided the caller
-        owns it (404/403 otherwise). The checkpointer's conversation
-        history is deleted separately by the API layer - see
-        app/api/main.py's DELETE /threads/{thread_id}."""
+    def set_generated_title(self, thread_id: str, title: str) -> None:
+        """Applies an LLM-generated title (chat-ui-plan3.md §1.2) -
+        a no-op for a title the user has renamed themselves."""
+        title = title.strip()[:_TITLE_MAX_CHARS]
+        if not title:
+            return
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                conn.execute(
+                    "UPDATE thread_owners SET title = %s "
+                    "WHERE thread_id = %s AND NOT title_is_custom",
+                    (title, thread_id),
+                )
+        else:
+            record = self._records.get(thread_id)
+            if record is not None and not record["title_is_custom"]:
+                record["title"] = title
+
+    def delete(self, thread_id: str, user: str, permanent: bool = False) -> None:
+        """Soft-deletes a conversation the caller owns (404/403
+        otherwise): it disappears from the list and can't be resumed,
+        but `restore` can undo it (chat-ui-plan3.md §1.1). With
+        `permanent=True`, removes the ownership record outright - the
+        checkpointer's conversation history is deleted separately by the
+        API layer (see app/api/main.py's DELETE /threads/{thread_id})."""
         self.check_owner(thread_id, user)
         if self._conn_string:
             import psycopg
 
             with psycopg.connect(self._conn_string, autocommit=True) as conn:
-                conn.execute("DELETE FROM thread_owners WHERE thread_id = %s", (thread_id,))
-        else:
+                if permanent:
+                    conn.execute("DELETE FROM thread_owners WHERE thread_id = %s", (thread_id,))
+                else:
+                    conn.execute(
+                        "UPDATE thread_owners SET deleted_at = now() WHERE thread_id = %s",
+                        (thread_id,),
+                    )
+        elif permanent:
             self._records.pop(thread_id, None)
+        else:
+            self._records[thread_id]["deleted_at"] = datetime.now(timezone.utc)
+
+    def restore(self, thread_id: str, user: str) -> None:
+        """Undoes a soft delete, provided the caller owns the thread.
+        404 for an unknown thread, 403 for someone else's; restoring a
+        thread that isn't deleted is a harmless no-op."""
+        owner, _deleted = self._lookup(thread_id)
+        if owner is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown conversation."
+            )
+        if owner != user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This conversation belongs to a different user.",
+            )
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                conn.execute(
+                    "UPDATE thread_owners SET deleted_at = NULL WHERE thread_id = %s",
+                    (thread_id,),
+                )
+        else:
+            self._records[thread_id]["deleted_at"] = None
+
+    def purge_soft_deleted(self, older_than_days: int = 30) -> list[str]:
+        """Hard-deletes records soft-deleted more than `older_than_days`
+        ago and returns their thread_ids, so the caller can delete the
+        corresponding checkpointed histories too. Called at API startup
+        (app/api/main.py) - a scheduled job would also work, but a
+        startup sweep needs no extra infrastructure."""
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                rows = conn.execute(
+                    "DELETE FROM thread_owners "
+                    "WHERE deleted_at IS NOT NULL AND deleted_at < now() - make_interval(days => %s) "
+                    "RETURNING thread_id",
+                    (older_than_days,),
+                ).fetchall()
+            return [row[0] for row in rows]
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+        purged = [
+            thread_id
+            for thread_id, record in self._records.items()
+            if record["deleted_at"] is not None and record["deleted_at"] < cutoff
+        ]
+        for thread_id in purged:
+            del self._records[thread_id]
+        return purged
 
     def _check_and_record_memory(self, thread_id: str, user: str, title: str) -> None:
         record = self._records.get(thread_id)
@@ -231,13 +344,19 @@ class ThreadOwnershipRegistry:
             self._records[thread_id] = {
                 "user_sub": user,
                 "title": title,
+                "title_is_custom": False,
                 "updated_at": datetime.now(timezone.utc),
+                "deleted_at": None,
             }
             return
         if record["user_sub"] != user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This conversation belongs to a different user.",
+            )
+        if record["deleted_at"] is not None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="This conversation was deleted."
             )
         record["updated_at"] = datetime.now(timezone.utc)
 
@@ -257,12 +376,18 @@ class ThreadOwnershipRegistry:
                 (thread_id, user, title),
             )
             row = conn.execute(
-                "SELECT user_sub FROM thread_owners WHERE thread_id = %s", (thread_id,)
+                "SELECT user_sub, deleted_at FROM thread_owners WHERE thread_id = %s",
+                (thread_id,),
             ).fetchone()
             if row is not None and row[0] != user:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="This conversation belongs to a different user.",
+                )
+            if row is not None and row[1] is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="This conversation was deleted.",
                 )
             conn.execute(
                 "UPDATE thread_owners SET updated_at = now() WHERE thread_id = %s",

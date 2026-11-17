@@ -142,7 +142,24 @@ does the job" rule from plan1 §2.6.
    humanized progress labels, starter prompts. All small, independent, no new dependencies.
    **Exit criteria**: each item's own criteria above, plus the existing 42-unit/5-e2e/20-backend
    suites still green with new cases for undo and title generation.
+   **Done**: soft delete (`deleted_at` column, in-place migration) with `POST
+   /threads/{id}/restore`, `?permanent=true`, a 30-day purge sweep at API startup, and an Undo
+   toast; `generate_conversation_title()` runs after a conversation's first turn (in the SSE path
+   only after the answer is already on the wire, so no perceived latency) with `title_is_custom`
+   guaranteeing a manual rename always wins; `NODE_STATUS_LABELS` humanizes every chat-graph node
+   with a raw-name fallback; six ground-truth starter chips (one per knowledge-base topic) on the
+   empty state. Verified live: a chip-click sent "What is a Python decorator?", streamed
+   "Understanding your question…"/"Searching the knowledge base…" labels, routed to
+   python/fundamentals, and the sidebar/header/browser-tab title became the generated
+   "Understanding Python decorators concept" rather than the raw question; delete → Undo
+   round-tripped against the real backend (204/204 in its log).
 2. **Phase B - responsiveness (§1.5, §1.6).** Stop button and session-expiry warning.
+   **Done**: Stop replaces Send while a send is in flight (aborts the client's wait via the
+   existing `AbortController`; the bubble keeps an honest "may still finish on the server" note);
+   `useSessionExpiryWarning` polls the refresh token's expiry every 30 s and offers a one-click
+   "Stay signed in" (forced `updateToken(-1)`) within two minutes of expiry. The expiry *redirect*
+   path (session already gone) was separately live-verified when a real overnight expiry hit
+   during testing.
 3. **Phase C - citations & inspector (§2.1, §2.2).** The user-facing evidence panel first, then
    the developer inspector it shares rendering with; backend adds status-event timestamps.
 4. **Phase D - developer pages (§2.3-§2.6).** Graph Explorer, Test Lab (reusing the Streamlit
@@ -153,18 +170,19 @@ does the job" rule from plan1 §2.6.
 
 ## 5. Acceptance checklist
 
-- [ ] A deleted conversation can be restored via Undo within the toast window, and cannot be
+- [x] A deleted conversation can be restored via Undo within the toast window, and cannot be
       resumed while soft-deleted. (Phase A)
-- [ ] Two conversations with identical first messages are visually distinguishable in the
-      sidebar without opening them. (Phase A)
-- [ ] No raw graph node names appear in the chat surface during a turn. (Phase A)
-- [ ] A brand-new user can discover at least one non-appliance topic from the empty state alone.
+- [x] Two conversations with identical first messages are visually distinguishable in the
+      sidebar without opening them. (Phase A - titles are LLM-generated from the first turn)
+- [x] No raw graph node names appear in the chat surface during a turn. (Phase A)
+- [x] A brand-new user can discover at least one non-appliance topic from the empty state alone.
       (Phase A)
-- [ ] A 60-second turn can be abandoned client-side without losing the conversation. (Phase B)
-- [ ] An idle session warns before it expires instead of failing/redirecting mid-send. (Phase B)
+- [x] A 60-second turn can be abandoned client-side without losing the conversation. (Phase B)
+- [x] An idle session warns before it expires instead of failing/redirecting mid-send. (Phase B)
 - [ ] Citations open to their full passage without digging through Routing details. (Phase C)
-- [ ] **Regression**: the routing-accuracy ground truth and all existing suites remain green -
+- [x] **Regression**: the routing-accuracy ground truth and all existing suites remain green -
       §1.2 adds an LLM call per *conversation* (not per turn) and nothing here touches routing.
+      (24 backend / 51 frontend unit / 5 e2e all passing after Phases A+B.)
 
 ---
 

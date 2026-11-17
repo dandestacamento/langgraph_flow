@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ChatMessage } from "../hooks/useChat";
 import { ChatWindow } from "./ChatWindow";
@@ -10,15 +10,59 @@ describe("ChatWindow", () => {
     expect(screen.getByText(/Ask a question about appliance troubleshooting/)).toBeInTheDocument();
   });
 
-  it("renders user and assistant messages, including a streaming status placeholder", () => {
+  it("renders user and assistant messages, including a humanized streaming status", () => {
     const messages: ChatMessage[] = [
       { id: "1", role: "user", content: "What does E21 mean?" },
-      { id: "2", role: "assistant", content: "", statusNode: "rag_retriever" },
+      { id: "2", role: "assistant", content: "", statusNode: "invoke_routing_pipeline" },
     ];
     render(<ChatWindow messages={messages} />);
 
     expect(screen.getByText("What does E21 mean?")).toBeInTheDocument();
-    expect(screen.getByText(/Working: rag_retriever/)).toBeInTheDocument();
+    // Known node names get human phrasing (chat-ui-plan3.md §1.3)...
+    expect(screen.getByText("Searching the knowledge base…")).toBeInTheDocument();
+  });
+
+  it("falls back to the raw node name for an unknown status node", () => {
+    const messages: ChatMessage[] = [
+      { id: "1", role: "user", content: "hi" },
+      { id: "2", role: "assistant", content: "", statusNode: "some_future_node" },
+    ];
+    render(<ChatWindow messages={messages} />);
+    expect(screen.getByText(/Working: some_future_node/)).toBeInTheDocument();
+  });
+
+  it("shows an honest note on a stopped turn", () => {
+    const messages: ChatMessage[] = [
+      { id: "1", role: "user", content: "hi" },
+      { id: "2", role: "assistant", content: "", stopped: true },
+    ];
+    render(<ChatWindow messages={messages} />);
+    expect(screen.getByText(/Stopped waiting for this answer/)).toBeInTheDocument();
+  });
+
+  it("shows clickable starter prompts only while the conversation is empty", () => {
+    const onStarterPrompt = vi.fn();
+    const { rerender } = render(
+      <ChatWindow
+        messages={[]}
+        starterPrompts={["What is a Python decorator?"]}
+        onStarterPrompt={onStarterPrompt}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "What is a Python decorator?" }));
+    expect(onStarterPrompt).toHaveBeenCalledWith("What is a Python decorator?");
+
+    rerender(
+      <ChatWindow
+        messages={[{ id: "1", role: "user", content: "hello" }]}
+        starterPrompts={["What is a Python decorator?"]}
+        onStarterPrompt={onStarterPrompt}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "What is a Python decorator?" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders a completed assistant answer as Markdown, with a copy button", () => {
