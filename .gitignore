@@ -58,3 +58,10 @@ ENV/
 # Environment
 .env
 .env.local
+
+# routing_lab5/: a working copy of routing_lab3/ for the chat-ui-plan5
+# automated-RAG-ingestion work (see instructions/learnings/chat-ui-plan5.md) -
+# same regenerable local artifacts as the other labs, same reasons.
+routing_lab5/.chroma/
+routing_lab5/.llm_cache.db
+routing_lab5/experiments/mlflow_trace_export.json

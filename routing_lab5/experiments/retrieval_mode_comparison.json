@@ -1,0 +1,1767 @@
+{
+  "summary": {
+    "similarity": {
+      "level_4": {
+        "total": 19,
+        "recalled": 19,
+        "recall_at_k": 1.0
+      },
+      "level_6": {
+        "total": 23,
+        "fully_covered": 23,
+        "avg_coverage_fraction": 1.0,
+        "multichapter_coverage": 1.0
+      },
+      "avg_latency_ms": 12.1
+    },
+    "hybrid": {
+      "level_4": {
+        "total": 19,
+        "recalled": 19,
+        "recall_at_k": 1.0
+      },
+      "level_6": {
+        "total": 23,
+        "fully_covered": 23,
+        "avg_coverage_fraction": 1.0,
+        "multichapter_coverage": 1.0
+      },
+      "avg_latency_ms": 7.8
+    },
+    "hybrid+rerank": {
+      "level_4": {
+        "total": 19,
+        "recalled": 19,
+        "recall_at_k": 1.0
+      },
+      "level_6": {
+        "total": 23,
+        "fully_covered": 23,
+        "avg_coverage_fraction": 1.0,
+        "multichapter_coverage": 1.0
+      },
+      "avg_latency_ms": 449.7
+    }
+  },
+  "raw_results": {
+    "similarity": {
+      "level_4": [
+        {
+          "question_id": "L4-001",
+          "expected_chapter": "chapter_01_overview",
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_03_troubleshooting",
+            "chapter_02_features"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-002",
+          "expected_chapter": "chapter_01_types",
+          "retrieved_chapter_ids": [
+            "chapter_01_types",
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_02_operation",
+            "chapter_03_faults"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-003",
+          "expected_chapter": "chapter_03_troubleshooting",
+          "retrieved_chapter_ids": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_02_cycles"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-004",
+          "expected_chapter": "chapter_02_subnets",
+          "retrieved_chapter_ids": [
+            "chapter_02_subnets",
+            "chapter_01_vnet",
+            "chapter_03_nsg"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-005",
+          "expected_chapter": "chapter_01_vms",
+          "retrieved_chapter_ids": [
+            "chapter_01_vms",
+            "chapter_02_scale_sets",
+            "chapter_03_app_service"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-006",
+          "expected_chapter": "chapter_03_key_vault",
+          "retrieved_chapter_ids": [
+            "chapter_03_key_vault",
+            "chapter_01_rbac",
+            "chapter_02_identity"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-007",
+          "expected_chapter": "chapter_01_blob",
+          "retrieved_chapter_ids": [
+            "chapter_01_blob",
+            "chapter_03_redundancy",
+            "chapter_02_table_partitions",
+            "chapter_02_table_partitions"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-008",
+          "expected_chapter": "chapter_02_partitions",
+          "retrieved_chapter_ids": [
+            "chapter_02_partitions",
+            "chapter_02_partitions",
+            "chapter_03_optimization",
+            "chapter_01_overview"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-009",
+          "expected_chapter": "chapter_02_delta_lake",
+          "retrieved_chapter_ids": [
+            "chapter_02_delta_lake",
+            "chapter_01_overview",
+            "chapter_03_jobs"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-010",
+          "expected_chapter": "chapter_02_triggers",
+          "retrieved_chapter_ids": [
+            "chapter_02_triggers",
+            "chapter_01_pipelines",
+            "chapter_03_data_flows"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-011",
+          "expected_chapter": "chapter_02_decorators",
+          "retrieved_chapter_ids": [
+            "chapter_02_decorators",
+            "chapter_01_functions",
+            "chapter_03_data_types"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-012",
+          "expected_chapter": "chapter_02_inheritance",
+          "retrieved_chapter_ids": [
+            "chapter_02_inheritance",
+            "chapter_03_dunder_methods",
+            "chapter_01_classes"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-013",
+          "expected_chapter": "chapter_01_threading",
+          "retrieved_chapter_ids": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing",
+            "chapter_02_asyncio"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-014",
+          "expected_chapter": "chapter_01_basics",
+          "retrieved_chapter_ids": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund",
+            "chapter_02_tracking"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-015",
+          "expected_chapter": "chapter_01_interest",
+          "retrieved_chapter_ids": [
+            "chapter_01_interest",
+            "chapter_02_amortization",
+            "chapter_03_types"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-016",
+          "expected_chapter": "chapter_01_returns",
+          "retrieved_chapter_ids": [
+            "chapter_01_returns",
+            "chapter_02_risk",
+            "chapter_03_diversification"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-017",
+          "expected_chapter": "chapter_01_placing",
+          "retrieved_chapter_ids": [
+            "chapter_01_placing",
+            "chapter_02_tracking",
+            "chapter_03_cancellation"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-018",
+          "expected_chapter": "chapter_02_process",
+          "retrieved_chapter_ids": [
+            "chapter_02_process",
+            "chapter_01_policy",
+            "chapter_03_exceptions"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-019",
+          "expected_chapter": "chapter_01_shipping_methods",
+          "retrieved_chapter_ids": [
+            "chapter_01_shipping_methods",
+            "chapter_02_delays",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-020",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_03_troubleshooting",
+            "chapter_02_features"
+          ],
+          "is_recalled": false
+        },
+        {
+          "question_id": "L4-021",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_01_types",
+            "chapter_02_operation",
+            "chapter_03_faults",
+            "chapter_02_operation",
+            "chapter_01_types"
+          ],
+          "is_recalled": false
+        },
+        {
+          "question_id": "L4-022",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_03_types",
+            "chapter_02_amortization",
+            "chapter_01_interest"
+          ],
+          "is_recalled": false
+        }
+      ],
+      "level_6": [
+        {
+          "question_id": "L6-001",
+          "expected_chapters": [
+            "chapter_03_faults",
+            "chapter_01_types"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_faults",
+            "chapter_03_faults",
+            "chapter_01_types",
+            "chapter_03_faults",
+            "chapter_02_operation"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-002",
+          "expected_chapters": [
+            "chapter_02_features",
+            "chapter_01_overview"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-003",
+          "expected_chapters": [
+            "chapter_01_overview",
+            "chapter_02_cycles"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_cycles",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_03_troubleshooting"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-004",
+          "expected_chapters": [
+            "chapter_01_placing",
+            "chapter_03_cancellation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_cancellation",
+            "chapter_01_placing",
+            "chapter_02_tracking"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-005",
+          "expected_chapters": [
+            "chapter_01_policy",
+            "chapter_02_process"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_policy",
+            "chapter_02_process",
+            "chapter_03_exceptions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-006",
+          "expected_chapters": [
+            "chapter_01_shipping_methods",
+            "chapter_02_delays"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_delays",
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-007",
+          "expected_chapters": [
+            "chapter_01_types",
+            "chapter_02_operation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_02_operation",
+            "chapter_03_faults",
+            "chapter_01_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-008",
+          "expected_chapters": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_02_features",
+            "chapter_01_overview"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-009",
+          "expected_chapters": [
+            "chapter_02_tracking",
+            "chapter_03_cancellation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_cancellation",
+            "chapter_02_tracking",
+            "chapter_01_placing"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-010",
+          "expected_chapters": [
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_warehouse",
+            "chapter_01_shipping_methods",
+            "chapter_02_delays",
+            "chapter_03_warehouse"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-011",
+          "expected_chapters": [
+            "chapter_01_vms",
+            "chapter_02_scale_sets"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_scale_sets",
+            "chapter_01_vms",
+            "chapter_03_app_service"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-012",
+          "expected_chapters": [
+            "chapter_01_vnet",
+            "chapter_02_subnets"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_subnets",
+            "chapter_01_vnet",
+            "chapter_03_nsg"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-013",
+          "expected_chapters": [
+            "chapter_01_rbac",
+            "chapter_02_identity"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_rbac",
+            "chapter_02_identity",
+            "chapter_03_key_vault"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-014",
+          "expected_chapters": [
+            "chapter_01_blob",
+            "chapter_03_redundancy"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_redundancy",
+            "chapter_01_blob",
+            "chapter_02_table_partitions",
+            "chapter_02_table_partitions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-015",
+          "expected_chapters": [
+            "chapter_01_pipelines",
+            "chapter_03_data_flows"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_data_flows",
+            "chapter_01_pipelines",
+            "chapter_02_triggers"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-016",
+          "expected_chapters": [
+            "chapter_01_overview",
+            "chapter_02_delta_lake"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_02_delta_lake",
+            "chapter_03_jobs"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-017",
+          "expected_chapters": [
+            "chapter_02_partitions",
+            "chapter_03_optimization"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_partitions",
+            "chapter_03_optimization",
+            "chapter_02_partitions",
+            "chapter_01_overview"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-018",
+          "expected_chapters": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_multiprocessing",
+            "chapter_01_threading",
+            "chapter_02_asyncio"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-019",
+          "expected_chapters": [
+            "chapter_02_decorators",
+            "chapter_03_data_types"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_decorators",
+            "chapter_01_functions",
+            "chapter_03_data_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-020",
+          "expected_chapters": [
+            "chapter_01_classes",
+            "chapter_03_dunder_methods"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_classes",
+            "chapter_03_dunder_methods",
+            "chapter_02_inheritance"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-021",
+          "expected_chapters": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund",
+            "chapter_02_tracking"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-022",
+          "expected_chapters": [
+            "chapter_01_returns",
+            "chapter_03_diversification"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_returns",
+            "chapter_02_risk",
+            "chapter_03_diversification"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-023",
+          "expected_chapters": [
+            "chapter_01_interest",
+            "chapter_02_amortization"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_amortization",
+            "chapter_01_interest",
+            "chapter_03_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        }
+      ]
+    },
+    "hybrid": {
+      "level_4": [
+        {
+          "question_id": "L4-001",
+          "expected_chapter": "chapter_01_overview",
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_02_features",
+            "chapter_03_troubleshooting"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-002",
+          "expected_chapter": "chapter_01_types",
+          "retrieved_chapter_ids": [
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_03_faults",
+            "chapter_01_types",
+            "chapter_02_operation"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-003",
+          "expected_chapter": "chapter_03_troubleshooting",
+          "retrieved_chapter_ids": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_02_cycles"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-004",
+          "expected_chapter": "chapter_02_subnets",
+          "retrieved_chapter_ids": [
+            "chapter_02_subnets",
+            "chapter_01_vnet",
+            "chapter_03_nsg"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-005",
+          "expected_chapter": "chapter_01_vms",
+          "retrieved_chapter_ids": [
+            "chapter_01_vms",
+            "chapter_02_scale_sets",
+            "chapter_03_app_service"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-006",
+          "expected_chapter": "chapter_03_key_vault",
+          "retrieved_chapter_ids": [
+            "chapter_03_key_vault",
+            "chapter_01_rbac",
+            "chapter_02_identity"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-007",
+          "expected_chapter": "chapter_01_blob",
+          "retrieved_chapter_ids": [
+            "chapter_01_blob",
+            "chapter_03_redundancy",
+            "chapter_02_table_partitions",
+            "chapter_02_table_partitions"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-008",
+          "expected_chapter": "chapter_02_partitions",
+          "retrieved_chapter_ids": [
+            "chapter_02_partitions",
+            "chapter_02_partitions",
+            "chapter_03_optimization",
+            "chapter_01_overview"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-009",
+          "expected_chapter": "chapter_02_delta_lake",
+          "retrieved_chapter_ids": [
+            "chapter_02_delta_lake",
+            "chapter_01_overview",
+            "chapter_03_jobs"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-010",
+          "expected_chapter": "chapter_02_triggers",
+          "retrieved_chapter_ids": [
+            "chapter_02_triggers",
+            "chapter_01_pipelines",
+            "chapter_03_data_flows"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-011",
+          "expected_chapter": "chapter_02_decorators",
+          "retrieved_chapter_ids": [
+            "chapter_02_decorators",
+            "chapter_01_functions",
+            "chapter_03_data_types"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-012",
+          "expected_chapter": "chapter_02_inheritance",
+          "retrieved_chapter_ids": [
+            "chapter_02_inheritance",
+            "chapter_03_dunder_methods",
+            "chapter_01_classes"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-013",
+          "expected_chapter": "chapter_01_threading",
+          "retrieved_chapter_ids": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing",
+            "chapter_02_asyncio"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-014",
+          "expected_chapter": "chapter_01_basics",
+          "retrieved_chapter_ids": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund",
+            "chapter_02_tracking"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-015",
+          "expected_chapter": "chapter_01_interest",
+          "retrieved_chapter_ids": [
+            "chapter_01_interest",
+            "chapter_02_amortization",
+            "chapter_03_types"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-016",
+          "expected_chapter": "chapter_01_returns",
+          "retrieved_chapter_ids": [
+            "chapter_01_returns",
+            "chapter_02_risk",
+            "chapter_03_diversification"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-017",
+          "expected_chapter": "chapter_01_placing",
+          "retrieved_chapter_ids": [
+            "chapter_01_placing",
+            "chapter_02_tracking",
+            "chapter_03_cancellation"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-018",
+          "expected_chapter": "chapter_02_process",
+          "retrieved_chapter_ids": [
+            "chapter_02_process",
+            "chapter_01_policy",
+            "chapter_03_exceptions"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-019",
+          "expected_chapter": "chapter_01_shipping_methods",
+          "retrieved_chapter_ids": [
+            "chapter_01_shipping_methods",
+            "chapter_02_delays",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-020",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_02_features",
+            "chapter_03_troubleshooting"
+          ],
+          "is_recalled": false
+        },
+        {
+          "question_id": "L4-021",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_02_operation",
+            "chapter_03_faults",
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_01_types"
+          ],
+          "is_recalled": false
+        },
+        {
+          "question_id": "L4-022",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_03_types",
+            "chapter_02_amortization",
+            "chapter_01_interest"
+          ],
+          "is_recalled": false
+        }
+      ],
+      "level_6": [
+        {
+          "question_id": "L6-001",
+          "expected_chapters": [
+            "chapter_03_faults",
+            "chapter_01_types"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_faults",
+            "chapter_03_faults",
+            "chapter_03_faults",
+            "chapter_01_types",
+            "chapter_02_operation"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-002",
+          "expected_chapters": [
+            "chapter_02_features",
+            "chapter_01_overview"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-003",
+          "expected_chapters": [
+            "chapter_01_overview",
+            "chapter_02_cycles"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_cycles",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_03_troubleshooting"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-004",
+          "expected_chapters": [
+            "chapter_01_placing",
+            "chapter_03_cancellation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_cancellation",
+            "chapter_01_placing",
+            "chapter_02_tracking"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-005",
+          "expected_chapters": [
+            "chapter_01_policy",
+            "chapter_02_process"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_policy",
+            "chapter_02_process",
+            "chapter_03_exceptions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-006",
+          "expected_chapters": [
+            "chapter_01_shipping_methods",
+            "chapter_02_delays"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_delays",
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-007",
+          "expected_chapters": [
+            "chapter_01_types",
+            "chapter_02_operation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_03_faults",
+            "chapter_01_types",
+            "chapter_02_operation"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-008",
+          "expected_chapters": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_02_features",
+            "chapter_01_overview"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-009",
+          "expected_chapters": [
+            "chapter_02_tracking",
+            "chapter_03_cancellation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_cancellation",
+            "chapter_02_tracking",
+            "chapter_01_placing"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-010",
+          "expected_chapters": [
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_warehouse",
+            "chapter_01_shipping_methods",
+            "chapter_02_delays",
+            "chapter_03_warehouse"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-011",
+          "expected_chapters": [
+            "chapter_01_vms",
+            "chapter_02_scale_sets"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_scale_sets",
+            "chapter_01_vms",
+            "chapter_03_app_service"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-012",
+          "expected_chapters": [
+            "chapter_01_vnet",
+            "chapter_02_subnets"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_subnets",
+            "chapter_01_vnet",
+            "chapter_03_nsg"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-013",
+          "expected_chapters": [
+            "chapter_01_rbac",
+            "chapter_02_identity"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_rbac",
+            "chapter_02_identity",
+            "chapter_03_key_vault"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-014",
+          "expected_chapters": [
+            "chapter_01_blob",
+            "chapter_03_redundancy"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_redundancy",
+            "chapter_01_blob",
+            "chapter_02_table_partitions",
+            "chapter_02_table_partitions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-015",
+          "expected_chapters": [
+            "chapter_01_pipelines",
+            "chapter_03_data_flows"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_data_flows",
+            "chapter_01_pipelines",
+            "chapter_02_triggers"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-016",
+          "expected_chapters": [
+            "chapter_01_overview",
+            "chapter_02_delta_lake"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_02_delta_lake",
+            "chapter_03_jobs"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-017",
+          "expected_chapters": [
+            "chapter_02_partitions",
+            "chapter_03_optimization"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_partitions",
+            "chapter_03_optimization",
+            "chapter_02_partitions",
+            "chapter_01_overview"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-018",
+          "expected_chapters": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_multiprocessing",
+            "chapter_01_threading",
+            "chapter_02_asyncio"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-019",
+          "expected_chapters": [
+            "chapter_02_decorators",
+            "chapter_03_data_types"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_decorators",
+            "chapter_01_functions",
+            "chapter_03_data_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-020",
+          "expected_chapters": [
+            "chapter_01_classes",
+            "chapter_03_dunder_methods"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_classes",
+            "chapter_03_dunder_methods",
+            "chapter_02_inheritance"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-021",
+          "expected_chapters": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund",
+            "chapter_02_tracking"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-022",
+          "expected_chapters": [
+            "chapter_01_returns",
+            "chapter_03_diversification"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_returns",
+            "chapter_02_risk",
+            "chapter_03_diversification"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-023",
+          "expected_chapters": [
+            "chapter_01_interest",
+            "chapter_02_amortization"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_amortization",
+            "chapter_01_interest",
+            "chapter_03_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        }
+      ]
+    },
+    "hybrid+rerank": {
+      "level_4": [
+        {
+          "question_id": "L4-001",
+          "expected_chapter": "chapter_01_overview",
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_03_troubleshooting",
+            "chapter_02_features"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-002",
+          "expected_chapter": "chapter_01_types",
+          "retrieved_chapter_ids": [
+            "chapter_01_types",
+            "chapter_02_operation",
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_03_faults"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-003",
+          "expected_chapter": "chapter_03_troubleshooting",
+          "retrieved_chapter_ids": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_02_cycles"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-004",
+          "expected_chapter": "chapter_02_subnets",
+          "retrieved_chapter_ids": [
+            "chapter_02_subnets",
+            "chapter_01_vnet",
+            "chapter_03_nsg"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-005",
+          "expected_chapter": "chapter_01_vms",
+          "retrieved_chapter_ids": [
+            "chapter_01_vms",
+            "chapter_02_scale_sets",
+            "chapter_03_app_service"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-006",
+          "expected_chapter": "chapter_03_key_vault",
+          "retrieved_chapter_ids": [
+            "chapter_03_key_vault",
+            "chapter_01_rbac",
+            "chapter_02_identity"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-007",
+          "expected_chapter": "chapter_01_blob",
+          "retrieved_chapter_ids": [
+            "chapter_01_blob",
+            "chapter_03_redundancy",
+            "chapter_02_table_partitions",
+            "chapter_02_table_partitions"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-008",
+          "expected_chapter": "chapter_02_partitions",
+          "retrieved_chapter_ids": [
+            "chapter_02_partitions",
+            "chapter_02_partitions",
+            "chapter_03_optimization",
+            "chapter_01_overview"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-009",
+          "expected_chapter": "chapter_02_delta_lake",
+          "retrieved_chapter_ids": [
+            "chapter_02_delta_lake",
+            "chapter_03_jobs",
+            "chapter_01_overview"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-010",
+          "expected_chapter": "chapter_02_triggers",
+          "retrieved_chapter_ids": [
+            "chapter_02_triggers",
+            "chapter_01_pipelines",
+            "chapter_03_data_flows"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-011",
+          "expected_chapter": "chapter_02_decorators",
+          "retrieved_chapter_ids": [
+            "chapter_02_decorators",
+            "chapter_01_functions",
+            "chapter_03_data_types"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-012",
+          "expected_chapter": "chapter_02_inheritance",
+          "retrieved_chapter_ids": [
+            "chapter_02_inheritance",
+            "chapter_03_dunder_methods",
+            "chapter_01_classes"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-013",
+          "expected_chapter": "chapter_01_threading",
+          "retrieved_chapter_ids": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing",
+            "chapter_02_asyncio"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-014",
+          "expected_chapter": "chapter_01_basics",
+          "retrieved_chapter_ids": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund",
+            "chapter_02_tracking"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-015",
+          "expected_chapter": "chapter_01_interest",
+          "retrieved_chapter_ids": [
+            "chapter_01_interest",
+            "chapter_02_amortization",
+            "chapter_03_types"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-016",
+          "expected_chapter": "chapter_01_returns",
+          "retrieved_chapter_ids": [
+            "chapter_01_returns",
+            "chapter_02_risk",
+            "chapter_03_diversification"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-017",
+          "expected_chapter": "chapter_01_placing",
+          "retrieved_chapter_ids": [
+            "chapter_01_placing",
+            "chapter_02_tracking",
+            "chapter_03_cancellation"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-018",
+          "expected_chapter": "chapter_02_process",
+          "retrieved_chapter_ids": [
+            "chapter_02_process",
+            "chapter_01_policy",
+            "chapter_03_exceptions"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-019",
+          "expected_chapter": "chapter_01_shipping_methods",
+          "retrieved_chapter_ids": [
+            "chapter_01_shipping_methods",
+            "chapter_02_delays",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse"
+          ],
+          "is_recalled": true
+        },
+        {
+          "question_id": "L4-020",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_03_troubleshooting"
+          ],
+          "is_recalled": false
+        },
+        {
+          "question_id": "L4-021",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_03_faults",
+            "chapter_02_operation",
+            "chapter_03_faults"
+          ],
+          "is_recalled": false
+        },
+        {
+          "question_id": "L4-022",
+          "expected_chapter": null,
+          "retrieved_chapter_ids": [
+            "chapter_03_types",
+            "chapter_02_amortization",
+            "chapter_01_interest"
+          ],
+          "is_recalled": false
+        }
+      ],
+      "level_6": [
+        {
+          "question_id": "L6-001",
+          "expected_chapters": [
+            "chapter_03_faults",
+            "chapter_01_types"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_faults",
+            "chapter_01_types",
+            "chapter_03_faults",
+            "chapter_02_operation",
+            "chapter_03_faults"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-002",
+          "expected_chapters": [
+            "chapter_02_features",
+            "chapter_01_overview"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_02_features",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-003",
+          "expected_chapters": [
+            "chapter_01_overview",
+            "chapter_02_cycles"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_cycles",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_03_troubleshooting"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-004",
+          "expected_chapters": [
+            "chapter_01_placing",
+            "chapter_03_cancellation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_cancellation",
+            "chapter_01_placing",
+            "chapter_02_tracking"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-005",
+          "expected_chapters": [
+            "chapter_01_policy",
+            "chapter_02_process"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_policy",
+            "chapter_02_process",
+            "chapter_03_exceptions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-006",
+          "expected_chapters": [
+            "chapter_01_shipping_methods",
+            "chapter_02_delays"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_delays",
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-007",
+          "expected_chapters": [
+            "chapter_01_types",
+            "chapter_02_operation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_operation",
+            "chapter_01_types",
+            "chapter_02_operation",
+            "chapter_03_faults",
+            "chapter_01_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-008",
+          "expected_chapters": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_troubleshooting",
+            "chapter_01_overview",
+            "chapter_03_troubleshooting",
+            "chapter_02_features",
+            "chapter_01_overview"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-009",
+          "expected_chapters": [
+            "chapter_02_tracking",
+            "chapter_03_cancellation"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_tracking",
+            "chapter_03_cancellation",
+            "chapter_01_placing"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-010",
+          "expected_chapters": [
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_shipping_methods",
+            "chapter_03_warehouse",
+            "chapter_03_warehouse",
+            "chapter_02_delays"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-011",
+          "expected_chapters": [
+            "chapter_01_vms",
+            "chapter_02_scale_sets"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_scale_sets",
+            "chapter_01_vms",
+            "chapter_03_app_service"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-012",
+          "expected_chapters": [
+            "chapter_01_vnet",
+            "chapter_02_subnets"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_subnets",
+            "chapter_01_vnet",
+            "chapter_03_nsg"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-013",
+          "expected_chapters": [
+            "chapter_01_rbac",
+            "chapter_02_identity"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_rbac",
+            "chapter_02_identity",
+            "chapter_03_key_vault"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-014",
+          "expected_chapters": [
+            "chapter_01_blob",
+            "chapter_03_redundancy"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_03_redundancy",
+            "chapter_01_blob",
+            "chapter_02_table_partitions",
+            "chapter_02_table_partitions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-015",
+          "expected_chapters": [
+            "chapter_01_pipelines",
+            "chapter_03_data_flows"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_pipelines",
+            "chapter_03_data_flows",
+            "chapter_02_triggers"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-016",
+          "expected_chapters": [
+            "chapter_01_overview",
+            "chapter_02_delta_lake"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_overview",
+            "chapter_02_delta_lake",
+            "chapter_03_jobs"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-017",
+          "expected_chapters": [
+            "chapter_02_partitions",
+            "chapter_03_optimization"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_partitions",
+            "chapter_03_optimization",
+            "chapter_02_partitions",
+            "chapter_01_overview"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-018",
+          "expected_chapters": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_threading",
+            "chapter_03_multiprocessing",
+            "chapter_02_asyncio"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-019",
+          "expected_chapters": [
+            "chapter_02_decorators",
+            "chapter_03_data_types"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_decorators",
+            "chapter_03_data_types",
+            "chapter_01_functions"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-020",
+          "expected_chapters": [
+            "chapter_01_classes",
+            "chapter_03_dunder_methods"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_classes",
+            "chapter_02_inheritance",
+            "chapter_03_dunder_methods"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-021",
+          "expected_chapters": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_basics",
+            "chapter_03_emergency_fund",
+            "chapter_02_tracking"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-022",
+          "expected_chapters": [
+            "chapter_01_returns",
+            "chapter_03_diversification"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_01_returns",
+            "chapter_03_diversification",
+            "chapter_02_risk"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        },
+        {
+          "question_id": "L6-023",
+          "expected_chapters": [
+            "chapter_01_interest",
+            "chapter_02_amortization"
+          ],
+          "retrieved_chapter_ids": [
+            "chapter_02_amortization",
+            "chapter_01_interest",
+            "chapter_03_types"
+          ],
+          "is_fully_covered": true,
+          "coverage_fraction": 1.0
+        }
+      ]
+    }
+  }
+}

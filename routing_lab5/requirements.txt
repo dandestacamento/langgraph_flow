@@ -1,0 +1,71 @@
+# Already installed in the shared ../.venv for this repo (langgraph,
+# langchain-openai, mlflow, streamlit, pytest, python-dotenv, pydantic).
+# Pin here anyway so `routing_lab/` is runnable as a standalone project.
+langgraph>=1.2
+langchain-openai>=1.7
+mlflow>=3.18
+streamlit>=1.67
+pytest>=9.2
+python-dotenv>=1.2
+pydantic>=2.14
+pyyaml>=6.0
+
+# Level 4 (RAG retrieval): local Chroma vector store + OpenAI embeddings.
+chromadb>=1.5
+langchain-chroma>=1.1
+
+# Hybrid retrieval (routing-lab2, app/rag/retrieval.py's "hybrid" mode -
+# BM25 keyword search + vector search via EnsembleRetriever). Lightweight,
+# pure-Python, no extra download - unlike reranking below.
+rank-bm25>=0.2
+
+# Cross-encoder reranking (routing-lab2, app/rag/reranking.py) - optional:
+# only required if ROUTING_LAB_RERANK_ENABLED=1 or use_reranking=True is
+# passed explicitly. Pulls in torch (CPU wheel) and downloads a small
+# (~80MB) cross-encoder model on first use. Not installed by default in
+# shared environments that don't need reranking; see
+# instructions/learnings/routing-lab2-learnings.md section 4 (P1).
+sentence-transformers>=3.0
+
+# Response caching (app/cache.py): avoids re-billing identical repeated
+# LLM calls across development/test iterations. langchain-community is
+# used only for its SQLiteCache - no other integrations from it are used.
+langchain-community>=0.4
+
+# Chat application API backend (routing-lab3, app/api/main.py) - a
+# custom FastAPI service wrapping app/chat/graph.py directly, instead of
+# LangGraph's packaged Agent Server (Elastic License 2.0, requires a
+# paid Enterprise license key for production self-hosting - see
+# instructions/learnings/routing-lab-prod-plan.md section 0). Both are
+# MIT/BSD-licensed.
+fastapi>=0.110
+uvicorn>=0.29
+httpx>=0.27
+
+# Authentication (routing-lab3, app/api/auth.py) - verifies Keycloak-
+# issued JWTs (instructions/learnings/routing-lab-prod-plan.md section
+# 2.1) via its JWKS endpoint. MIT-licensed; `[crypto]` pulls in the
+# cryptography package needed to verify RS256-signed tokens.
+pyjwt[crypto]>=2.9
+
+# Durable persistence (routing-lab3, app/api/main.py) - swaps
+# InMemorySaver for PostgresSaver when CHAT_DB_URL is set
+# (instructions/learnings/routing-lab-prod-plan.md section 2.2). Both
+# MIT-licensed; psycopg itself is LGPL-3.0 (the client library, not
+# PostgreSQL - the server above is the OSI-approved PostgreSQL License).
+langgraph-checkpoint-postgres>=2.0
+psycopg[binary,pool]>=3.2
+
+# Prompt-injection guardrail (routing-lab3, app/chat/guardrails.py,
+# instructions/learnings/routing-lab-prod-plan.md section 2.4) - optional:
+# only required if ROUTING_LAB_GUARDRAILS_ENABLED=1. Downloads a
+# ~184M-parameter DeBERTa classifier (protectai/deberta-v3-base-prompt-
+# injection-v2, MIT) on first use. Already a transitive dependency of
+# sentence-transformers above when reranking is enabled, but listed here
+# directly since guardrails can be enabled independently of reranking.
+transformers>=4.40
+
+# File attachments (chat-ui-plan4.md Phase A): FastAPI multipart upload
+# parsing; pypdf extracts PDF text at upload time (Phase B).
+python-multipart>=0.0.9
+pypdf>=4.0
