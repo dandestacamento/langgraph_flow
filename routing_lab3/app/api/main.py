@@ -62,7 +62,7 @@ load_dotenv(find_dotenv())
 
 import os  # noqa: E402
 
-from fastapi import Depends, FastAPI, HTTPException  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, UploadFile  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import Response, StreamingResponse  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
@@ -70,6 +70,14 @@ from openai import RateLimitError, UnprocessableEntityError  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from app import llm_gateway  # noqa: E402
+from app.api import attachments as attachments_module  # noqa: E402
+from app.api.attachments import (  # noqa: E402
+    IMAGE_MEDIA_TYPES,
+    MAX_ATTACHMENT_BYTES,
+    MAX_ATTACHMENTS_PER_MESSAGE,
+    AttachmentStore,
+    sniff_media_type,
+)
 from app.api.auth import ThreadOwnershipRegistry, get_current_user  # noqa: E402
 from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.condense import generate_conversation_title  # noqa: E402
@@ -143,6 +151,10 @@ _chat_graph = build_chat_graph(checkpointer=_chat_checkpointer)
 # history on restart) otherwise.
 _thread_ownership = ThreadOwnershipRegistry(conn_string=_CHAT_DB_URL)
 
+# Attachment storage (chat-ui-plan4.md Phase A) - same dual-mode
+# Postgres/in-memory pattern as the ownership registry above.
+_attachment_store = AttachmentStore(conn_string=_CHAT_DB_URL)
+
 # Startup sweep (chat-ui-plan3.md §1.1): conversations soft-deleted more
 # than 30 days ago are purged for real - ownership record and
 # checkpointed history together.
@@ -189,6 +201,10 @@ def _scope_llm_calls_to(user: str) -> None:
 class ChatRequest(BaseModel):
     thread_id: str
     message: str
+    # Previously uploaded attachment ids this message references
+    # (chat-ui-plan4.md §1.4). Must belong to the same thread - 404
+    # otherwise.
+    attachment_ids: list[str] = []
 
 
 class ThreadSummary(BaseModel):
@@ -203,13 +219,15 @@ class ThreadSummary(BaseModel):
 class ThreadHistoryTurn(BaseModel):
     """One past turn of a conversation, restored from the checkpointer's
     `conversation_history` (app/chat/state.py's ChatTurn). Includes the
-    per-turn routing summary so citations/routing details survive a page
-    refresh; turns recorded before that field existed return `{}` (the
-    frontend renders them as plain messages)."""
+    per-turn routing summary and attachment metadata so citations and
+    attachment pills survive a page refresh; turns recorded before those
+    fields existed return `{}`/`[]` (the frontend renders them as plain
+    messages)."""
 
     user_message: str
     final_answer: str
     routing_summary: dict = {}
+    attachments: list[dict] = []
 
 
 class ClientErrorReport(BaseModel):
@@ -224,6 +242,16 @@ class ClientErrorReport(BaseModel):
 
 class ThreadRenameRequest(BaseModel):
     title: str
+
+
+class AttachmentMeta(BaseModel):
+    """Metadata returned by the upload endpoint - mirrored by the
+    frontend's `AttachmentMeta` (chat-ui-plan4.md Phase A)."""
+
+    attachment_id: str
+    filename: str
+    media_type: str
+    size_bytes: int
 
 
 class ChatResponse(BaseModel):
@@ -270,6 +298,7 @@ def thread_history(thread_id: str, user: str = Depends(get_current_user)) -> lis
             user_message=turn["user_message"],
             final_answer=turn["final_answer"],
             routing_summary=turn.get("routing_summary", {}),
+            attachments=turn.get("attachments", []),
         )
         for turn in turns
     ]
@@ -310,6 +339,53 @@ def restore_thread(thread_id: str, user: str = Depends(get_current_user)) -> Res
     return Response(status_code=204)
 
 
+@app.post("/threads/{thread_id}/attachments", response_model=AttachmentMeta)
+async def upload_attachment(
+    thread_id: str, file: UploadFile, user: str = Depends(get_current_user)
+) -> AttachmentMeta:
+    """Uploads one attachment to the user's own conversation
+    (chat-ui-plan4.md Phase A: images only; documents are Phase B).
+    Claims a brand-new thread_id the same way /chat does, so a file can
+    be attached before the conversation's first message. The media type
+    is sniffed from magic bytes - the client's content type and filename
+    are never trusted - and extraction (a vision call) happens here,
+    once, not on every chat turn that references the attachment."""
+    _thread_ownership.check_and_record(thread_id, user)
+    content = await file.read()
+    if len(content) > MAX_ATTACHMENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large - the limit is {MAX_ATTACHMENT_BYTES // (1024 * 1024)} MB.",
+        )
+    media_type = sniff_media_type(content)
+    if media_type not in IMAGE_MEDIA_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type. Supported: {', '.join(IMAGE_MEDIA_TYPES)}.",
+        )
+    _scope_llm_calls_to(user)
+    extracted_text = attachments_module._extract_image_text(content, media_type)
+    meta = _attachment_store.save(
+        thread_id, file.filename or "attachment", media_type, content, extracted_text
+    )
+    return AttachmentMeta(**meta)
+
+
+@app.get("/threads/{thread_id}/attachments/{attachment_id}")
+def get_attachment(
+    thread_id: str, attachment_id: str, user: str = Depends(get_current_user)
+) -> Response:
+    """Streams an attachment's bytes back (image thumbnails in restored
+    history) - ownership-checked like every thread route, and the id
+    must belong to this very thread."""
+    _thread_ownership.check_owner(thread_id, user)
+    stored = _attachment_store.get_content(thread_id, attachment_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="Unknown attachment for this conversation.")
+    content, media_type = stored
+    return Response(content=content, media_type=media_type)
+
+
 _client_error_logger = logging.getLogger("routing_lab3.client_errors")
 
 
@@ -333,16 +409,32 @@ def report_client_error(
     return Response(status_code=204)
 
 
+def _load_turn_attachments(request: ChatRequest) -> list[dict]:
+    """This turn's attachment metadata + extracted text for the graph -
+    404s on ids that don't belong to the thread, 422 over the cap."""
+    if len(request.attachment_ids) > MAX_ATTACHMENTS_PER_MESSAGE:
+        raise HTTPException(
+            status_code=422,
+            detail=f"At most {MAX_ATTACHMENTS_PER_MESSAGE} attachments per message.",
+        )
+    if not request.attachment_ids:
+        return []
+    return _attachment_store.get_meta_for_chat(request.thread_id, request.attachment_ids)
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, user: str = Depends(get_current_user)) -> ChatResponse:
     """One synchronous turn: invokes the chat graph and returns the full
     result. Simpler to call/test than `/chat/stream` - use this for
     anything that doesn't need incremental progress updates."""
     _thread_ownership.check_and_record(request.thread_id, user, title=request.message)
+    turn_attachments = _load_turn_attachments(request)
     _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
     try:
-        output = _chat_graph.invoke({"user_message": request.message}, config=config)
+        output = _chat_graph.invoke(
+            {"user_message": request.message, "attachments": turn_attachments}, config=config
+        )
     except (RateLimitError, UnprocessableEntityError) as exc:
         # LiteLLM returns HTTP 422 (UnprocessableEntityError in the
         # openai SDK's exception hierarchy, not RateLimitError) for a
@@ -390,6 +482,7 @@ def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> 
     attempt), so the running `final_answer`/`routing_result` are tracked
     across every node update rather than read off one specific node."""
     _thread_ownership.check_and_record(request.thread_id, user, title=request.message)
+    turn_attachments = _load_turn_attachments(request)
     _scope_llm_calls_to(user)
     config = {"configurable": {"thread_id": request.thread_id}}
 
@@ -404,7 +497,9 @@ def chat_stream(request: ChatRequest, user: str = Depends(get_current_user)) -> 
         previous_event_time = time.perf_counter()
         try:
             for update in _chat_graph.stream(
-                {"user_message": request.message}, config=config, stream_mode="updates"
+                {"user_message": request.message, "attachments": turn_attachments},
+                config=config,
+                stream_mode="updates",
             ):
                 for node_name, node_output in update.items():
                     now = time.perf_counter()

@@ -23,6 +23,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
+import app.api.attachments as attachments_module
 import app.api.auth as auth_module
 from app.api.main import app
 
@@ -31,10 +32,29 @@ client = TestClient(app)
 _TEST_PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _TEST_PUBLIC_KEY = _TEST_PRIVATE_KEY.public_key()
 
+# A minimal valid-magic-bytes PNG payload - enough for sniff_media_type;
+# the vision extraction is monkeypatched (below), never called on it.
+_TINY_PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+
 
 @pytest.fixture(autouse=True)
 def _use_test_signing_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auth_module, "_get_signing_key", lambda token: _TEST_PUBLIC_KEY)
+
+
+@pytest.fixture(autouse=True)
+def _use_fake_vision_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replaces the vision call (app/api/attachments.py's monkeypatchable
+    indirection, same pattern as auth's _get_signing_key) so the
+    upload->chat integration is deterministic without a live
+    image-model call."""
+    monkeypatch.setattr(
+        attachments_module,
+        "_extract_image_text",
+        lambda content, media_type: (
+            "A washing machine control panel; the display shows the error code E21."
+        ),
+    )
 
 
 def _make_token(sub: str = "test-user", azp: str = auth_module.KEYCLOAK_CLIENT_ID) -> str:
@@ -423,6 +443,145 @@ def test_client_error_is_logged_and_returns_204(caplog: pytest.LogCaptureFixture
 def test_client_error_requires_authentication() -> None:
     response = client.post("/client-error", json={"message": "crash"})
     assert response.status_code == 401
+
+
+def _upload_png(thread_id: str, sub: str = "test-user") -> dict:
+    response = client.post(
+        f"/threads/{thread_id}/attachments",
+        files={"file": ("error-photo.png", _TINY_PNG, "image/png")},
+        headers=_auth_headers(sub=sub),
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_upload_attachment_and_fetch_its_bytes() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    meta = _upload_png(thread_id, sub=user)
+    assert meta["media_type"] == "image/png"  # sniffed, not trusted
+    assert meta["filename"] == "error-photo.png"
+
+    fetched = client.get(
+        f"/threads/{thread_id}/attachments/{meta['attachment_id']}", headers=_auth_headers(sub=user)
+    )
+    assert fetched.status_code == 200
+    assert fetched.headers["content-type"].startswith("image/png")
+    assert fetched.content == _TINY_PNG
+
+    # Another user can neither fetch it nor attach to the thread.
+    assert (
+        client.get(
+            f"/threads/{thread_id}/attachments/{meta['attachment_id']}",
+            headers=_auth_headers(sub="someone-else"),
+        ).status_code
+        == 403
+    )
+
+
+def test_upload_rejects_unsupported_types_and_oversized_files() -> None:
+    thread_id = f"test-{uuid.uuid4()}"
+    not_an_image = client.post(
+        f"/threads/{thread_id}/attachments",
+        files={"file": ("notes.txt", b"plain text pretending", "image/png")},
+        headers=_auth_headers(),
+    )
+    assert not_an_image.status_code == 415  # magic bytes, not the claimed type
+
+    oversized = client.post(
+        f"/threads/{thread_id}/attachments",
+        files={"file": ("big.png", b"\x89PNG\r\n\x1a\n" + b"0" * (5 * 1024 * 1024), "image/png")},
+        headers=_auth_headers(),
+    )
+    assert oversized.status_code == 413
+
+
+def test_image_attachment_grounds_a_knowledge_base_question() -> None:
+    """chat-ui-plan4.md Phase A's defining flow: a photo of an error
+    display plus 'what does this error mean?' resolves - via the condense
+    step - into a normal self-contained KB question, and the calibrated
+    pipeline answers it unmodified, citations and all."""
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    meta = _upload_png(thread_id, sub=user)
+
+    response = client.post(
+        "/chat",
+        json={
+            "thread_id": thread_id,
+            "message": "My washing machine shows this error - what does it mean?",
+            "attachment_ids": [meta["attachment_id"]],
+        },
+        headers=_auth_headers(sub=user),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "e21" in body["self_contained_question"].lower()
+    assert "drainage" in body["final_answer"].lower()
+    assert body["routing_summary"]["topics"] == ["appliances"]
+
+
+def test_attachment_direct_question_answers_from_the_attachment() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    meta = _upload_png(thread_id, sub=user)
+
+    response = client.post(
+        "/chat",
+        json={
+            "thread_id": thread_id,
+            "message": "What's in this image?",
+            "attachment_ids": [meta["attachment_id"]],
+        },
+        headers=_auth_headers(sub=user),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "e21" in body["final_answer"].lower()
+    # No knowledge-base routing ran - and no fake citations.
+    assert body["routing_summary"]["topics"] == []
+
+
+def test_history_restores_attachment_metadata() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_id = f"test-{uuid.uuid4()}"
+    meta = _upload_png(thread_id, sub=user)
+    client.post(
+        "/chat",
+        json={
+            "thread_id": thread_id,
+            "message": "What's in this image?",
+            "attachment_ids": [meta["attachment_id"]],
+        },
+        headers=_auth_headers(sub=user),
+    )
+
+    turns = client.get(f"/threads/{thread_id}/history", headers=_auth_headers(sub=user)).json()
+    assert turns[0]["attachments"] == [
+        {
+            "attachment_id": meta["attachment_id"],
+            "filename": "error-photo.png",
+            "media_type": "image/png",
+        }
+    ]
+
+
+def test_chat_rejects_attachment_ids_from_another_thread() -> None:
+    user = f"user-{uuid.uuid4()}"
+    thread_a = f"test-{uuid.uuid4()}"
+    thread_b = f"test-{uuid.uuid4()}"
+    meta = _upload_png(thread_a, sub=user)
+
+    response = client.post(
+        "/chat",
+        json={
+            "thread_id": thread_b,
+            "message": "What's in this image?",
+            "attachment_ids": [meta["attachment_id"]],
+        },
+        headers=_auth_headers(sub=user),
+    )
+    assert response.status_code == 404
 
 
 def test_chat_stream_endpoint_emits_status_then_answer_events() -> None:

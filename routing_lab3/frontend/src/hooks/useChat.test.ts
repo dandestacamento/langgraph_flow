@@ -129,6 +129,7 @@ describe("useChat", () => {
       "What does E21 mean?",
       expect.any(Function),
       expect.anything(),
+      expect.any(Array),
     );
   });
 
@@ -273,6 +274,7 @@ describe("useChat", () => {
       "What does E21 mean?",
       expect.any(Function),
       expect.anything(),
+      expect.any(Array),
     );
   });
 
@@ -373,5 +375,50 @@ describe("useChat", () => {
     expect(result.current.error).toBeNull();
     const assistantMessage = result.current.messages[1];
     expect(assistantMessage).toMatchObject({ role: "assistant", stopped: true, content: "" });
+  });
+
+  it("sends attachment ids with the message and keeps them on the user bubble", async () => {
+    mockedStreamChatMessage.mockImplementation(async (_t, _m, onEvent) => {
+      onEvent({ type: "answer", final_answer: "It's error E21.", routing_summary: EMPTY_SUMMARY });
+    });
+    const attachment = {
+      attachment_id: "att-1",
+      filename: "error.png",
+      media_type: "image/png",
+      size_bytes: 10,
+    };
+
+    const { result } = renderHook(() => useChat());
+    await act(async () => {
+      await result.current.sendMessage("What does this error mean?", true, [attachment]);
+    });
+
+    expect(mockedStreamChatMessage).toHaveBeenLastCalledWith(
+      expect.any(String),
+      "What does this error mean?",
+      expect.any(Function),
+      expect.anything(),
+      ["att-1"],
+    );
+    expect(result.current.messages[0].attachments).toEqual([attachment]);
+  });
+
+  it("restores attachment metadata on history turns", async () => {
+    mockedFetchThreadHistory.mockResolvedValue([
+      {
+        user_message: "What's in this image?",
+        final_answer: "A control panel showing E21.",
+        routing_summary: {},
+        attachments: [
+          { attachment_id: "att-9", filename: "panel.png", media_type: "image/png", size_bytes: 5 },
+        ],
+      },
+    ]);
+
+    const { result } = renderHook(() => useChat());
+    await waitFor(() => expect(result.current.messages).toHaveLength(2));
+    expect(result.current.messages[0].attachments).toEqual([
+      expect.objectContaining({ attachment_id: "att-9", filename: "panel.png" }),
+    ]);
   });
 });

@@ -9,7 +9,7 @@ import {
   sendChatMessage,
   streamChatMessage,
 } from "../api/client";
-import type { ExecutionStep, RoutingSummary, ThreadSummary } from "../api/client";
+import type { AttachmentMeta, ExecutionStep, RoutingSummary, ThreadSummary } from "../api/client";
 
 export interface ChatMessage {
   id: string;
@@ -35,6 +35,8 @@ export interface ChatMessage {
    * (chat-ui-plan3.md §2.2). Only present on live-streamed turns, not
    * restored history. */
   executionTrace?: ExecutionStep[];
+  /** Files attached to this (user) message - chat-ui-plan4.md Phase A. */
+  attachments?: AttachmentMeta[];
 }
 
 const THREAD_ID_STORAGE_KEY = "routing-lab3-chat-thread-id";
@@ -100,9 +102,12 @@ export function useChat() {
   } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The most recent message that failed to send, kept only so "Retry"
-  // can resend the exact same text - cleared on any successful send.
-  const lastFailedMessageRef = useRef<string | null>(null);
+  // The most recent message that failed to send (text + attachments),
+  // kept only so "Retry" can resend exactly the same thing - cleared on
+  // any successful send.
+  const lastFailedMessageRef = useRef<{ text: string; attachments: AttachmentMeta[] } | null>(
+    null,
+  );
   // Monotonic guard: a history load only applies if nothing (a thread
   // switch, a send) superseded it while its fetch was in flight.
   const historyLoadSeqRef = useRef(0);
@@ -136,7 +141,12 @@ export function useChat() {
         if (seq !== historyLoadSeqRef.current) return;
         setMessages(
           turns.flatMap((turn): ChatMessage[] => [
-            { id: crypto.randomUUID(), role: "user", content: turn.user_message },
+            {
+              id: crypto.randomUUID(),
+              role: "user",
+              content: turn.user_message,
+              attachments: turn.attachments?.length ? turn.attachments : undefined,
+            },
             {
               id: crypto.randomUUID(),
               role: "assistant",
@@ -145,7 +155,7 @@ export function useChat() {
               // before per-turn summaries were persisted return {}.
               routingSummary:
                 turn.routing_summary && "passages" in turn.routing_summary
-                  ? turn.routing_summary
+                  ? (turn.routing_summary as RoutingSummary)
                   : undefined,
             },
           ]),
@@ -164,9 +174,12 @@ export function useChat() {
   }, [threadId, historyReloadNonce]);
 
   const sendMessage = useCallback(
-    async (text: string, useStreaming = true) => {
+    async (text: string, useStreaming = true, attachments: AttachmentMeta[] = []) => {
       const trimmed = text.trim();
-      if (!trimmed || isSending) return;
+      // Attachments alone are a valid message ("what's in this file?" is
+      // implied - the backend answers from the attachment).
+      if ((!trimmed && attachments.length === 0) || isSending) return;
+      const attachmentIds = attachments.map((a) => a.attachment_id);
 
       // A send supersedes any still-in-flight history load - without
       // this, a slow restore could resolve late and wipe the new turn.
@@ -174,7 +187,12 @@ export function useChat() {
       setIsLoadingHistory(false);
       setError(null);
       setIsSending(true);
-      const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: trimmed };
+      const userMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: trimmed,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
       const assistantMessageId = crypto.randomUUID();
       setMessages((prev) => [
         ...prev,
@@ -222,9 +240,10 @@ export function useChat() {
               }
             },
             controller.signal,
+            attachmentIds,
           );
         } else {
-          const response = await sendChatMessage(threadId, trimmed);
+          const response = await sendChatMessage(threadId, trimmed, attachmentIds);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
@@ -255,7 +274,7 @@ export function useChat() {
             ),
           );
         } else {
-          lastFailedMessageRef.current = trimmed;
+          lastFailedMessageRef.current = { text: trimmed, attachments };
           setError(describeError(err));
           setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
         }
@@ -275,7 +294,8 @@ export function useChat() {
 
   const retryLastMessage = useCallback(() => {
     if (lastFailedMessageRef.current) {
-      void sendMessage(lastFailedMessageRef.current);
+      const { text, attachments } = lastFailedMessageRef.current;
+      void sendMessage(text, true, attachments);
       return;
     }
     // No failed *send* to retry - the error banner is up because a
@@ -314,7 +334,9 @@ export function useChat() {
   const regenerateLastTurn = useCallback(() => {
     if (isSending) return;
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
-    if (lastUserMessage) void sendMessage(lastUserMessage.content);
+    if (lastUserMessage) {
+      void sendMessage(lastUserMessage.content, true, lastUserMessage.attachments ?? []);
+    }
   }, [isSending, messages, sendMessage]);
 
   const renameConversation = useCallback(

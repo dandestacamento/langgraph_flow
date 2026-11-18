@@ -74,12 +74,22 @@ export interface ThreadSummary {
 }
 
 /** One restored past turn of a conversation - mirrors app/api/main.py's
- * `ThreadHistoryTurn`. `routing_summary` is `{}` for turns recorded
- * before per-turn summaries were persisted. */
+ * `ThreadHistoryTurn`. `routing_summary` is `{}` and `attachments` `[]`
+ * for turns recorded before those fields were persisted. */
 export interface ThreadHistoryTurn {
   user_message: string;
   final_answer: string;
   routing_summary?: RoutingSummary | Record<string, never>;
+  attachments?: AttachmentMeta[];
+}
+
+/** Metadata for an uploaded attachment - mirrors app/api/main.py's
+ * `AttachmentMeta` (chat-ui-plan4.md Phase A). */
+export interface AttachmentMeta {
+  attachment_id: string;
+  filename: string;
+  media_type: string;
+  size_bytes: number;
 }
 
 export interface StreamStatusEvent {
@@ -110,12 +120,13 @@ export interface ExecutionStep {
 export async function sendChatMessage(
   threadId: string,
   message: string,
+  attachmentIds: string[] = [],
 ): Promise<ChatResponse> {
   const token = await getValidToken();
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ thread_id: threadId, message }),
+    body: JSON.stringify({ thread_id: threadId, message, attachment_ids: attachmentIds }),
   });
   if (!response.ok) {
     throw new Error(`Chat request failed: ${response.status} ${response.statusText}`);
@@ -135,12 +146,13 @@ export async function streamChatMessage(
   message: string,
   onEvent: (event: StreamEvent) => void,
   signal?: AbortSignal,
+  attachmentIds: string[] = [],
 ): Promise<void> {
   const token = await getValidToken();
   const response = await fetch(`${API_BASE_URL}/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ thread_id: threadId, message }),
+    body: JSON.stringify({ thread_id: threadId, message, attachment_ids: attachmentIds }),
     signal,
   });
   if (!response.ok || !response.body) {
@@ -259,6 +271,43 @@ export async function restoreThread(threadId: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`Thread restore failed: ${response.status} ${response.statusText}`);
   }
+}
+
+/** Uploads one attachment to a conversation: POST
+ * /threads/{id}/attachments (multipart). The server sniffs the real
+ * media type and extracts the content once, at upload time. */
+export async function uploadAttachment(threadId: string, file: File | Blob): Promise<AttachmentMeta> {
+  const token = await getValidToken();
+  const form = new FormData();
+  form.append("file", file, file instanceof File ? file.name : "pasted-image.png");
+  const response = await fetch(
+    `${API_BASE_URL}/threads/${encodeURIComponent(threadId)}/attachments`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.json().then((b) => b.detail).catch(() => null);
+    throw new Error(detail ?? `Upload failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
+/** Fetches an attachment's bytes (image thumbnails in restored history)
+ * as a Blob - needed instead of a plain <img src> because the endpoint
+ * requires the Authorization header. */
+export async function fetchAttachmentBlob(threadId: string, attachmentId: string): Promise<Blob> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    throw new Error(`Attachment fetch failed: ${response.status} ${response.statusText}`);
+  }
+  return response.blob();
 }
 
 /** Reports an error the ErrorBoundary caught to POST /client-error

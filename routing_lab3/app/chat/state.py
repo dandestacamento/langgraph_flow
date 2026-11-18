@@ -34,12 +34,20 @@ class ChatTurn(TypedDict):
     self_contained_question: str
     final_answer: str
     routing_summary: dict
+    attachments: list[dict]
 
 
 class ChatState(TypedDict):
     # Input: the latest message in the conversation. Every other field
     # below is produced by a node in app/chat/graph.py.
     user_message: str
+
+    # Input: this turn's attached files as
+    # {"attachment_id", "filename", "media_type", "extracted_text"}
+    # dicts (app/api/attachments.py). Passed explicitly on EVERY invoke
+    # (empty list when there are none) - with a checkpointer, an omitted
+    # key would silently reuse the previous turn's attachments.
+    attachments: list[dict]
 
     # The condensed, self-contained question fed into the existing
     # single-question pipeline (app.graph.build_graph()) - set by
@@ -53,6 +61,12 @@ class ChatState(TypedDict):
     # from conversation_history and the routing pipeline never runs -
     # chat-ui-plan2.md section 3's "Conversation History" route.
     is_conversation_meta: bool
+
+    # True when the turn asks about an attached file itself ("what's in
+    # this image?") - answered by `graph.answer_from_attachment` from
+    # the attachment's extracted content, never knowledge-base RAG
+    # (chat-ui-plan4.md §1.4's second route).
+    is_attachment_direct: bool
 
     # The existing pipeline's full output state (selected_topics,
     # retrieved_passages, tool_results, execution_log, ...) for this

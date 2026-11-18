@@ -4,6 +4,7 @@ import { ChatWindow } from "./components/ChatWindow";
 import { Composer } from "./components/Composer";
 import { PassagePreview } from "./components/PassagePreview";
 import type { SelectedPassage } from "./components/PassagePreview";
+import { uploadAttachment } from "./api/client";
 import keycloak from "./auth/keycloak";
 import { useChat } from "./hooks/useChat";
 import { useSessionExpiryWarning } from "./hooks/useSessionExpiryWarning";
@@ -146,6 +147,7 @@ function App() {
           </header>
           <ChatWindow
             messages={messages}
+            threadId={threadId}
             isLoadingHistory={isLoadingHistory}
             onRegenerate={isSending ? undefined : regenerateLastTurn}
             starterPrompts={STARTER_PROMPTS}
@@ -176,7 +178,12 @@ function App() {
               </button>
             </div>
           )}
-          <Composer onSend={(text) => sendMessage(text)} disabled={isSending} onStop={stopStreaming} />
+          <Composer
+            onSend={(text, attachments) => sendMessage(text, true, attachments)}
+            disabled={isSending}
+            onStop={stopStreaming}
+            onUpload={(file) => uploadAttachment(threadId, file)}
+          />
         </div>
       </div>
       {selectedPassage && (

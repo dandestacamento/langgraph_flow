@@ -151,6 +151,21 @@ plan's rule. No OCR engine, no object store, no upload SDK in v1.
    error display, type "what does this error mean?", and get the correct KB-grounded E21 answer
    with citations; ask "what's in this image?" and get a direct description with *no* routing
    summary; both survive a page reload.
+   **Done - and the exit criteria were verified with a REAL vision call, not just the
+   monkeypatched tests**: a generated PNG of a "SMARTHOME WASHING MACHINE" display showing E21
+   was uploaded through the real picker; gpt-4o-mini's extraction read it verbatim; "my washing
+   machine shows this error - what does it mean?" condensed into the E21 KB question and the
+   unchanged pipeline answered with drainage + citations, while "what's in this image?" took the
+   attachment-direct route (accurate description, zero passage cards). Thumbnails render via an
+   authorized blob fetch (a plain <img src> can't send the bearer token) and survived a reload.
+   Backend: `app/api/attachments.py` (magic-byte sniffing - the claimed content type is never
+   trusted; 5 MB/4-per-message caps; extraction-at-upload via a monkeypatchable `_extract_image_text`
+   indirection, the `_get_signing_key` test pattern), `POST/GET /threads/{id}/attachments[/{id}]`
+   with the standard ownership rules, cross-thread attachment ids rejected with 404. Frontend:
+   "+"/drag-drop/clipboard-paste, pending pills with uploading/error states, canvas downscale to
+   1568 px, Send-with-empty-text allowed when attachments exist, retry/regenerate resend the same
+   attachments. 6 new backend tests, 7 new frontend unit tests - 30 backend / 62 unit / 5 e2e
+   green.
 2. **Phase B - documents.** PDF + text-family extraction, document pills, "summarize this PDF"
    direct route, clear unsupported/unreadable-file errors. **Exit criteria**: upload a small
    PDF, ask for a summary, get one with no routing summary; a scanned/empty PDF produces an
@@ -167,21 +182,24 @@ Every phase lands with its unit/backend/e2e tests in the same suites as plans 1-
 
 ## 5. Acceptance checklist
 
-- [ ] "+" picker, drag-and-drop, and clipboard paste (screenshot) all attach files with visible
-      pills and upload state. (Phase A)
-- [ ] An image-grounded KB question routes through the **unchanged** pipeline and returns real
-      citations. (Phase A)
-- [ ] An attachment-direct question ("what's in this file?") answers from the attachment with no
-      routing summary. (Phase A/B)
-- [ ] Attachments and their turns survive reloads and conversation switches. (Phase A)
+- [x] "+" picker, drag-and-drop, and clipboard paste (screenshot) all attach files with visible
+      pills and upload state. (Phase A - picker/paste covered by unit tests + live picker run;
+      drag-drop shares the same addFiles path)
+- [x] An image-grounded KB question routes through the **unchanged** pipeline and returns real
+      citations. (Phase A - live-verified with a real vision call)
+- [x] An attachment-direct question ("what's in this file?") answers from the attachment with no
+      routing summary. (Phase A)
+- [x] Attachments and their turns survive reloads and conversation switches. (Phase A)
 - [ ] Unsupported type / oversized file / unreadable PDF each produce a clear, specific error -
-      never a silent failure or a hallucinated answer. (Phase B/C)
+      never a silent failure or a hallucinated answer. (Phase B/C - type/size rejections already
+      land inline on the pill; the PDF half is Phase B)
 - [ ] A hostile instruction embedded in an attachment does not alter assistant behavior
-      (indirect-prompt-injection fixture test). (Phase C)
-- [ ] Another user's token cannot fetch or attach to a thread's attachments (same 403/404 rules
+      (indirect-prompt-injection fixture test). (Phase C - the untrusted-data prompt wrapping is
+      in place; the fixture test is not)
+- [x] Another user's token cannot fetch or attach to a thread's attachments (same 403/404 rules
       as every thread route). (Phase A)
-- [ ] **Regression**: the 228-row routing ground truth and all existing suites stay green -
-      no-attachment turns take a code path identical to today's.
+- [x] **Regression**: the 228-row routing ground truth and all existing suites stay green -
+      no-attachment turns take a code path identical to today's. (All suites green after Phase A.)
 
 ---
 

@@ -41,6 +41,7 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
+from app.chat.condense import answer_from_attachment as answer_attachment_question
 from app.chat.condense import answer_from_history as answer_meta_question
 from app.chat.condense import condense_question
 from app.chat.guardrails import scan_input, scan_output
@@ -78,15 +79,26 @@ def route_after_input_check(state: ChatState) -> str:
 
 
 def condense(state: ChatState) -> dict:
-    result = condense_question(state.get("conversation_history", []), state["user_message"])
+    result = condense_question(
+        state.get("conversation_history", []),
+        state["user_message"],
+        state.get("attachments", []),
+    )
     return {
         "self_contained_question": result.self_contained_question,
         "is_conversation_meta": result.is_conversation_meta,
+        "is_attachment_direct": result.is_attachment_direct,
     }
 
 
 def route_after_condense(state: ChatState) -> str:
-    return "answer_from_history" if state.get("is_conversation_meta") else "invoke_routing_pipeline"
+    # Attachment-direct wins when attachments actually exist this turn;
+    # then conversation-meta; otherwise the knowledge-base pipeline.
+    if state.get("is_attachment_direct") and state.get("attachments"):
+        return "answer_from_attachment"
+    if state.get("is_conversation_meta"):
+        return "answer_from_history"
+    return "invoke_routing_pipeline"
 
 
 def answer_from_history(state: ChatState) -> dict:
@@ -95,6 +107,14 @@ def answer_from_history(state: ChatState) -> dict:
     persist across turns via the checkpointer, so without this the
     *previous* turn's routing trace would be reported as this turn's."""
     answer = answer_meta_question(state.get("conversation_history", []), state["user_message"])
+    return {"final_answer": answer, "routing_result": {}}
+
+
+def answer_from_attachment(state: ChatState) -> dict:
+    """Answers an attachment-direct question from the attachments'
+    extracted content - no knowledge-base routing, so routing_result is
+    reset for the same staleness reason as answer_from_history."""
+    answer = answer_attachment_question(state.get("attachments", []), state["user_message"])
     return {"final_answer": answer, "routing_result": {}}
 
 
@@ -129,6 +149,16 @@ def record_turn(state: ChatState) -> dict:
         # summary, not the full routing_result, for the same reasons
         # routing_summary.py trims it for the API response.
         "routing_summary": build_routing_summary(state.get("routing_result", {})),
+        # Attachment metadata (no content/extracted text) so restored
+        # history re-renders the attachment pills (chat-ui-plan4.md §1.4).
+        "attachments": [
+            {
+                "attachment_id": a["attachment_id"],
+                "filename": a["filename"],
+                "media_type": a["media_type"],
+            }
+            for a in state.get("attachments", [])
+        ],
     }
     return {"conversation_history": [turn]}
 
@@ -139,6 +169,7 @@ def build_chat_graph(checkpointer=None):
     graph.add_node("check_input", check_input)
     graph.add_node("condense", condense)
     graph.add_node("answer_from_history", answer_from_history)
+    graph.add_node("answer_from_attachment", answer_from_attachment)
     graph.add_node("invoke_routing_pipeline", invoke_routing_pipeline)
     graph.add_node("check_output", check_output)
     graph.add_node("record_turn", record_turn)
@@ -154,10 +185,12 @@ def build_chat_graph(checkpointer=None):
         route_after_condense,
         {
             "answer_from_history": "answer_from_history",
+            "answer_from_attachment": "answer_from_attachment",
             "invoke_routing_pipeline": "invoke_routing_pipeline",
         },
     )
     graph.add_edge("answer_from_history", "check_output")
+    graph.add_edge("answer_from_attachment", "check_output")
     graph.add_edge("invoke_routing_pipeline", "check_output")
     graph.add_edge("check_output", "record_turn")
     graph.add_edge("record_turn", END)

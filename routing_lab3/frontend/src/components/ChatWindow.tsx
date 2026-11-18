@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../hooks/useChat";
 import { CopyButton } from "./CopyButton";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { MessageAttachments } from "./MessageAttachments";
 import type { SelectedPassage } from "./PassagePreview";
 import { RoutingDetails } from "./RoutingDetails";
 
@@ -26,10 +27,12 @@ function statusLabel(node: string): string {
 
 function MessageBubble({
   message,
+  threadId,
   onRegenerate,
   onOpenPassage,
 }: {
   message: ChatMessage;
+  threadId?: string;
   /** Set only on the last completed assistant message: re-asks the turn. */
   onRegenerate?: () => void;
   /** Opens a cited passage in the preview panel (chat-ui-plan3.md §2) -
@@ -40,6 +43,10 @@ function MessageBubble({
   const isUser = message.role === "user";
   return (
     <div className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+      {isUser && message.attachments && threadId && (
+        <MessageAttachments threadId={threadId} attachments={message.attachments} />
+      )}
+      {(message.content || !isUser) && (
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm sm:max-w-[75%] ${
           isUser
@@ -64,6 +71,7 @@ function MessageBubble({
           <span className="text-slate-500 italic dark:text-slate-400">Thinking…</span>
         )}
       </div>
+      )}
       {!isUser && message.guardrailBlockedReason && (
         <span className="mt-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
           {message.guardrailBlockedReason === "prompt_injection"
@@ -100,6 +108,7 @@ function MessageBubble({
 
 export function ChatWindow({
   messages,
+  threadId,
   isLoadingHistory = false,
   onRegenerate,
   starterPrompts,
@@ -107,6 +116,8 @@ export function ChatWindow({
   onOpenPassage,
 }: {
   messages: ChatMessage[];
+  /** Active conversation id - needed to fetch attachment thumbnails. */
+  threadId?: string;
   isLoadingHistory?: boolean;
   /** When set, the last completed assistant message gets a Regenerate
    * button that re-asks the turn's question. */
@@ -210,6 +221,7 @@ export function ChatWindow({
           <MessageBubble
             key={message.id}
             message={message}
+            threadId={threadId}
             onOpenPassage={onOpenPassage}
             onRegenerate={
               index === messages.length - 1 && message.role === "assistant" && message.content
