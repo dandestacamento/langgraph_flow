@@ -75,6 +75,7 @@ from app.api.attachments import (  # noqa: E402
     IMAGE_MEDIA_TYPES,
     MAX_ATTACHMENT_BYTES,
     MAX_ATTACHMENTS_PER_MESSAGE,
+    SUPPORTED_MEDIA_TYPES,
     AttachmentStore,
     sniff_media_type,
 )
@@ -246,12 +247,15 @@ class ThreadRenameRequest(BaseModel):
 
 class AttachmentMeta(BaseModel):
     """Metadata returned by the upload endpoint - mirrored by the
-    frontend's `AttachmentMeta` (chat-ui-plan4.md Phase A)."""
+    frontend's `AttachmentMeta` (chat-ui-plan4.md Phase A/B).
+    `extracted_chars == 0` on a document means no readable text (e.g. a
+    scanned PDF) - the UI warns instead of a later turn hallucinating."""
 
     attachment_id: str
     filename: str
     media_type: str
     size_bytes: int
+    extracted_chars: int = 0
 
 
 class ChatResponse(BaseModel):
@@ -344,12 +348,13 @@ async def upload_attachment(
     thread_id: str, file: UploadFile, user: str = Depends(get_current_user)
 ) -> AttachmentMeta:
     """Uploads one attachment to the user's own conversation
-    (chat-ui-plan4.md Phase A: images only; documents are Phase B).
+    (chat-ui-plan4.md: images in Phase A, PDF/text documents in Phase B).
     Claims a brand-new thread_id the same way /chat does, so a file can
     be attached before the conversation's first message. The media type
-    is sniffed from magic bytes - the client's content type and filename
-    are never trusted - and extraction (a vision call) happens here,
-    once, not on every chat turn that references the attachment."""
+    is sniffed from the content - the client's content type and filename
+    are never trusted - and extraction (a vision call for images, local
+    parsing for documents) happens here, once, not on every chat turn
+    that references the attachment."""
     _thread_ownership.check_and_record(thread_id, user)
     content = await file.read()
     if len(content) > MAX_ATTACHMENT_BYTES:
@@ -358,17 +363,18 @@ async def upload_attachment(
             detail=f"File too large - the limit is {MAX_ATTACHMENT_BYTES // (1024 * 1024)} MB.",
         )
     media_type = sniff_media_type(content)
-    if media_type not in IMAGE_MEDIA_TYPES:
+    if media_type not in SUPPORTED_MEDIA_TYPES:
         raise HTTPException(
             status_code=415,
-            detail=f"Unsupported file type. Supported: {', '.join(IMAGE_MEDIA_TYPES)}.",
+            detail=f"Unsupported file type. Supported: {', '.join(SUPPORTED_MEDIA_TYPES)}.",
         )
-    _scope_llm_calls_to(user)
-    extracted_text = attachments_module._extract_image_text(content, media_type)
+    if media_type in IMAGE_MEDIA_TYPES:
+        _scope_llm_calls_to(user)  # the vision extraction is an LLM call
+    extracted_text = attachments_module.extract_text(content, media_type)
     meta = _attachment_store.save(
         thread_id, file.filename or "attachment", media_type, content, extracted_text
     )
-    return AttachmentMeta(**meta)
+    return AttachmentMeta(**meta, extracted_chars=len(extracted_text))
 
 
 @app.get("/threads/{thread_id}/attachments/{attachment_id}")

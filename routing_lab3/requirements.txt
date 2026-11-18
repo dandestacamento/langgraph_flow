@@ -66,5 +66,6 @@ psycopg[binary,pool]>=3.2
 transformers>=4.40
 
 # File attachments (chat-ui-plan4.md Phase A): FastAPI multipart upload
-# parsing. pypdf will join it in Phase B (documents).
+# parsing; pypdf extracts PDF text at upload time (Phase B).
 python-multipart>=0.0.9
+pypdf>=4.0

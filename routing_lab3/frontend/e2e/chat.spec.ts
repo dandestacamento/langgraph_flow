@@ -234,3 +234,81 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await expect(page.getByTitle("New conversation")).toBeVisible();
   await expect(page).toHaveTitle("Appliance Troubleshooting Chat");
 });
+
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test("attaches an image (picker and clipboard paste) and sends it with the message", async ({
+  page,
+}) => {
+  await mockEmptyThreadRoutes(page);
+  let uploadCount = 0;
+  await page.route("**/api/threads/*/attachments", (route) => {
+    uploadCount += 1;
+    return route.fulfill({
+      json: {
+        attachment_id: `att-e2e-${uploadCount}`,
+        filename: "error.png",
+        media_type: "image/png",
+        size_bytes: TINY_PNG.length,
+        extracted_chars: 42,
+      },
+    });
+  });
+  await page.route("**/api/threads/*/attachments/*", (route) =>
+    route.fulfill({ body: TINY_PNG, contentType: "image/png" }),
+  );
+  let sentBody: { attachment_ids?: string[] } | null = null;
+  await page.route("**/api/chat/stream", async (route) => {
+    sentBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: sseBody([
+        {
+          event: "answer",
+          data: { final_answer: "E21 is a drainage fault.", routing_summary: ROUTING_SUMMARY_FIXTURE },
+        },
+      ]),
+    });
+  });
+
+  await login(page);
+
+  // 1. Picker: attach -> pill -> send; the request carries the id.
+  await page.getByLabel("Attach files").setInputFiles({
+    name: "error.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
+  });
+  await expect(page.getByText("error.png")).toBeVisible();
+  const composer = page.getByPlaceholder("Type your message…");
+  await composer.fill("What does this error mean?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("E21 is a drainage fault.")).toBeVisible();
+  expect(sentBody?.attachment_ids).toEqual(["att-e2e-1"]);
+  // The sent message shows the image thumbnail (authorized blob fetch).
+  await expect(page.locator("img[alt=\"Attachment: error.png\"]")).toBeVisible();
+
+  // 2. Clipboard paste: a pasted screenshot becomes a pending pill too.
+  await composer.focus();
+  await page.evaluate((pngBase64) => {
+    const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+    const data = new DataTransfer();
+    data.items.add(new File([bytes], "pasted-image.png", { type: "image/png" }));
+    document.activeElement?.dispatchEvent(
+      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  }, TINY_PNG.toString("base64"));
+  await expect(page.getByText("pasted-image.png")).toBeVisible();
+  expect(uploadCount).toBe(2);
+
+  // 3. The new attachment UI introduces no serious/critical a11y issues.
+  const results = await new AxeBuilder({ page }).analyze();
+  const seriousOrCritical = results.violations.filter(
+    (violation) => violation.impact === "serious" || violation.impact === "critical",
+  );
+  expect(seriousOrCritical, JSON.stringify(seriousOrCritical, null, 2)).toEqual([]);
+});

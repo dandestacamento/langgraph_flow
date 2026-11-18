@@ -189,6 +189,14 @@ export function Composer({
               )}
               <span className="max-w-40 truncate">{p.filename}</span>
               {p.status === "uploading" && <span className="text-slate-400">uploading…</span>}
+              {p.status === "ready" &&
+                p.meta &&
+                !p.meta.media_type.startsWith("image/") &&
+                p.meta.extracted_chars === 0 && (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    no readable text in this file
+                  </span>
+                )}
               {p.status === "error" && <span>{p.error}</span>}
               <button
                 type="button"
@@ -208,7 +216,7 @@ export function Composer({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.txt,.md,.csv,.json,.log,text/plain"
               multiple
               hidden
               onChange={handleFilePick}

@@ -84,12 +84,14 @@ export interface ThreadHistoryTurn {
 }
 
 /** Metadata for an uploaded attachment - mirrors app/api/main.py's
- * `AttachmentMeta` (chat-ui-plan4.md Phase A). */
+ * `AttachmentMeta` (chat-ui-plan4.md Phase A/B). `extracted_chars === 0`
+ * on a document means no readable text (e.g. a scanned PDF). */
 export interface AttachmentMeta {
   attachment_id: string;
   filename: string;
   media_type: string;
   size_bytes: number;
+  extracted_chars?: number;
 }
 
 export interface StreamStatusEvent {

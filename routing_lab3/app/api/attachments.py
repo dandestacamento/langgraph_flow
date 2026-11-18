@@ -32,9 +32,12 @@ from langchain_openai import ChatOpenAI
 from app import llm_gateway
 from app.config import AGENT_MODEL
 
-# Phase A allowlist: images only (documents are plan4 Phase B). SVG is
-# deliberately excluded - it's scriptable content, not a bitmap.
+# Phase A allowlist: images. Phase B adds documents (PDF + UTF-8 text
+# family). SVG is deliberately excluded - it's scriptable content, not a
+# bitmap.
 IMAGE_MEDIA_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+DOCUMENT_MEDIA_TYPES = ("application/pdf", "text/plain")
+SUPPORTED_MEDIA_TYPES = IMAGE_MEDIA_TYPES + DOCUMENT_MEDIA_TYPES
 MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 MAX_ATTACHMENTS_PER_MESSAGE = 4
 MAX_EXTRACTED_CHARS = 8000
@@ -47,8 +50,10 @@ _VISION_PROMPT = (
 
 
 def sniff_media_type(content: bytes) -> str | None:
-    """Determines the media type from magic bytes - the client-supplied
-    content type is never trusted (plan4 §1.3)."""
+    """Determines the media type from the content itself - the
+    client-supplied content type is never trusted (plan4 §1.3). Images
+    and PDFs by magic bytes; anything else that cleanly decodes as UTF-8
+    text is accepted as text/plain (text has no magic bytes)."""
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
     if content.startswith(b"\xff\xd8\xff"):
@@ -57,7 +62,14 @@ def sniff_media_type(content: bytes) -> str | None:
         return "image/gif"
     if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
         return "image/webp"
-    return None
+    if content.startswith(b"%PDF-"):
+        return "application/pdf"
+    try:
+        decoded = content.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    # A NUL byte means binary data mislabeled as text - reject it.
+    return None if "\x00" in decoded else "text/plain"
 
 
 def _default_extract_image_text(content: bytes, media_type: str) -> str:
@@ -79,6 +91,34 @@ def _default_extract_image_text(content: bytes, media_type: str) -> str:
 # Test-only hook (see tests/test_chat_api.py): monkeypatched so the
 # upload->chat integration is deterministic without a live vision call.
 _extract_image_text: Callable[[bytes, str], str] = _default_extract_image_text
+
+
+def extract_document_text(content: bytes, media_type: str) -> str:
+    """Extracts a document's text locally - no LLM call (plan4 §1.2).
+    A scanned/image-only PDF yields an empty string; the API surfaces
+    that honestly (`extracted_chars` in the upload response) instead of
+    letting a later turn hallucinate a summary."""
+    if media_type == "application/pdf":
+        import io
+
+        from pypdf import PdfReader
+
+        try:
+            reader = PdfReader(io.BytesIO(content))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        except Exception:  # noqa: BLE001 - a malformed PDF is "no text", not a 500
+            return ""
+        return text.strip()[:MAX_EXTRACTED_CHARS]
+    # text/plain family - sniff_media_type already proved it decodes.
+    return content.decode("utf-8", errors="replace").strip()[:MAX_EXTRACTED_CHARS]
+
+
+def extract_text(content: bytes, media_type: str) -> str:
+    """Dispatches extraction by media type: vision for images (via the
+    monkeypatchable indirection above), local parsing for documents."""
+    if media_type in IMAGE_MEDIA_TYPES:
+        return _extract_image_text(content, media_type)
+    return extract_document_text(content, media_type)
 
 
 class AttachmentStore:
