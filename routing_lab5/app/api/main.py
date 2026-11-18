@@ -85,9 +85,11 @@ from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.condense import generate_conversation_title  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
+from app.config import TOPIC_SUBTOPICS  # noqa: E402
 from app.ingestion.graph import run_ingestion  # noqa: E402
 from app.ingestion.registry import DocumentRegistry  # noqa: E402
 from app.ingestion.storage import LocalDocumentStorage  # noqa: E402
+from app.rag.retrieval import get_vector_store  # noqa: E402
 
 enable_llm_cache()
 
@@ -504,6 +506,70 @@ def get_knowledge_document(
     if record is None:
         raise HTTPException(status_code=404, detail="Unknown document.")
     return _knowledge_document(record)
+
+
+class ManualClassificationRequest(BaseModel):
+    topic: str
+    subtopic: str
+
+
+@app.get("/knowledge/taxonomy")
+def get_knowledge_taxonomy(user: str = Depends(get_current_user)) -> dict[str, list[str]]:
+    """The topic -> subtopics taxonomy, served so the frontend's manual
+    override form can't drift from config.TOPIC_SUBTOPICS."""
+    return TOPIC_SUBTOPICS
+
+
+@app.post("/knowledge/documents/{document_id}/classification", response_model=KnowledgeDocument)
+def override_classification(
+    document_id: str,
+    request: ManualClassificationRequest,
+    background_tasks: BackgroundTasks,
+    user: str = Depends(get_current_user),
+) -> KnowledgeDocument:
+    """Manually (re)classifies a document (plan5 Phase B's override):
+    validates the chosen taxonomy, removes any chunks indexed under the
+    old classification, and re-runs the ingestion workflow from the
+    stored original with the human-supplied topic/subtopic - which also
+    un-parks `needs_review` documents."""
+    record = _document_registry.get(document_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Unknown document.")
+    if request.topic not in TOPIC_SUBTOPICS:
+        raise HTTPException(status_code=422, detail=f"Unknown topic {request.topic!r}.")
+    if request.subtopic not in TOPIC_SUBTOPICS[request.topic]:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown subtopic {request.subtopic!r} for topic {request.topic!r}.",
+        )
+    if record["status"] == "processing":
+        raise HTTPException(status_code=409, detail="Document is still being processed.")
+
+    # Surgical removal of the previous classification's chunks (if any)
+    # before reindexing under the corrected one.
+    if record["chunk_ids"]:
+        get_vector_store().delete(ids=record["chunk_ids"])
+    _document_registry.update(
+        document_id, status="processing", error=None, chunk_ids=[], chunk_count=0,
+        events=[*record["events"], {
+            "node": "manual_override",
+            "elapsed_ms": 0,
+            "detail": f"reclassified by user as {request.topic}/{request.subtopic}",
+        }],
+    )
+    content = _document_storage.read_original(
+        record["document_id"], record["version"], record["filename"]
+    )
+    _scope_llm_calls_to(user)
+    background_tasks.add_task(
+        run_ingestion,
+        _document_registry,
+        record,
+        content,
+        request.topic,
+        request.subtopic,
+    )
+    return _knowledge_document(_document_registry.get(document_id) or record)
 
 
 _client_error_logger = logging.getLogger("routing_lab3.client_errors")

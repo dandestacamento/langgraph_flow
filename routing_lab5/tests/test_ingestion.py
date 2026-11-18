@@ -210,6 +210,83 @@ def test_off_taxonomy_document_is_parked_for_review(monkeypatch: pytest.MonkeyPa
     assert detail["chunk_count"] == 0
 
 
+def test_manual_override_unparks_and_indexes_a_needs_review_document(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Plan5 Phase B's manual override: a human-corrected classification
+    re-runs ingestion from the stored original (no LLM classification)
+    and the document ends up indexed under the chosen taxonomy."""
+    monkeypatch.setattr(
+        ingestion_graph,
+        "classify_document",
+        lambda filename, text: DocumentClassification(
+            topic="cooking", subtopic="desserts", chapters=["recipes"], confidence=0.9
+        ),
+    )
+    uploaded = client.post(
+        "/knowledge/documents",
+        files={
+            "file": (
+                "wm-descale.md",
+                b"Descaling guide: run an empty 90-degree wash with descaler every six months "
+                b"to protect the heating element of a front-loader washing machine.",
+                "text/markdown",
+            )
+        },
+        headers=_auth_headers(),
+    ).json()
+    document_id = uploaded["document_id"]
+    assert (
+        client.get(f"/knowledge/documents/{document_id}", headers=_auth_headers()).json()["status"]
+        == "needs_review"
+    )
+
+    try:
+        response = client.post(
+            f"/knowledge/documents/{document_id}/classification",
+            json={"topic": "appliances", "subtopic": "washing_machines"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 200
+        detail = client.get(
+            f"/knowledge/documents/{document_id}", headers=_auth_headers()
+        ).json()
+        assert detail["status"] == "indexed", detail.get("error")
+        assert detail["topic"] == "appliances"
+        assert detail["subtopic"] == "washing_machines"
+        assert detail["classification_confidence"] == 1.0
+        assert detail["chunk_count"] > 0
+        assert any(e["node"] == "manual_override" for e in detail["events"])
+    finally:
+        detail = client.get(
+            f"/knowledge/documents/{document_id}", headers=_auth_headers()
+        ).json()
+        if detail.get("chunk_ids"):
+            get_vector_store().delete(ids=detail["chunk_ids"])
+
+
+def test_manual_override_rejects_invalid_taxonomy() -> None:
+    uploaded = client.post(
+        "/knowledge/documents",
+        files={"file": ("note.md", b"A short note about washing machine detergent dosing.", "text/markdown")},
+        headers=_auth_headers(),
+    ).json()
+    document_id = uploaded["document_id"]
+    try:
+        response = client.post(
+            f"/knowledge/documents/{document_id}/classification",
+            json={"topic": "cooking", "subtopic": "desserts"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 422
+    finally:
+        detail = client.get(
+            f"/knowledge/documents/{document_id}", headers=_auth_headers()
+        ).json()
+        if detail.get("chunk_ids"):
+            get_vector_store().delete(ids=detail["chunk_ids"])
+
+
 def test_unreadable_document_fails_honestly() -> None:
     """A PDF with no extractable text must end in failed with a clear
     error, not an empty document silently published."""

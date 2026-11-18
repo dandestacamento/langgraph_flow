@@ -39,9 +39,36 @@ v1 trims, so the advice isn't re-litigated later.
   ingested chunks (re-publish/reindex action is Phase C); hybrid-mode BM25 picks up new content
   only after a restart (default similarity mode is immediate).
 
+## Phase B - DONE (Knowledge Base Manager UI + manual classification override)
+
+- **Manual override, end to end**: `POST /knowledge/documents/{id}/classification` validates
+  the chosen topic/subtopic against `TOPIC_SUBTOPICS` (422 otherwise, 409 while still
+  processing), deletes the old chunks surgically by id, logs a `manual_override` event, and
+  re-runs the SAME ingestion workflow with the human-supplied classification - the classify
+  node skips the LLM entirely (confidence 1.0), so everything downstream (chunk → index →
+  validate_retrieval → publish) still applies to human-corrected documents.
+  `GET /knowledge/taxonomy` serves the taxonomy so the UI's dropdowns can't drift from config.
+- **Knowledge Base Manager** (`frontend/src/components/KnowledgeBaseManager.tsx`, lazy-loaded
+  chunk ~2.8 kB gzip): header toggle swaps the chat column for the manager (sidebar stays);
+  drag-drop/browse upload, document list with colored status badges, expandable detail with
+  classification + confidence, chunk count, error, and the per-node pipeline log (node,
+  elapsed ms, detail - the Ingestion Inspector's first face), 2 s status polling only while
+  something is processing, duplicate-upload notice, and the override form (topic + subtopic
+  selects) shown only for `needs_review`/`failed` documents.
+- Tests: 10 backend (`tests/test_ingestion.py`, +2: override unparks a needs_review doc with
+  confidence 1.0 and indexed chunks; invalid taxonomy → 422) and 67 frontend unit tests (+5
+  for the manager: list/badges, upload, polling-until-settled, override submit, no override
+  form on indexed docs); oxlint + production build green.
+- Live-verified in the real stack (Keycloak login, lab5 backend + Vite on 5173): uploaded the
+  E77 bulletin through the UI and watched it go processing → indexed (90 % confidence, full
+  pipeline log); uploaded an off-topic sourdough guide → parked `needs_review` at 0.40
+  confidence → manually reclassified via the form → `manual_override` event + no-LLM classify
+  → indexed at 100 %; then the unchanged chat answered "What does error E77 mean on the
+  WM-500..." citing `ingested_maintenance`. Test documents cleaned out of the live registry,
+  index, and storage afterwards.
+
 ## Remaining phases
 
-Phase B: Knowledge Base Manager UI (upload, job list, document detail, manual override).
 Phase C: human review/resume, update/versioning/deletion, reindex action.
 Phase D: watchdog inbox, MLflow tracing + Ingestion Inspector, Azure Blob / S3 event adapters.
 

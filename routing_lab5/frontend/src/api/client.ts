@@ -337,3 +337,120 @@ export async function reportClientError(report: {
     // Swallowed deliberately - see docstring.
   }
 }
+
+// --- Knowledge-base ingestion (chat-ui-plan5.md Phase B) ---
+
+export interface IngestionEvent {
+  node: string;
+  elapsed_ms: number;
+  detail: string;
+}
+
+/** One ingested document's registry view - mirrors the backend's
+ * KnowledgeDocument model in app/api/main.py. */
+export interface KnowledgeDocument {
+  document_id: string;
+  filename: string;
+  media_type: string;
+  size_bytes: number;
+  version: number;
+  status: "processing" | "indexed" | "needs_review" | "failed";
+  topic: string | null;
+  subtopic: string | null;
+  chapters: string[];
+  classification_confidence: number | null;
+  error: string | null;
+  chunk_count: number;
+  chunk_ids: string[];
+  events: IngestionEvent[];
+  created_at: string;
+  updated_at: string;
+  duplicate: boolean;
+}
+
+async function knowledgeError(response: Response, fallback: string): Promise<Error> {
+  const detail = await response
+    .json()
+    .then((b) => (typeof b.detail === "string" ? b.detail : null))
+    .catch(() => null);
+  return new Error(detail ?? `${fallback}: ${response.status} ${response.statusText}`);
+}
+
+/** Uploads one document into the ingestion pipeline. The response's
+ * status is usually still "processing" (ingestion runs as a background
+ * task) - poll getKnowledgeDocument until it settles. `duplicate:
+ * true` means these exact bytes were already ingested. */
+export async function uploadKnowledgeDocument(file: File): Promise<KnowledgeDocument> {
+  const token = await getValidToken();
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const response = await fetch(`${API_BASE_URL}/knowledge/documents`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!response.ok) {
+    throw await knowledgeError(response, "Upload failed");
+  }
+  return response.json();
+}
+
+export async function listKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
+  const token = await getValidToken();
+  const response = await fetch(`${API_BASE_URL}/knowledge/documents`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw await knowledgeError(response, "Document list failed");
+  }
+  return response.json();
+}
+
+export async function getKnowledgeDocument(documentId: string): Promise<KnowledgeDocument> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/knowledge/documents/${encodeURIComponent(documentId)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    throw await knowledgeError(response, "Document fetch failed");
+  }
+  return response.json();
+}
+
+/** The topic -> subtopics taxonomy documents can be classified into
+ * (served by the backend so the override form never drifts from
+ * app/config.py's TOPIC_SUBTOPICS). */
+export async function fetchKnowledgeTaxonomy(): Promise<Record<string, string[]>> {
+  const token = await getValidToken();
+  const response = await fetch(`${API_BASE_URL}/knowledge/taxonomy`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw await knowledgeError(response, "Taxonomy fetch failed");
+  }
+  return response.json();
+}
+
+/** Manually (re)classifies a document - the human-in-the-loop fix for
+ * needs_review documents. Re-runs ingestion with the chosen taxonomy,
+ * so the returned document is back in "processing". */
+export async function overrideClassification(
+  documentId: string,
+  topic: string,
+  subtopic: string,
+): Promise<KnowledgeDocument> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/knowledge/documents/${encodeURIComponent(documentId)}/classification`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ topic, subtopic }),
+    },
+  );
+  if (!response.ok) {
+    throw await knowledgeError(response, "Classification override failed");
+  }
+  return response.json();
+}

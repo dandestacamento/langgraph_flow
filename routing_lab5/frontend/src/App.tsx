@@ -13,6 +13,9 @@ import { useTheme } from "./hooks/useTheme";
 // Code-split: the sidebar isn't needed for first paint of the chat
 // itself (chat-ui-plan1.md section 2.6 named it as the lazy candidate).
 const ConversationSidebar = lazy(() => import("./components/ConversationSidebar"));
+// Code-split too: most sessions never open the knowledge-base manager
+// (chat-ui-plan5.md Phase B).
+const KnowledgeBaseManager = lazy(() => import("./components/KnowledgeBaseManager"));
 
 // One validated ground-truth question per knowledge-base topic
 // (chat-ui-plan3.md §1.4) - the empty state otherwise gives no hint
@@ -54,6 +57,10 @@ function App() {
   // The citation currently open in the evidence panel, if any
   // (chat-ui-plan3.md §2 item 1).
   const [selectedPassage, setSelectedPassage] = useState<SelectedPassage | null>(null);
+  // Which main view fills the central column: the chat itself or the
+  // knowledge-base manager (chat-ui-plan5.md Phase B). The sidebar and
+  // header stay put either way.
+  const [view, setView] = useState<"chat" | "knowledge">("chat");
 
   // The active conversation's title - undefined until its first message
   // has been sent (that's when the backend creates/titles it). Shown in
@@ -120,14 +127,21 @@ function App() {
                 </h1>
                 <p
                   className="truncate text-xs text-slate-500 dark:text-slate-400"
-                  title={activeTitle ?? "New conversation"}
+                  title={view === "knowledge" ? "Knowledge base" : (activeTitle ?? "New conversation")}
                 >
-                  {activeTitle ?? "New conversation"}
+                  {view === "knowledge" ? "Knowledge base" : (activeTitle ?? "New conversation")}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               {username && <span>{username}</span>}
+              <button
+                type="button"
+                onClick={() => setView((v) => (v === "chat" ? "knowledge" : "chat"))}
+                className="rounded border border-slate-300 px-2 py-1 font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+              >
+                {view === "chat" ? "Knowledge base" : "Back to chat"}
+              </button>
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -145,45 +159,59 @@ function App() {
               </button>
             </div>
           </header>
-          <ChatWindow
-            messages={messages}
-            threadId={threadId}
-            isLoadingHistory={isLoadingHistory}
-            onRegenerate={isSending ? undefined : regenerateLastTurn}
-            starterPrompts={STARTER_PROMPTS}
-            onStarterPrompt={(prompt) => sendMessage(prompt)}
-            onOpenPassage={setSelectedPassage}
-          />
-          {showExpiryWarning && (
-            <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-amber-700 dark:text-amber-400">
-              <span>Your session is about to expire.</span>
-              <button
-                type="button"
-                onClick={() => void staySignedIn()}
-                className="shrink-0 rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-950"
-              >
-                Stay signed in
-              </button>
-            </div>
+          {view === "knowledge" ? (
+            <Suspense
+              fallback={
+                <p className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">
+                  Loading knowledge base…
+                </p>
+              }
+            >
+              <KnowledgeBaseManager />
+            </Suspense>
+          ) : (
+            <>
+              <ChatWindow
+                messages={messages}
+                threadId={threadId}
+                isLoadingHistory={isLoadingHistory}
+                onRegenerate={isSending ? undefined : regenerateLastTurn}
+                starterPrompts={STARTER_PROMPTS}
+                onStarterPrompt={(prompt) => sendMessage(prompt)}
+                onOpenPassage={setSelectedPassage}
+              />
+              {showExpiryWarning && (
+                <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-amber-700 dark:text-amber-400">
+                  <span>Your session is about to expire.</span>
+                  <button
+                    type="button"
+                    onClick={() => void staySignedIn()}
+                    className="shrink-0 rounded border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-950"
+                  >
+                    Stay signed in
+                  </button>
+                </div>
+              )}
+              {error && (
+                <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-red-600 dark:text-red-400">
+                  <span>{error}</span>
+                  <button
+                    type="button"
+                    onClick={retryLastMessage}
+                    className="shrink-0 rounded border border-red-300 px-2 py-0.5 font-medium hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              <Composer
+                onSend={(text, attachments) => sendMessage(text, true, attachments)}
+                disabled={isSending}
+                onStop={stopStreaming}
+                onUpload={(file) => uploadAttachment(threadId, file)}
+              />
+            </>
           )}
-          {error && (
-            <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-red-600 dark:text-red-400">
-              <span>{error}</span>
-              <button
-                type="button"
-                onClick={retryLastMessage}
-                className="shrink-0 rounded border border-red-300 px-2 py-0.5 font-medium hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-          <Composer
-            onSend={(text, attachments) => sendMessage(text, true, attachments)}
-            disabled={isSending}
-            onStop={stopStreaming}
-            onUpload={(file) => uploadAttachment(threadId, file)}
-          />
         </div>
       </div>
       {selectedPassage && (

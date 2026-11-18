@@ -66,6 +66,11 @@ class IngestionState(TypedDict):
     chunk_ids: list[str]
     outcome: str  # "", "failed", "needs_review", "indexed"
     error: str
+    # Set when a human supplied the classification (the Knowledge Base
+    # Manager's manual override, plan5 Phase B): the classify node uses
+    # it verbatim instead of calling the LLM.
+    manual_topic: str
+    manual_subtopic: str
 
 
 def _slug(label: str) -> str:
@@ -136,6 +141,18 @@ def build_ingestion_graph(registry: DocumentRegistry):
 
     @timed("classify")
     def classify(state: IngestionState) -> dict:
+        if state.get("manual_topic"):
+            # Human override (plan5 Phase B): taxonomy already validated
+            # by the API layer; no LLM call, confidence 1.0 by definition.
+            return {
+                "topic": state["manual_topic"],
+                "subtopic": state["manual_subtopic"],
+                "chapters": ["manual"],
+                "confidence": 1.0,
+                "_event_detail": (
+                    f"manual override: {state['manual_topic']}/{state['manual_subtopic']}"
+                ),
+            }
         classification = classify_document(state["filename"], state["extracted_text"])
         problem = classification_problem(classification)
         update = {
@@ -246,10 +263,18 @@ def build_ingestion_graph(registry: DocumentRegistry):
     return graph.compile()
 
 
-def run_ingestion(registry: DocumentRegistry, record: dict, content: bytes) -> None:
+def run_ingestion(
+    registry: DocumentRegistry,
+    record: dict,
+    content: bytes,
+    manual_topic: str = "",
+    manual_subtopic: str = "",
+) -> None:
     """Executes the ingestion workflow for one uploaded document and
     writes the terminal result to the registry. Designed to run as a
-    FastAPI background task - it must never raise."""
+    FastAPI background task - it must never raise. With
+    `manual_topic`/`manual_subtopic` set (the Knowledge Base Manager's
+    override), classification is taken as given instead of LLM-decided."""
     graph = build_ingestion_graph(registry)
     initial: IngestionState = {
         "document_id": record["document_id"],
@@ -266,6 +291,8 @@ def run_ingestion(registry: DocumentRegistry, record: dict, content: bytes) -> N
         "chunk_ids": [],
         "outcome": "",
         "error": "",
+        "manual_topic": manual_topic,
+        "manual_subtopic": manual_subtopic,
     }
     try:
         final = graph.invoke(initial)
