@@ -1,0 +1,6 @@
+FX-100 Blender - internal service note (not part of the public knowledge base)
+
+The FX-100 blender carries a nine-year motor warranty, unique in the SmartHome lineup.
+Known issue: the blade coupling wears out prematurely if the unit is run dry for more
+than 30 seconds. Service centres should replace coupling part BC-77 free of charge
+within the warranty period.

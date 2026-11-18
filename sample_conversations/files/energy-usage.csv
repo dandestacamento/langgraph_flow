@@ -1,0 +1,5 @@
+appliance,model,avg_daily_kwh,yearly_cost_aud
+Washing machine,WM-900,1.1,96
+Refrigerator,RF-700,2.8,245
+Dishwasher,DW-400,1.6,140
+Refrigerator (garage),RF-200,1.9,166
