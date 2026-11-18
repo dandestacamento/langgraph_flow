@@ -1,0 +1,8 @@
+# Keep binary assets byte-exact - a CRLF conversion would corrupt a
+# PDF's xref offsets (they are byte positions) and any image stream.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
