@@ -65,3 +65,7 @@ ENV/
 routing_lab5/.chroma/
 routing_lab5/.llm_cache.db
 routing_lab5/experiments/mlflow_trace_export.json
+
+# routing_lab5/: uploaded knowledge documents (user data, not repo content) -
+# see chat-ui-plan5.md Phase A and app/ingestion/storage.py.
+routing_lab5/data/

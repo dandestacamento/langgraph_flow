@@ -1,3 +1,52 @@
+# Status & decisions (recorded 2026-11-18, branch `feature/chat-ui-plan5`, in `routing_lab5/`)
+
+This document below is external advice. This header records what was actually built and the
+v1 trims, so the advice isn't re-litigated later.
+
+## Phase A - DONE (local upload → classify → index → validate → publish)
+
+- **Separate ingestion LangGraph workflow** (`app/ingestion/graph.py`):
+  validate → extract → classify → chunk → index → validate_retrieval → publish, with
+  conditional terminal routes to `failed` / `needs_review`, per-node timed events recorded in
+  the registry (the future Ingestion Inspector's raw material), and a retrieval-validation
+  rollback (unfindable documents are de-indexed, never published). The QA graph is untouched.
+- **Document registry** (`app/ingestion/registry.py`): dual-mode Postgres/in-memory;
+  content-hash dedup, status lifecycle (processing/indexed/needs_review/failed), chunk-id
+  bookkeeping for surgical later deletes, event log. **Storage adapter**
+  (`app/ingestion/storage.py`): immutable originals under gitignored
+  `data/documents/<id>/v<n>/` - the local implementation of the plan's adapter interface.
+- **Classification** (`app/ingestion/classify.py`): one structured-output call into the existing
+  `TOPIC_SUBTOPICS` taxonomy + free chapter labels; confidence used as a routing signal only
+  (plan's own caveat); off-taxonomy or <0.6 confidence → `needs_review` (parked, visible,
+  not indexed - the human-review UI is Phase C). Document text framed as untrusted data.
+- **API** (`app/api/main.py`): `POST /knowledge/documents` (sniffed types: PDF + UTF-8 text
+  family; 5 MB cap; dedup returns the existing document with `duplicate: true`; processing runs
+  as a background task so uploads never block chat), `GET /knowledge/documents[/{id}]`.
+- **Chunks land in the SAME Chroma collection** with the retriever's exact metadata keys plus
+  provenance (`document_id`, `source`, `version`, `ingested`) - so retrieval, citations and the
+  router work on ingested knowledge with zero QA-side changes. Proven by the Phase A exit test:
+  a WM-500 bulletin introducing fault code E77 (absent from the curated KB) was uploaded, and
+  the unchanged `/chat` answered "What does washing machine error E77 mean?" citing it.
+- Tests: 8 new (`tests/test_ingestion.py`) incl. that end-to-end, dedup, off-taxonomy parking,
+  honest unreadable-PDF failure; the existing 41 chat/condensing tests stay green.
+
+## v1 trims (deliberate, consistent with earlier plans' rejections)
+
+- **No Celery/Redis** - FastAPI background tasks + registry status until cloud adapters need a
+  real queue. **No Docling/Unstructured** - plan4's extractors (pypdf + text family) cover v1;
+  DOCX later. **No Next.js** - the Knowledge Base Manager (Phase B) joins the existing Vite app.
+- Known caveats, documented in `app/ingestion/graph.py`: `build_index.py --rebuild` wipes
+  ingested chunks (re-publish/reindex action is Phase C); hybrid-mode BM25 picks up new content
+  only after a restart (default similarity mode is immediate).
+
+## Remaining phases
+
+Phase B: Knowledge Base Manager UI (upload, job list, document detail, manual override).
+Phase C: human review/resume, update/versioning/deletion, reindex action.
+Phase D: watchdog inbox, MLflow tracing + Ingestion Inspector, Azure Blob / S3 event adapters.
+
+---
+
 I recommend adding an Automated RAG Knowledge Ingestion Pipeline to your langgraph_routing application.
 
 This would be an excellent next feature because you can demonstrate not only LangGraph's question-routing capabilities but also how an AI application automatically discovers, classifies, processes, and indexes new knowledge.

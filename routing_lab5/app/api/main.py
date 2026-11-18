@@ -46,6 +46,7 @@ Run with:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sys
@@ -62,7 +63,7 @@ load_dotenv(find_dotenv())
 
 import os  # noqa: E402
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile  # noqa: E402
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, UploadFile  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import Response, StreamingResponse  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
@@ -84,6 +85,9 @@ from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.condense import generate_conversation_title  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
+from app.ingestion.graph import run_ingestion  # noqa: E402
+from app.ingestion.registry import DocumentRegistry  # noqa: E402
+from app.ingestion.storage import LocalDocumentStorage  # noqa: E402
 
 enable_llm_cache()
 
@@ -155,6 +159,15 @@ _thread_ownership = ThreadOwnershipRegistry(conn_string=_CHAT_DB_URL)
 # Attachment storage (chat-ui-plan4.md Phase A) - same dual-mode
 # Postgres/in-memory pattern as the ownership registry above.
 _attachment_store = AttachmentStore(conn_string=_CHAT_DB_URL)
+
+# Knowledge-ingestion pipeline (chat-ui-plan5.md Phase A): document
+# registry + immutable original storage under data/ (gitignored).
+_document_registry = DocumentRegistry(conn_string=_CHAT_DB_URL)
+_document_storage = LocalDocumentStorage(PROJECT_ROOT / "data")
+
+# Ingestion documents are text knowledge, not chat snapshots - images are
+# deliberately NOT accepted here (that's the chat attachment flow).
+_INGESTABLE_MEDIA_TYPES = ("application/pdf", "text/plain")
 
 # Startup sweep (chat-ui-plan3.md §1.1): conversations soft-deleted more
 # than 30 days ago are purged for real - ownership record and
@@ -256,6 +269,39 @@ class AttachmentMeta(BaseModel):
     media_type: str
     size_bytes: int
     extracted_chars: int = 0
+
+
+class KnowledgeDocument(BaseModel):
+    """One ingested document's registry view (chat-ui-plan5.md Phase A) -
+    classification, status, chunk count, and the per-node event log that
+    the later Ingestion Inspector will render."""
+
+    document_id: str
+    filename: str
+    media_type: str
+    size_bytes: int
+    version: int
+    status: str
+    topic: str | None = None
+    subtopic: str | None = None
+    chapters: list[str] = []
+    classification_confidence: float | None = None
+    error: str | None = None
+    chunk_count: int = 0
+    chunk_ids: list[str] = []
+    events: list[dict] = []
+    created_at: str
+    updated_at: str
+    # True on an upload response when these exact bytes were already
+    # ingested - the existing document is returned, nothing reprocessed.
+    duplicate: bool = False
+
+
+def _knowledge_document(record: dict, duplicate: bool = False) -> KnowledgeDocument:
+    return KnowledgeDocument(
+        **{key: record[key] for key in KnowledgeDocument.model_fields if key in record},
+        duplicate=duplicate,
+    )
 
 
 class ChatResponse(BaseModel):
@@ -390,6 +436,74 @@ def get_attachment(
         raise HTTPException(status_code=404, detail="Unknown attachment for this conversation.")
     content, media_type = stored
     return Response(content=content, media_type=media_type)
+
+
+@app.post("/knowledge/documents", response_model=KnowledgeDocument)
+async def upload_knowledge_document(
+    file: UploadFile, background_tasks: BackgroundTasks, user: str = Depends(get_current_user)
+) -> KnowledgeDocument:
+    """Uploads one document into the knowledge-ingestion pipeline
+    (chat-ui-plan5.md Phase A). The upload returns immediately with
+    status 'processing'; the ingestion LangGraph workflow (validate ->
+    extract -> classify -> chunk -> index -> validate retrieval ->
+    publish) runs as a background task so it never blocks chat traffic.
+    Identical bytes uploaded twice return the existing document with
+    `duplicate: true` - nothing is reprocessed or reindexed."""
+    content = await file.read()
+    if len(content) > MAX_ATTACHMENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large - the limit is {MAX_ATTACHMENT_BYTES // (1024 * 1024)} MB.",
+        )
+    media_type = sniff_media_type(content)
+    if media_type not in _INGESTABLE_MEDIA_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "Unsupported knowledge-document type. Supported: PDF and UTF-8 text "
+                "(md/txt/csv/json/log)."
+            ),
+        )
+
+    content_hash = hashlib.sha256(content).hexdigest()
+    existing = _document_registry.find_by_hash(content_hash)
+    if existing is not None:
+        return _knowledge_document(existing, duplicate=True)
+
+    record = _document_registry.create(
+        filename=file.filename or "document",
+        media_type=media_type,
+        size_bytes=len(content),
+        content_hash=content_hash,
+        uploaded_by=user,
+    )
+    stored_path = _document_storage.save_original(
+        record["document_id"], record["version"], record["filename"], content
+    )
+    _document_registry.update(record["document_id"], stored_path=stored_path)
+
+    _scope_llm_calls_to(user)  # classification is an LLM call billed to the uploader
+    background_tasks.add_task(run_ingestion, _document_registry, record, content)
+    return _knowledge_document({**record, "stored_path": stored_path})
+
+
+@app.get("/knowledge/documents", response_model=list[KnowledgeDocument])
+def list_knowledge_documents(user: str = Depends(get_current_user)) -> list[KnowledgeDocument]:
+    """Every ingested document with its status - the Knowledge Base
+    Manager's job list. Knowledge is shared across authenticated users
+    (per-document permissions are a later plan5 phase)."""
+    return [_knowledge_document(record) for record in _document_registry.list_documents()]
+
+
+@app.get("/knowledge/documents/{document_id}", response_model=KnowledgeDocument)
+def get_knowledge_document(
+    document_id: str, user: str = Depends(get_current_user)
+) -> KnowledgeDocument:
+    """One document's full detail, including the per-node event log."""
+    record = _document_registry.get(document_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Unknown document.")
+    return _knowledge_document(record)
 
 
 _client_error_logger = logging.getLogger("routing_lab3.client_errors")
