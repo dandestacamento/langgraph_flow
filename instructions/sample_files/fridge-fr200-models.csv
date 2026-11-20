@@ -1,0 +1,4 @@
+model,type,capacity_litres,energy_rating,price_usd,noise_db,notes
+FR-200 Mini,refrigerator,95,A++,399,35,"Compact model for offices and studios, released 2026"
+FR-200 Mini Plus,refrigerator,120,A++,459,35,"Adds a 14-litre freezer compartment"
+FR-450,refrigerator,450,A+,899,39,"Existing mid-range model for comparison"

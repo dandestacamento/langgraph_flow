@@ -1,0 +1,48 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 965 >>
+stream
+BT /F1 11 Tf 50 740 Td 15 TL
+(Spark Shuffle Tuning - Field Notes \(fictional, for ingestion testing\)) Tj T*
+() Tj T*
+(Symptoms of an undersized shuffle: long task tails, executor OOMs during) Tj T*
+(wide joins, and spill metrics growing in the Spark UI Stages tab.) Tj T*
+() Tj T*
+(Checklist we apply before resizing the cluster:) Tj T*
+(- Set spark.sql.shuffle.partitions so each shuffle partition lands) Tj T*
+(  between 100 MB and 200 MB; the 200-partition default is almost) Tj T*
+(  always wrong for production data volumes.) Tj T*
+(- Enable Adaptive Query Execution and let it coalesce small partitions) Tj T*
+(  with spark.sql.adaptive.coalescePartitions.enabled=true.) Tj T*
+(- Broadcast the smaller side of a join only below ~8 GB of executor) Tj T*
+(  memory per core; otherwise prefer a sort-merge join with bucketing.) Tj T*
+(- Salting keys fixes skew, but try AQE skew-join handling first:) Tj T*
+(  spark.sql.adaptive.skewJoin.enabled=true.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001257 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1327
+%%EOF

@@ -1,0 +1,20 @@
+Python 3.11+ asyncio TaskGroups - team style note (fictional, for testing)
+
+Our backend team standard: prefer asyncio.TaskGroup over bare
+asyncio.gather for any fan-out of more than two coroutines.
+
+Why TaskGroup:
+- If one task raises, the group cancels the remaining tasks and re-raises
+  the failures wrapped in an ExceptionGroup - gather(return_exceptions=False)
+  leaves sibling tasks running in the background instead.
+- Tasks created with tg.create_task() inside the "async with" block are
+  guaranteed finished (or cancelled) when the block exits, so no orphaned
+  tasks survive the function.
+
+House rules:
+1. Catch ExceptionGroup with "except* SomeError:" blocks, never a bare
+   except Exception, so unrelated failures stay visible.
+2. Give every task a name (tg.create_task(coro(), name="fetch-prices"))
+   - the name shows up in asyncio debug logs and stack dumps.
+3. gather() remains fine for exactly-two awaitables where both results
+   are always needed and cancellation coupling is acceptable.
