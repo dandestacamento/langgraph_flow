@@ -1,8 +1,10 @@
 # Starting the routing-lab chat UI by hand
 
 How to bring up the full stack (auth + database + backend + frontend) from a cold
-machine, e.g. after a reboot. All commands are PowerShell, run from the repo root
-(`langgraph_flow\`).
+machine, e.g. after a reboot. All commands are **PowerShell** — open "Windows
+PowerShell" or "Terminal", NOT "Command Prompt" (`$env:...` syntax fails in cmd
+with "The filename, directory, or volume label syntax is incorrect"). Run from
+the repo root (`langgraph_flow\`).
 
 ## What runs where
 
@@ -64,6 +66,13 @@ $env:CHAT_DB_URL = "postgresql://routing_lab3:routing-lab3-dev-password@localhos
 
 `CHAT_DB_URL` makes conversations and the knowledge-document registry persist in
 Postgres. Omit it and everything still works, but in memory only (lost on restart).
+
+If you must use Command Prompt (cmd.exe) instead of PowerShell, set the variable
+with cmd syntax — no `$env:`, no quotes:
+
+```cmd
+set CHAT_DB_URL=postgresql://routing_lab3:routing-lab3-dev-password@localhost:5433/routing_lab3_chat
+```
 
 ### 4. Frontend (second window, keep open)
 
