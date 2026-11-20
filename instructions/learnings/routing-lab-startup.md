@@ -1,0 +1,105 @@
+# Starting the routing-lab chat UI by hand
+
+How to bring up the full stack (auth + database + backend + frontend) from a cold
+machine, e.g. after a reboot. All commands are PowerShell, run from the repo root
+(`langgraph_flow\`).
+
+## What runs where
+
+| Piece | Port | How it runs |
+| --- | --- | --- |
+| Keycloak (login) | 8081 | Docker, `routing_lab3/docker-compose.yml` |
+| Postgres (threads + knowledge registry) | 5433 | Docker, same compose file |
+| LiteLLM proxy | 4000 | Docker, same compose file |
+| FastAPI backend | 8000 | local `uvicorn`, repo-root `.venv` |
+| Vite dev server (the UI) | 5173 | local `npm run dev` |
+
+**Run only ONE lab at a time.** `routing_lab3` (chat, plans 1-4) and `routing_lab5`
+(chat + Knowledge Base Manager, plan 5) both want ports 8000/5173, and the Keycloak
+dev realm only allows `http://localhost:5173` as a login redirect. The commands below
+use `routing_lab5` (the latest); substitute `routing_lab3` everywhere to run that
+one instead — the Docker stack is shared and stays the same.
+
+## One-time prerequisites (already done on this machine)
+
+- Repo-root `.env` containing `OPENAI_API_KEY=...` (see `routing_lab5\.env.example`;
+  the labs read the shared repo-root `.env`, not their own).
+- Python deps in the shared repo-root venv: `.venv\Scripts\python.exe` exists.
+- Frontend deps: `cd routing_lab5\frontend; npm ci`
+- Vector index: `routing_lab5\.chroma\` exists. If missing, build it once with
+  `cd routing_lab5; ..\.venv\Scripts\python.exe scripts\build_index.py`
+  (⚠ never use `--rebuild` casually — it wipes ALL chunks including ingested
+  documents; re-ingest or wait for the Phase C reindex action).
+
+## Startup, in order
+
+### 1. Docker Desktop
+
+Must be running first. If `docker info` fails, start it and wait (~30-60 s):
+
+```powershell
+Start-Process "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe"
+```
+
+### 2. Keycloak + Postgres + LiteLLM
+
+```powershell
+cd routing_lab3          # the compose file lives here even when running lab5
+docker compose up -d
+```
+
+Wait until Keycloak answers (first boot of the container takes ~20-40 s):
+
+```powershell
+curl.exe -s -o NUL -w "%{http_code}" http://localhost:8081/realms/routing-lab3   # want 200
+```
+
+### 3. Backend (keep this window open)
+
+```powershell
+cd routing_lab5
+$env:CHAT_DB_URL = "postgresql://routing_lab3:routing-lab3-dev-password@localhost:5433/routing_lab3_chat"
+..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --port 8000
+```
+
+`CHAT_DB_URL` makes conversations and the knowledge-document registry persist in
+Postgres. Omit it and everything still works, but in memory only (lost on restart).
+
+### 4. Frontend (second window, keep open)
+
+```powershell
+cd routing_lab5\frontend
+npm run dev
+```
+
+### 5. Log in
+
+Open http://localhost:5173 — you'll be redirected to Keycloak.
+Dev credentials: **demo / demo-password**.
+
+## Shutting down
+
+- `Ctrl+C` in the uvicorn and Vite windows.
+- `cd routing_lab3; docker compose stop` (or `down`). **Never `down -v`** unless you
+  want to wipe Keycloak users and all stored conversations/registry rows — recreating
+  the Keycloak container regenerates user ids, orphaning existing threads anyway
+  (see troubleshooting).
+
+## Troubleshooting
+
+- **Login loop / "session expired"** — the dev realm idles sessions out after
+  ~30-60 min; just log in again as demo/demo-password.
+- **Sidebar suddenly empty after recreating containers** — Keycloak dev-mode gives
+  users new internal ids when its container is recreated (not merely restarted), so
+  old threads belong to the "old" demo user and won't show. They're still in
+  Postgres, just orphaned.
+- **Port already in use on 8000/5173** — the other lab (or a previous run) is still
+  up; stop it first. `Get-NetTCPConnection -LocalPort 5173 | Select OwningProcess`
+  finds the PID.
+- **Chat can't find newly ingested documents in hybrid retrieval mode** — the BM25
+  retriever is cached per-process; restart the backend. Default similarity mode
+  picks new content up immediately.
+- **MLflow tracing (optional, off by default)** — only if you're actively testing:
+  run `start_mlflow.ps1` from the repo root first, then start the backend. If the
+  tracking server is unreachable, tracing is skipped automatically; nothing else
+  needs it running.
