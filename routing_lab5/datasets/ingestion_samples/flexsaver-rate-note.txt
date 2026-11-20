@@ -1,0 +1,20 @@
+SmartHome Finance Desk - Product Note, April 2026
+
+FlexSaver Account: how the bonus rate works
+
+The FlexSaver savings account pays a base rate of 3.10% p.a. plus a bonus
+of 1.65% p.a. (5.75% p.a. total under current bonus conditions) in any
+month where BOTH conditions are met:
+
+1. You deposit at least $200 into the FlexSaver account during the month.
+2. You make no more than one withdrawal from the account in that month.
+
+If either condition is missed, only the base rate applies for that month;
+the bonus is never clawed back retroactively from earlier months. Interest
+is calculated daily on the closing balance and credited on the first
+business day of the following month.
+
+Note on rate tiers: balances above $250,000 earn the base rate only -
+the bonus rate applies to the portion of the balance up to $250,000.
+
+The FlexSaver account has no monthly account-keeping fee.
