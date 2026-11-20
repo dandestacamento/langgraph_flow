@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../hooks/useChat";
 import { CopyButton } from "./CopyButton";
@@ -130,25 +130,44 @@ export function ChatWindow({
   onOpenPassage?: (passage: SelectedPassage) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   // Tracks whether the user is near the bottom of the scroll area, so a
   // new message only auto-scrolls when they haven't deliberately
   // scrolled up to re-read earlier context - don't fight that choice.
   const [isNearBottom, setIsNearBottom] = useState(true);
+  // Whether the conversation actually overflows the viewport - "Jump to
+  // latest" is meaningless (and was observed lingering, e.g. after
+  // collapsing Routing details) when everything already fits.
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  const recomputeScrollState = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    setIsOverflowing(maxScroll >= NEAR_BOTTOM_THRESHOLD_PX);
+    setIsNearBottom(maxScroll - container.scrollTop < NEAR_BOTTOM_THRESHOLD_PX);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    function handleScroll() {
-      if (!container) return;
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-      setIsNearBottom(distanceFromBottom < NEAR_BOTTOM_THRESHOLD_PX);
+    container.addEventListener("scroll", recomputeScrollState);
+    // Content height also changes WITHOUT any scroll event or new
+    // message - expanding/collapsing Routing details is the main case -
+    // so watch for resizes too, or the state above goes stale.
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(recomputeScrollState);
+      observer.observe(container);
+      if (contentRef.current) observer.observe(contentRef.current);
     }
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, []);
+    return () => {
+      container.removeEventListener("scroll", recomputeScrollState);
+      observer?.disconnect();
+    };
+  }, [recomputeScrollState]);
 
   useEffect(() => {
     // Always scroll to the user's own freshly-sent message (a deliberate
@@ -171,17 +190,9 @@ export function ChatWindow({
     // without this a stale "scrolled up" state from the previous
     // conversation keeps "Jump to latest" visible over a window with
     // nothing actually hidden below it.
-    const frame = requestAnimationFrame(() => {
-      const container = containerRef.current;
-      if (
-        container &&
-        container.scrollHeight - container.clientHeight < NEAR_BOTTOM_THRESHOLD_PX
-      ) {
-        setIsNearBottom(true);
-      }
-    });
+    const frame = requestAnimationFrame(recomputeScrollState);
     return () => cancelAnimationFrame(frame);
-  }, [messages, isNearBottom]);
+  }, [messages, isNearBottom, recomputeScrollState]);
 
   function scrollToBottom() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -192,8 +203,11 @@ export function ChatWindow({
       <div
         ref={containerRef}
         data-testid="chat-scroll-region"
-        className="h-full space-y-4 overflow-y-auto px-4 py-6"
+        className="h-full overflow-y-auto px-4 py-6"
       >
+        {/* Inner wrapper exists so the ResizeObserver above can watch the
+            content's height (e.g. Routing details collapsing). */}
+        <div ref={contentRef} className="space-y-4">
         {messages.length === 0 && (
           <div className="mt-10 space-y-4">
             <p className="text-center text-sm text-slate-400 dark:text-slate-500">
@@ -231,8 +245,9 @@ export function ChatWindow({
           />
         ))}
         <div ref={bottomRef} />
+        </div>
       </div>
-      {!isNearBottom && (
+      {isOverflowing && !isNearBottom && (
         <button
           type="button"
           onClick={scrollToBottom}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatMessage } from "../hooks/useChat";
@@ -153,5 +153,49 @@ describe("ChatWindow", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument(),
     );
+  });
+
+  it("hides 'Jump to latest' when the content shrinks back to fit (e.g. Routing details collapsed)", async () => {
+    // jsdom has no ResizeObserver - install a mock that captures the
+    // callback so the test can fire the resize a <details> collapse
+    // would produce (no scroll event, no message change).
+    const resizeCallbacks: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        private cb: ResizeObserverCallback;
+        constructor(cb: ResizeObserverCallback) {
+          this.cb = cb;
+          resizeCallbacks.push(cb);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    try {
+      const messages: ChatMessage[] = [
+        { id: "1", role: "user", content: "What does E77 mean?" },
+        { id: "2", role: "assistant", content: "E77 is a door-lock jam." },
+      ];
+      render(<ChatWindow messages={messages} />);
+
+      // Expanded routing details make the chat overflow; user scrolls up.
+      const scrollRegion = screen.getByTestId("chat-scroll-region");
+      Object.defineProperty(scrollRegion, "scrollHeight", { value: 2000, configurable: true });
+      Object.defineProperty(scrollRegion, "clientHeight", { value: 400, configurable: true });
+      Object.defineProperty(scrollRegion, "scrollTop", { value: 0, configurable: true });
+      fireEvent.scroll(scrollRegion);
+      expect(await screen.findByRole("button", { name: /Jump to latest/ })).toBeInTheDocument();
+
+      // Collapsing the details shrinks the content to fit the viewport.
+      Object.defineProperty(scrollRegion, "scrollHeight", { value: 400, configurable: true });
+      for (const cb of resizeCallbacks) act(() => cb([], undefined as unknown as ResizeObserver));
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: /Jump to latest/ })).not.toBeInTheDocument(),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

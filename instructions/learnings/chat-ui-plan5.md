@@ -59,6 +59,11 @@ v1 trims, so the advice isn't re-litigated later.
   confidence 1.0 and indexed chunks; invalid taxonomy → 422) and 67 frontend unit tests (+5
   for the manager: list/badges, upload, polling-until-settled, override submit, no override
   form on indexed docs); oxlint + production build green.
+- Post-verification fix (user-reported): "Jump to latest" lingered over a short chat after
+  collapsing Routing details - the near-bottom state was only recomputed on scroll events.
+  ChatWindow now recomputes on content resizes too (ResizeObserver on the scroll container +
+  an inner content wrapper) and renders the pill only when the conversation actually
+  overflows the viewport.
 - Live-verified in the real stack (Keycloak login, lab5 backend + Vite on 5173): uploaded the
   E77 bulletin through the UI and watched it go processing → indexed (90 % confidence, full
   pipeline log); uploaded an off-topic sourdough guide → parked `needs_review` at 0.40
