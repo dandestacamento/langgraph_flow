@@ -9,21 +9,53 @@ lexical-overlap checks, not semantic similarity.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from app.agents._shared import INSUFFICIENT_INFO_MARKER
 
+_NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+}
+_YEAR_DURATION = re.compile(
+    r"(?<![\w.-])(?P<number>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+    r"(?:\s*-\s*|\s+)years?\b",
+    re.IGNORECASE,
+)
+_COMPOUND_NUMBER_PREFIX = re.compile(
+    r"\b(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)"
+    r"[\s-]+(?:and\s+)?$",
+    re.IGNORECASE,
+)
+
+
+def _year_value(match: re.Match[str]) -> int:
+    number = match.group("number").lower()
+    return int(number) if number.isdigit() else _NUMBER_WORDS[number]
+
 
 def answer_correctness(actual_answer: str, expected_facts: list[str]) -> float:
-    """Fraction of `expected_facts` substrings (case-insensitive) found
-    anywhere in `actual_answer`. A deterministic fact-presence check, not
+    """Fraction of expected facts found in the answer, case-insensitively.
+    Standalone year durations also match equivalent number/word and
+    hyphenated/plural forms. A deterministic fact-presence check, not
     a semantic similarity score - each `expected_facts` entry should be a
     short, specific, unambiguous substring (e.g. "E42", "door lock").
     Returns 1.0 for an empty `expected_facts` list (nothing to check)."""
     if not expected_facts:
         return 1.0
     answer_lower = actual_answer.lower()
-    found = sum(1 for fact in expected_facts if fact.lower() in answer_lower)
+    found = 0
+    for fact in expected_facts:
+        duration = _YEAR_DURATION.fullmatch(fact.strip())
+        if duration:
+            found += any(
+                _year_value(candidate) == _year_value(duration)
+                and not _COMPOUND_NUMBER_PREFIX.search(answer_lower[:candidate.start()])
+                for candidate in _YEAR_DURATION.finditer(answer_lower)
+            )
+        else:
+            found += fact.lower() in answer_lower
     return found / len(expected_facts)
 
 

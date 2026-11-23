@@ -37,6 +37,13 @@ question must be understandable completely on its own, with no reference to "it"
 first one", "instead", etc. - resolve every such reference to the specific entity/topic/model the \
 conversation history actually established.
 
+For an ambiguous reference such as "it" or "its", prefer the most recently discussed \
+compatible subject, especially when the latest user turn explicitly introduced or switched to \
+a different subject. Do not select an older subject merely because it was discussed more often. \
+If the latest message explicitly identifies an earlier subject or refers to it clearly, use \
+that subject instead. For example, after several questions about a dishwasher followed by a \
+question about a washing machine, "What is its warranty?" refers to the washing machine.
+
 If the latest message is already self-contained (doesn't depend on any prior turn to understand), \
 return it unchanged. Do not answer the question yourself - only rewrite it. Do not add facts that \
 aren't already implied by the conversation history or the latest message itself.

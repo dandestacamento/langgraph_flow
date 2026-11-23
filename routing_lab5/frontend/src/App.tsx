@@ -83,10 +83,12 @@ function App() {
         disabled={isSending}
         onSelect={(id) => {
           switchConversation(id);
+          setView("chat");
           if (closeAfterAction) setSidebarOpen(false);
         }}
         onNew={() => {
           newConversation();
+          setView("chat");
           if (closeAfterAction) setSidebarOpen(false);
         }}
         onRename={(id, title) => void renameConversation(id, title)}

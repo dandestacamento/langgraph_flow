@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.evaluation.answer_metrics import AnswerResult, summarize_answers
+from app.evaluation.answer_metrics import AnswerResult, answer_correctness, summarize_answers
 from app.evaluation.retrieval_metrics import (
     MultiChapterRetrievalResult,
     summarize_multichapter_retrieval,
 )
 from app.state import initial_state
+from scripts.run_batch_tests import DATASET_PATH, load_questions, score_case
 from tests.conftest import load_ground_truth
 
 LEVEL_6_CASES = load_ground_truth(level=6)
@@ -35,6 +36,45 @@ assert LEVEL_6_CASES, "No Level 6 cases found in datasets/routing_ground_truth.j
 
 MIN_MULTICHAPTER_COVERAGE = 0.9
 MIN_ANSWER_ACCURACY = 0.85
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected_score"),
+    [
+        ("A drainage problem; the warranty is 2 years.", 1.0),
+        ("A drainage problem; the warranty is two years.", 1.0),
+        ("A drainage problem; the warranty is 2-year.", 1.0),
+        ("A drainage problem; the warranty is 12 years.", 0.5),
+        ("A drainage problem; the warranty is 12-year.", 0.5),
+        ("A drainage problem; the warranty is twenty two years.", 0.5),
+        ("A drainage problem; the warranty is one hundred and two years.", 0.5),
+        ("A drainage problem; the warranty is 2.5 years.", 0.5),
+        ("A drainage problem; the warranty is 2 months.", 0.5),
+        ("The warranty is 2 years.", 0.5),
+    ],
+)
+def test_year_duration_answer_facts(answer, expected_score):
+    assert answer_correctness(answer, ["drainage", "2-year"]) == expected_score
+
+
+def test_t016_batch_scoring_accepts_correct_answer():
+    case = load_questions(DATASET_PATH, ["T016"])[0]
+    output = {
+        "selected_topics": ["appliances"],
+        "selected_subtopics": {"appliances": "washing_machines"},
+        "retrieved_passages": {
+            "appliances": [
+                {"chapter_id": "chapter_03_faults", "text": "E21 is a drainage problem."},
+                {"chapter_id": "chapter_01_types", "text": "WM-500: 2-year standard warranty."},
+            ]
+        },
+        "final_answer": "E21 indicates a drainage problem. The WM-500 has a standard warranty of 2 years.",
+    }
+
+    scores = score_case(case, output)
+    assert scores["routing_correct"] is True
+    assert scores["answer_correct"] is True
+    assert scores["overall_correct"] is True
 
 
 def _invoke(compiled_graph, question: str) -> dict:

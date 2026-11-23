@@ -17,10 +17,12 @@ evaluation in this project.
 
 from __future__ import annotations
 
+import re
 import uuid
 
 import pytest
 
+from app.chat.condense import condense_question
 from app.evaluation.condensing_metrics import CondensingResult, summarize_condensing
 from tests.conftest import load_chat_ground_truth
 
@@ -84,3 +86,61 @@ def test_overall_condensing_accuracy(compiled_chat_graph):
         f"Condensing accuracy {summary['condensing_accuracy']:.0%} is below the "
         f"{MIN_CONDENSING_ACCURACY:.0%} target. Failed: {failures}"
     )
+
+
+@pytest.fixture
+def switched_product_history():
+    exchanges = [
+        ("How long is the Eco 50 cycle on the DW-400 dishwasher?", "It takes 3 hours and 10 minutes."),
+        ("What about Intensive 70 and Quick 45?", "Those are also DW-400 dishwasher cycles."),
+        ("How often should I clean its spray arms?", "Check and clean the DW-400 spray arms regularly."),
+        ("What features does the DW-400 dishwasher have?", "The DW-400 has several wash cycles."),
+        ("List the DW-400 dishwasher cycle names.", "They include Eco 50 and Quick 45."),
+        ("What does error E21 mean on the SmartHome WM-500?", "E21 indicates a drainage problem."),
+    ]
+    return [
+        {
+            "user_message": question,
+            "self_contained_question": question,
+            "final_answer": answer,
+            "routing_summary": {},
+            "attachments": [],
+        }
+        for question, answer in exchanges
+    ]
+
+
+def test_followup_after_product_switch_routes_and_answers_for_current_product(
+    compiled_chat_graph, switched_product_history
+):
+    output = compiled_chat_graph.invoke(
+        {
+            "conversation_history": switched_product_history,
+            "user_message": "What is its standard warranty term?",
+            "attachments": [],
+        },
+        config={"configurable": {"thread_id": f"test-product-switch-{uuid.uuid4()}"}},
+    )
+
+    question = output["self_contained_question"]
+    assert "WM-500" in question and "DW-400" not in question, question
+    assert output["routing_result"]["selected_subtopics"].get("appliances") == "washing_machines"
+    answer = output["final_answer"]
+    assert re.search(r"\b(?:2|two)[ -]+years?\b", answer, re.IGNORECASE), answer
+    assert "DW-400" not in answer, answer
+
+
+@pytest.mark.parametrize(
+    ("message", "expected", "unexpected"),
+    [
+        ("What is the DW-400's standard warranty term?", "DW-400", ("WM-500",)),
+        ("What about the dishwasher's standard warranty term?", "DW-400", ("WM-500",)),
+        ("How long does a typical home loan last?", "loan", ("WM-500", "DW-400")),
+    ],
+)
+def test_followup_can_refer_to_earlier_product_or_change_topic(
+    switched_product_history, message, expected, unexpected
+):
+    question = condense_question(switched_product_history, message).self_contained_question
+    assert expected.lower() in question.lower(), question
+    assert all(entity not in question for entity in unexpected), question
