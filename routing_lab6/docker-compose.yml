@@ -1,0 +1,92 @@
+# Keycloak, self-hosted (Apache-2.0) - per instructions/learnings/
+# routing-lab-prod-plan.md section 2.1/7. Runs in Quarkus "dev mode"
+# (`start-dev`), which uses an ephemeral, in-memory H2 database and
+# disables HTTPS - appropriate for local development/testing only, NOT
+# for production (see infra/keycloak/README.md). The realm, its one
+# public frontend client, and two demo users are imported declaratively
+# from realm-export.json at every startup (`--import-realm`) - git-
+# committable, reproducible configuration, no manual admin-console
+# clicking required to get a working local auth flow.
+#
+# PostgreSQL, self-hosted (PostgreSQL License, OSI-approved permissive) -
+# per routing-lab-prod-plan.md section 2.2. Backs
+# `langgraph.checkpoint.postgres.PostgresSaver` (app/api/main.py) and the
+# thread_id-ownership table (app/api/auth.py) - unlike Keycloak above,
+# this one uses a named volume specifically so conversation history
+# genuinely survives `docker compose down`/`up` (not just a process
+# restart), matching routing-lab-prod-plan.md section 3's Phase B exit
+# criterion ("new multi-turn conversations survive a backend restart").
+#
+# LiteLLM, self-hosted (MIT core) - per routing-lab-prod-plan.md section
+# 2.3. Gives every app user their own virtual API key with an
+# independent budget (app/llm_gateway.py), rather than every call
+# sharing one raw OPENAI_API_KEY - see infra/litellm/README.md for what
+# still needs hardening before this is a production configuration.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: routing_lab6
+      POSTGRES_PASSWORD: routing-lab6-dev-password
+      POSTGRES_DB: routing_lab6_chat
+    ports:
+      # Host-side 5433, not Postgres's usual 5432 - avoids silently
+      # colliding with any pre-existing native Postgres installation
+      # already running on the host (confirmed to happen on this exact
+      # machine during this phase's validation: a host-level postgres.exe
+      # was already listening on 5432, and connections intended for this
+      # container were reaching that unrelated server instead).
+      - "5433:5432"
+    volumes:
+      - routing_lab6_postgres_data:/var/lib/postgresql/data
+      # Runs once, only on a brand-new data volume - creates the
+      # separate `litellm` database the litellm service below needs
+      # (see infra/postgres/init-litellm-db.sql for why it must be
+      # separate from this project's own routing_lab6_chat database).
+      - ./infra/postgres/init-litellm-db.sql:/docker-entrypoint-initdb.d/init-litellm-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U routing_lab6 -d routing_lab6_chat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    env_file:
+      # Reuses the repo-root .env for OPENAI_API_KEY - same convention
+      # routing_lab6 already follows for everything else (see
+      # README.md's "VS Code setup").
+      - ../.env
+    environment:
+      # Throwaway dev values - see infra/litellm/README.md for why these
+      # specifically must be replaced before any real deployment.
+      LITELLM_MASTER_KEY: sk-routing-lab6-dev-master-key
+      LITELLM_SALT_KEY: routing-lab6-dev-salt-key-do-not-reuse
+      # A dedicated database, not routing_lab6_chat - LiteLLM's own
+      # Prisma-managed migration tooling refuses to share a database
+      # that already has unrelated tables in it (a real conflict hit
+      # while validating this phase, not a hypothetical one).
+      DATABASE_URL: postgresql://routing_lab6:routing-lab6-dev-password@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "False"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./infra/litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  routing_lab6_postgres_data:

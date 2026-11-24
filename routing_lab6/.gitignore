@@ -1,0 +1,5 @@
+.chroma/
+.llm_cache.db
+data/
+outputs/
+experiments/mlflow_trace_export.json
