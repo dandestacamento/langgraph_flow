@@ -1,0 +1,13 @@
+test_id,level,question,routing_correct,answer_correct,overall_correct,latency_ms,total_tokens,cost_usd,error
+DW650-01,4,How many place settings does the SmartHome DW-650 dishwasher hold?,True,True,True,5754.2,7549,0.001163,
+DW650-02,4,What does CL mean on the SmartHome DW-650 dishwasher display?,True,True,True,74.2,7828,0.000903,
+DW650-03,4,How many minutes does the SmartHome DW-650 dishwasher Eco 50 cycle take?,True,True,True,75.6,7583,0.000882,
+DW650-04,4,Which SmartHome DW-650 dishwasher cycle uses a 70 C final rinse?,True,True,True,72.1,7248,0.000853,
+DW650-05,4,Where should tall plates be placed in the SmartHome DW-650 dishwasher?,True,True,True,66.1,7851,0.000856,
+DW650-06,4,Which SmartHome DW-650 dishwasher part should be cleaned every 14 days?,True,True,True,72.8,7534,0.000862,
+DW650-07,4,What does error E14 mean on the SmartHome DW-650 dishwasher?,True,True,True,66.5,7888,0.001086,
+DW650-08,4,What does error E26 mean on the SmartHome DW-650 dishwasher?,True,True,True,61.2,7902,0.000873,
+DW650-09,4,What does error E33 mean on the SmartHome DW-650 dishwasher?,True,True,True,59.7,7892,0.000868,
+DW650-10,4,What is the standard warranty term for the SmartHome DW-650 dishwasher?,True,True,True,55.8,7544,0.001027,
+DW650-11,4,What is the motor warranty term for the SmartHome DW-650 dishwasher?,True,True,True,57.8,7819,0.000844,
+DW650-12,4,What information should I provide when contacting support about the SmartHome DW-650 dishwasher?,True,True,True,59.2,7834,0.000952,

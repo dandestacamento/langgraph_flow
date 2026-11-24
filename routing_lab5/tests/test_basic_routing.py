@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 from app.evaluation.routing_metrics import RoutingResult, summarize
+from app.routers.topic_router import classify_topic
 from app.state import initial_state
 from tests.conftest import load_ground_truth
 
@@ -26,6 +27,24 @@ assert LEVEL_1_CASES, "No Level 1 cases found in datasets/routing_ground_truth.j
 # target, not a guarantee, so the suite-level assertion below is slightly
 # more lenient to avoid flaking on borderline LLM classifications.
 MIN_TOPIC_ACCURACY = 0.9
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_topics"),
+    [
+        ("How many place settings does the SmartHome DW-650 dishwasher hold?", {"appliances"}),
+        ("What is the capacity of the SmartHome WM-500 washing machine?", {"appliances"}),
+        ("What is SmartHome's refund policy for a change-of-mind return?", {"customer_support"}),
+        (
+            "How many place settings does the SmartHome DW-650 dishwasher hold, and what is "
+            "SmartHome's refund policy?",
+            {"appliances", "customer_support"},
+        ),
+    ],
+)
+def test_brand_name_does_not_invent_support_topic(question, expected_topics):
+    result = classify_topic(initial_state(question))
+    assert set(result["selected_topics"]) == expected_topics, result["topic_decision"]
 
 
 @pytest.mark.parametrize("case", LEVEL_1_CASES, ids=[c["id"] for c in LEVEL_1_CASES])

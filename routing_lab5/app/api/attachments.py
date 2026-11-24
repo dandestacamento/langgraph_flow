@@ -95,9 +95,10 @@ _extract_image_text: Callable[[bytes, str], str] = _default_extract_image_text
 
 def extract_document_text(content: bytes, media_type: str) -> str:
     """Extracts a document's text locally - no LLM call (plan4 §1.2).
-    A scanned/image-only PDF yields an empty string; the API surfaces
-    that honestly (`extracted_chars` in the upload response) instead of
-    letting a later turn hallucinate a summary."""
+    PDF pages are separated by blank lines so ingestion can chunk them
+    separately. A scanned/image-only PDF yields an empty string; the API
+    surfaces that honestly (`extracted_chars` in the upload response)
+    instead of letting a later turn hallucinate a summary."""
     if media_type == "application/pdf":
         import io
 
@@ -105,7 +106,7 @@ def extract_document_text(content: bytes, media_type: str) -> str:
 
         try:
             reader = PdfReader(io.BytesIO(content))
-            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+            text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
         except Exception:  # noqa: BLE001 - a malformed PDF is "no text", not a 500
             return ""
         return text.strip()[:MAX_EXTRACTED_CHARS]

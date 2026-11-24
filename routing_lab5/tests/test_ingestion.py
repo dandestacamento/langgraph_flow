@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 
 import app.api.auth as auth_module
 import app.ingestion.graph as ingestion_graph
+from app.api.attachments import MAX_EXTRACTED_CHARS, extract_document_text
 from app.api.main import app
 from app.ingestion.classify import DocumentClassification, classification_problem
 from app.ingestion.graph import chunk_text
@@ -57,6 +58,22 @@ def _cleanup_document(document_id: str) -> None:
 
 
 # ---------------------------------------------------------------- unit
+
+
+def test_multichapter_pdf_preserves_page_boundaries_for_chunking() -> None:
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "instructions" / "sample_files" / "dishwasher_manual_file2.pdf"
+    )
+    text = extract_document_text(path.read_bytes(), "application/pdf")
+    chunks = chunk_text(text)
+
+    assert len(text) < MAX_EXTRACTED_CHARS
+    assert len(chunks) >= 6
+    for title in ("Model and controls", "Programs and cycle selection", "Loading and daily use",
+                  "Routine care", "Fault codes and troubleshooting", "Warranty and support"):
+        assert any(title in chunk for chunk in chunks)
+    assert "7-year motor warranty" in " ".join(text.split())
 
 
 def test_chunk_text_merges_small_paragraphs_and_splits_large_content() -> None:

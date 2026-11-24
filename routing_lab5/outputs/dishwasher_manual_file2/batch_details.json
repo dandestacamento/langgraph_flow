@@ -1,0 +1,2705 @@
+[
+  {
+    "test_id": "DW650-01",
+    "level": 4,
+    "question": "How many place settings does the SmartHome DW-650 dishwasher hold?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "14"
+      ],
+      "answer": "The DW-650 holds 14 place settings."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_overview"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "chapter_01_overview",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that the SmartHome DW-650 dishwasher holds 14 place settings."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The DW-650 holds 14 place settings.\n\nSources: chapter_01_overview, ingested_model_and_controls",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single appliance, which can be answered directly."
+          },
+          "duration_ms": 1404.9
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a specific fact about the SmartHome DW-650 dishwasher, not an identification query."
+          },
+          "duration_ms": 11.0
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "How many place settings does the SmartHome DW-650 dishwasher hold?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the capacity of a dishwasher model, which falls under the appliances topic."
+          },
+          "duration_ms": 8.6
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the capacity of a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 8.5
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_01_overview",
+            "confidence": 0.9,
+            "reasoning": "The overview chapter provides information about the different dishwasher models and their respective place settings, which includes the DW-100, DW-250, and DW-400, but does not mention the DW-650."
+          },
+          "duration_ms": 8.3
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "chapter_01_overview",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.6118,
+              0.6345,
+              0.6409,
+              0.6895,
+              0.7623
+            ]
+          },
+          "duration_ms": 231.5
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that the SmartHome DW-650 dishwasher holds 14 place settings."
+            }
+          },
+          "duration_ms": 9.5
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The DW-650 holds 14 place settings.\n\nSources: chapter_01_overview, ingested_model_and_controls",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "chapter_01_overview",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.75,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 5754.2,
+    "total_tokens": 7549,
+    "prompt_tokens": 7247,
+    "completion_tokens": 302,
+    "cost_usd": 0.001163,
+    "error": null
+  },
+  {
+    "test_id": "DW650-02",
+    "level": 4,
+    "question": "What does CL mean on the SmartHome DW-650 dishwasher display?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "child lock"
+      ],
+      "answer": "CL means the child lock is active."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_troubleshooting"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that the display code CL means the child lock is active."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The display code CL means the child lock is active; it is a control status, not a fault code.\n\nSources: ingested_model_and_controls",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question asks for a specific meaning of a display code on a single appliance, which is a straightforward fact lookup."
+          },
+          "duration_ms": 9.2
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The first clause is a fact-lookup about an already-named model, not an identification query."
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What does CL mean on the SmartHome DW-650 dishwasher display?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about a fault code on a dishwasher, which falls under the appliances topic."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about a code displayed on a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 9.1
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_03_troubleshooting",
+            "confidence": 0.9,
+            "reasoning": "The 'CL' code likely refers to a troubleshooting fault code, which is typically covered in the troubleshooting chapter."
+          },
+          "duration_ms": 8.5
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.5679,
+              0.7126,
+              0.7184,
+              0.7279,
+              0.7337
+            ]
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that the display code CL means the child lock is active."
+            }
+          },
+          "duration_ms": 7.8
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The display code CL means the child lock is active; it is a control status, not a fault code.\n\nSources: ingested_model_and_controls",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8889,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 74.2,
+    "total_tokens": 7828,
+    "prompt_tokens": 7535,
+    "completion_tokens": 293,
+    "cost_usd": 0.000903,
+    "error": null
+  },
+  {
+    "test_id": "DW650-03",
+    "level": 4,
+    "question": "How many minutes does the SmartHome DW-650 dishwasher Eco 50 cycle take?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "185"
+      ],
+      "answer": "The Eco 50 cycle takes 185 minutes."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_02_cycles"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_operation",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher-manual-excerpt.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that the Eco 50 cycle takes 185 minutes."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The DW-650 Eco 50 cycle takes 185 minutes.\n\nSources: ingested_model_and_controls, ingested_operation",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single appliance, which can be answered directly."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a single clause asking for a specific fact about the SmartHome DW-650 dishwasher, not an identification query."
+          },
+          "duration_ms": 12.3
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "How many minutes does the SmartHome DW-650 dishwasher Eco 50 cycle take?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the cycle time of a dishwasher model, which falls under the appliances topic."
+          },
+          "duration_ms": 8.9
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the cycle duration of a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 7.9
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_02_cycles",
+            "confidence": 0.9,
+            "reasoning": "The question pertains to the wash cycles of dishwashers, which is covered in the cycles chapter."
+          },
+          "duration_ms": 8.9
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_operation",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.4113,
+              0.5214,
+              0.6495,
+              0.6802,
+              0.7645
+            ]
+          },
+          "duration_ms": 6.1
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that the Eco 50 cycle takes 185 minutes."
+            }
+          },
+          "duration_ms": 9.1
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The DW-650 Eco 50 cycle takes 185 minutes.\n\nSources: ingested_model_and_controls, ingested_operation",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_operation",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 5.3
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.75,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 75.6,
+    "total_tokens": 7583,
+    "prompt_tokens": 7298,
+    "completion_tokens": 285,
+    "cost_usd": 0.000882,
+    "error": null
+  },
+  {
+    "test_id": "DW650-04",
+    "level": 4,
+    "question": "Which SmartHome DW-650 dishwasher cycle uses a 70 C final rinse?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "hygiene"
+      ],
+      "answer": "The Hygiene 70 cycle uses a 70 C final rinse."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_02_cycles"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_operation",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "chapter_02_cycles"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher-manual-excerpt.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that the Hygiene 70 cycle uses a 70 C final rinse."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The Hygiene 70 cycle takes 150 minutes and uses a 70 C final rinse.\n\nSources: chapter_02_cycles, ingested_model_and_controls, ingested_operation",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single appliance's cycle, which can be answered from one topic area."
+          },
+          "duration_ms": 8.6
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about a specific model and does not contain an 'and' joining two clauses."
+          },
+          "duration_ms": 10.0
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "Which cycle of the SmartHome DW-650 dishwasher uses a 70 C final rinse?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a feature of a dishwasher model, which falls under the appliances topic."
+          },
+          "duration_ms": 7.4
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about a dishwasher cycle, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_02_cycles",
+            "confidence": 0.9,
+            "reasoning": "The question pertains to dishwasher wash cycles, which are detailed in the cycles chapter."
+          },
+          "duration_ms": 9.3
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_operation",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "chapter_02_cycles"
+            ],
+            "scores": [
+              0.5013,
+              0.6164,
+              0.6877,
+              0.7133,
+              0.7242
+            ]
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that the Hygiene 70 cycle uses a 70 C final rinse."
+            }
+          },
+          "duration_ms": 8.1
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The Hygiene 70 cycle takes 150 minutes and uses a 70 C final rinse.\n\nSources: chapter_02_cycles, ingested_model_and_controls, ingested_operation",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_operation",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "chapter_02_cycles"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 5.0
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8571,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 72.1,
+    "total_tokens": 7248,
+    "prompt_tokens": 6958,
+    "completion_tokens": 290,
+    "cost_usd": 0.000853,
+    "error": null
+  },
+  {
+    "test_id": "DW650-05",
+    "level": 4,
+    "question": "Where should tall plates be placed in the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "lower rack"
+      ],
+      "answer": "Place tall plates in the lower rack."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_overview"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that tall plates should be placed in the lower rack of the DW-650 dishwasher."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Place tall plates in the lower rack of the DW-650 dishwasher.\n\nSources: ingested_model_and_controls",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about the placement of tall plates in a particular dishwasher model, which can be answered from a single topic area."
+          },
+          "duration_ms": 7.9
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about the placement of plates in a specific dishwasher model, not an identification query."
+          },
+          "duration_ms": 8.6
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "Where should tall plates be placed in the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about the placement of plates in a dishwasher, which falls under the appliances topic."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about the placement of plates in a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_01_overview",
+            "confidence": 0.8,
+            "reasoning": "The overview chapter typically includes information about the dishwasher models and their features, which may cover loading recommendations for different types of dishes, including tall plates."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.6778,
+              0.8188,
+              0.8409,
+              0.8495,
+              0.9112
+            ]
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that tall plates should be placed in the lower rack of the DW-650 dishwasher."
+            }
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Place tall plates in the lower rack of the DW-650 dishwasher.\n\nSources: ingested_model_and_controls",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 5.2
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 66.1,
+    "total_tokens": 7851,
+    "prompt_tokens": 7542,
+    "completion_tokens": 309,
+    "cost_usd": 0.000856,
+    "error": null
+  },
+  {
+    "test_id": "DW650-06",
+    "level": 4,
+    "question": "Which SmartHome DW-650 dishwasher part should be cleaned every 14 days?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "filter"
+      ],
+      "answer": "Clean the removable mesh filter every 14 days."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_troubleshooting"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_operation"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher-manual-excerpt.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that the removable mesh filter should be cleaned every 14 days."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "Clean the removable mesh filter every 14 days.\n\nSources: ingested_model_and_controls, ingested_operation",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single appliance, which can be answered directly."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about a specific part of the SmartHome DW-650 dishwasher, not an identification query."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "Which part of the SmartHome DW-650 dishwasher should be cleaned every 14 days?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a maintenance task related to a dishwasher model, which falls under the appliances topic."
+          },
+          "duration_ms": 14.6
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically pertains to a dishwasher part and its maintenance schedule."
+          },
+          "duration_ms": 7.5
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_03_troubleshooting",
+            "confidence": 0.9,
+            "reasoning": "The troubleshooting chapter typically includes maintenance tips, such as cleaning specific parts of the dishwasher regularly."
+          },
+          "duration_ms": 8.7
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_operation"
+            ],
+            "scores": [
+              0.5147,
+              0.6808,
+              0.7157,
+              0.7376,
+              0.7457
+            ]
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that the removable mesh filter should be cleaned every 14 days."
+            }
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "Clean the removable mesh filter every 14 days.\n\nSources: ingested_model_and_controls, ingested_operation",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_operation"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.3
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8333,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 72.8,
+    "total_tokens": 7534,
+    "prompt_tokens": 7256,
+    "completion_tokens": 278,
+    "cost_usd": 0.000862,
+    "error": null
+  },
+  {
+    "test_id": "DW650-07",
+    "level": 4,
+    "question": "What does error E14 mean on the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "low",
+        "flow"
+      ],
+      "answer": "E14 indicates low incoming water flow."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_troubleshooting"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_service_advisory",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dw-turbidity-advisory.md",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that error E14 indicates low incoming water flow and provides troubleshooting steps."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "DW-650 error E14 indicates low incoming water flow. It does not by itself identify a failed component. Stop the dishwasher and check whether the water supply tap is open. If the warning persists, contact a qualified service provider.\n\nSources: ingested_model_and_controls, ingested_service_advisory",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question asks for a specific error code meaning related to a single appliance, which is a straightforward lookup."
+          },
+          "duration_ms": 7.6
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The first clause is a fact-lookup about an already-named error code, not an identification query."
+          },
+          "duration_ms": 7.2
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What does error E14 mean on the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about a fault code related to a dishwasher, which falls under the appliances topic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about an error code related to a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 7.5
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_03_troubleshooting",
+            "confidence": 0.9,
+            "reasoning": "The error codes for the dishwasher, including E14, are typically found in the troubleshooting chapter."
+          },
+          "duration_ms": 7.7
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_service_advisory",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.4084,
+              0.7189,
+              0.7335,
+              0.776,
+              0.778
+            ]
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that error E14 indicates low incoming water flow and provides troubleshooting steps."
+            }
+          },
+          "duration_ms": 9.1
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "DW-650 error E14 indicates low incoming water flow. It does not by itself identify a failed component. Stop the dishwasher and check whether the water supply tap is open. If the warning persists, cont",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_service_advisory",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.4
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9524,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 66.5,
+    "total_tokens": 7888,
+    "prompt_tokens": 7570,
+    "completion_tokens": 318,
+    "cost_usd": 0.001086,
+    "error": null
+  },
+  {
+    "test_id": "DW650-08",
+    "level": 4,
+    "question": "What does error E26 mean on the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "restrict",
+        "drain"
+      ],
+      "answer": "E26 indicates a restricted drain path."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_troubleshooting"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_service_advisory"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dw-turbidity-advisory.md"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages state that error E26 indicates a restricted drain path due to food debris in the mesh filter or a restriction in the drain hose."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "DW-650 error E26 indicates a restricted drain path. Food debris in the mesh filter or a restriction in the drain hose may contribute. Stop the cycle and inspect the accessible filter and hose for an obvious obstruction; contact support if the warning remains.\n\nSources: ingested_model_and_controls, ingested_service_advisory",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "The question asks for a specific error code meaning related to a single appliance, which is a straightforward lookup."
+          },
+          "duration_ms": 7.0
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The first clause is a fact-lookup about an already-named error code, not an identification query."
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What does error E26 mean on the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about a fault code related to a dishwasher, which falls under the appliances topic."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about an error code related to a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 7.3
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_03_troubleshooting",
+            "confidence": 0.9,
+            "reasoning": "The question pertains to an error code, which is typically addressed in the troubleshooting chapter."
+          },
+          "duration_ms": 7.4
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_service_advisory"
+            ],
+            "scores": [
+              0.4085,
+              0.7258,
+              0.7536,
+              0.7701,
+              0.7724
+            ]
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages state that error E26 indicates a restricted drain path due to food debris in the mesh filter or a restriction in the drain hose."
+            }
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "DW-650 error E26 indicates a restricted drain path. Food debris in the mesh filter or a restriction in the drain hose may contribute. Stop the cycle and inspect the accessible filter and hose for an o",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_service_advisory"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.6
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9474,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 61.2,
+    "total_tokens": 7902,
+    "prompt_tokens": 7571,
+    "completion_tokens": 331,
+    "cost_usd": 0.000873,
+    "error": null
+  },
+  {
+    "test_id": "DW650-09",
+    "level": 4,
+    "question": "What does error E33 mean on the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "door",
+        "latch",
+        "closed"
+      ],
+      "answer": "E33 means the door latch was not detected as closed."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_troubleshooting"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_service_advisory",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dw-turbidity-advisory.md",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages explain that error E33 means the door latch was not detected as closed and provides instructions on how to address it."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "DW-650 error E33 means the door latch was not detected as closed. Check for an item preventing the door from closing, then close the door again. If E33 continues, contact support rather than forcing the latch.\n\nSources: ingested_model_and_controls, ingested_service_advisory",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific error code meaning related to a single appliance, which is a straightforward lookup."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The first clause is a fact-lookup about an already-named error code, not an identification query."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What does error E33 mean on the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about a fault code related to a dishwasher, which falls under the appliances topic."
+          },
+          "duration_ms": 8.0
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically asks about an error code related to a dishwasher, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_03_troubleshooting",
+            "confidence": 0.9,
+            "reasoning": "The question pertains to a fault code, which is addressed in the troubleshooting chapter."
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_service_advisory",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.4574,
+              0.7267,
+              0.7382,
+              0.7835,
+              0.7904
+            ]
+          },
+          "duration_ms": 6.1
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages explain that error E33 means the door latch was not detected as closed and provides instructions on how to address it."
+            }
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "DW-650 error E33 means the door latch was not detected as closed. Check for an item preventing the door from closing, then close the door again. If E33 continues, contact support rather than forcing t",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_service_advisory",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.6
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9375,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 59.7,
+    "total_tokens": 7892,
+    "prompt_tokens": 7570,
+    "completion_tokens": 322,
+    "cost_usd": 0.000868,
+    "error": null
+  },
+  {
+    "test_id": "DW650-10",
+    "level": 4,
+    "question": "What is the standard warranty term for the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "3-year"
+      ],
+      "answer": "The DW-650 has a 3-year standard warranty."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_overview"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "chapter_01_overview"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The standard warranty term for the SmartHome DW-650 dishwasher is stated in the retrieved passages as a 3-year standard warranty."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The fictional SmartHome DW-650 has a 3-year standard warranty.\n\nSources: chapter_01_overview, ingested_model_and_controls",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific fact about a single appliance, which can be answered directly without needing additional context or supporting evidence."
+          },
+          "duration_ms": 5.8
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about an already-named product, which does not meet the criteria for multi-hop."
+          },
+          "duration_ms": 5.9
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What is the standard warranty term for the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about the warranty term for a named appliance model, which falls under the appliances topic."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a dishwasher model, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 6.2
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_01_overview",
+            "confidence": 0.9,
+            "reasoning": "The overview chapter contains warranty information for various dishwasher models, which likely includes the DW-650."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "chapter_01_overview"
+            ],
+            "scores": [
+              0.4564,
+              0.7162,
+              0.7569,
+              0.7598,
+              0.7957
+            ]
+          },
+          "duration_ms": 5.7
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The standard warranty term for the SmartHome DW-650 dishwasher is stated in the retrieved passages as a 3-year standard warranty."
+            }
+          },
+          "duration_ms": 7.4
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The fictional SmartHome DW-650 has a 3-year standard warranty.\n\nSources: chapter_01_overview, ingested_model_and_controls",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "chapter_01_overview"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 3.5
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 55.8,
+    "total_tokens": 7544,
+    "prompt_tokens": 7243,
+    "completion_tokens": 301,
+    "cost_usd": 0.001027,
+    "error": null
+  },
+  {
+    "test_id": "DW650-11",
+    "level": 4,
+    "question": "What is the motor warranty term for the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "7-year"
+      ],
+      "answer": "The DW-650 has a 7-year motor warranty."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_01_overview"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The motor warranty term for the SmartHome DW-650 dishwasher is stated in the retrieved passages as 7 years."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "The fictional SmartHome DW-650 has a separate 7-year motor warranty.\n\nSources: ingested_model_and_controls",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific warranty term, which is a single fact that can be found in the product documentation."
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a direct fact-lookup about an already-named product, not an identification query."
+          },
+          "duration_ms": 5.7
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What is the motor warranty term for the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 1.0,
+            "reasoning": "The question specifically asks about the warranty term for a particular dishwasher model, which falls under the appliances topic."
+          },
+          "duration_ms": 6.5
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about a dishwasher model and its warranty, which falls under the dishwashers subtopic."
+          },
+          "duration_ms": 6.9
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_01_overview",
+            "confidence": 0.8,
+            "reasoning": "The overview chapter contains warranty information for various dishwasher models, which may include the DW-650."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.4408,
+              0.7599,
+              0.799,
+              0.817,
+              0.8826
+            ]
+          },
+          "duration_ms": 6.0
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The motor warranty term for the SmartHome DW-650 dishwasher is stated in the retrieved passages as 7 years."
+            }
+          },
+          "duration_ms": 6.3
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "The fictional SmartHome DW-650 has a separate 7-year motor warranty.\n\nSources: ingested_model_and_controls",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.3
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.8333,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 57.8,
+    "total_tokens": 7819,
+    "prompt_tokens": 7526,
+    "completion_tokens": 293,
+    "cost_usd": 0.000844,
+    "error": null
+  },
+  {
+    "test_id": "DW650-12",
+    "level": 4,
+    "question": "What information should I provide when contacting support about the SmartHome DW-650 dishwasher?",
+    "notes": "",
+    "expected": {
+      "topics": [
+        "appliances"
+      ],
+      "subtopic": "dishwashers",
+      "chapter": null,
+      "chapters": null,
+      "source": "dishwasher_manual_file2.pdf",
+      "tool": null,
+      "behavior": null,
+      "is_multi_hop": null,
+      "hop1_fact": null,
+      "recovery_attempted": null,
+      "is_answerable": null,
+      "facts": [
+        "serial",
+        "model",
+        "purchase"
+      ],
+      "answer": "Provide the model number, serial number, and purchase date."
+    },
+    "actual": {
+      "node_sequence": [
+        "complexity_router",
+        "multihop_router",
+        "topic_router",
+        "subtopic_router",
+        "chapter_selector",
+        "rag_retriever",
+        "tool_router",
+        "appliances_agent",
+        "synthesis_agent"
+      ],
+      "selected_topics": [
+        "appliances"
+      ],
+      "selected_subtopics": {
+        "appliances": "dishwashers"
+      },
+      "selected_chapters": {
+        "appliances": "chapter_03_troubleshooting"
+      },
+      "retrieved_chapters_by_topic": {
+        "appliances": [
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls",
+          "ingested_model_and_controls"
+        ]
+      },
+      "retrieved_sources_by_topic": {
+        "appliances": [
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf",
+          "dishwasher_manual_file2.pdf"
+        ]
+      },
+      "tool_decisions": {
+        "appliances": {
+          "needs_tool": false,
+          "tool_name": null,
+          "tool_input": null,
+          "reasoning": "The retrieved passages already provide the necessary information about what to include when contacting support."
+        }
+      },
+      "tool_results": {},
+      "is_multi_hop": false,
+      "hop_results": [],
+      "recovery_attempts": {
+        "appliances": {
+          "attempted": false,
+          "reason": null,
+          "succeeded": null
+        }
+      },
+      "final_answer": "When contacting support about the DW-650, provide the model number, serial number, and purchase date. Describe the symptoms and any display code, including when it appeared and which cycle was running.\n\nSources: ingested_model_and_controls",
+      "execution_log": [
+        {
+          "node": "complexity_router",
+          "action": "classify_complexity",
+          "output": {
+            "complexity": "simple",
+            "confidence": 0.9,
+            "reasoning": "This question asks for a specific list of information to provide when contacting support, which is a straightforward request."
+          },
+          "duration_ms": 6.1
+        },
+        {
+          "node": "multihop_router",
+          "action": "classify_multihop",
+          "output": {
+            "is_multi_hop": false,
+            "hop_plan": null,
+            "reasoning": "The question is a fact-lookup about an already-named product and does not contain an explicit 'and' joining two clauses."
+          },
+          "duration_ms": 6.4
+        },
+        {
+          "node": "topic_router",
+          "action": "classify_topic",
+          "output": {
+            "topics": [
+              "appliances"
+            ],
+            "is_ambiguous": false,
+            "topic_questions": {
+              "appliances": "What information should I provide when contacting support about the SmartHome DW-650 dishwasher?"
+            },
+            "confidence": 0.9,
+            "reasoning": "The question specifically asks about contacting support for a dishwasher, which falls under the appliances topic."
+          },
+          "duration_ms": 7.1
+        },
+        {
+          "node": "subtopic_router",
+          "action": "classify_subtopic[appliances]",
+          "output": {
+            "subtopic": "dishwashers",
+            "confidence": 0.95,
+            "reasoning": "The question specifically mentions a dishwasher model, indicating it falls under the dishwashers subtopic."
+          },
+          "duration_ms": 6.6
+        },
+        {
+          "node": "chapter_selector",
+          "action": "select_chapter[appliances/dishwashers]",
+          "output": {
+            "chapter_id": "chapter_03_troubleshooting",
+            "confidence": 0.9,
+            "reasoning": "The troubleshooting chapter provides information on fault codes and issues that may arise, which is relevant when contacting support."
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "rag_retriever",
+          "action": "retrieve[appliances/dishwashers]",
+          "output": {
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "scores": [
+              0.5423,
+              0.5704,
+              0.5988,
+              0.6038,
+              0.6498
+            ]
+          },
+          "duration_ms": 6.8
+        },
+        {
+          "node": "tool_router",
+          "action": "select_tools[appliances/dishwashers]",
+          "output": {
+            "decision": {
+              "needs_tool": false,
+              "tool_name": null,
+              "tool_input": null,
+              "reasoning": "The retrieved passages already provide the necessary information about what to include when contacting support."
+            }
+          },
+          "duration_ms": 6.7
+        },
+        {
+          "node": "appliances_agent",
+          "action": "answer",
+          "output": {
+            "answer_preview": "When contacting support about the DW-650, provide the model number, serial number, and purchase date. Describe the symptoms and any display code, including when it appeared and which cycle was running",
+            "insufficient_info": false,
+            "retrieved_chapters": [
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls",
+              "ingested_model_and_controls"
+            ],
+            "used_tool_result": false,
+            "recovery": {
+              "attempted": false,
+              "reason": null,
+              "succeeded": null
+            }
+          },
+          "duration_ms": 4.0
+        },
+        {
+          "node": "synthesis_agent",
+          "action": "synthesize",
+          "output": {
+            "topics_merged": [
+              "appliances"
+            ]
+          },
+          "duration_ms": 0.0
+        }
+      ]
+    },
+    "scores": {
+      "topic_correct": true,
+      "subtopic_correct": true,
+      "source_correct": true,
+      "routing_correct": true,
+      "answer_correct": true,
+      "answer_correctness": 1.0,
+      "groundedness": 0.9474,
+      "overall_correct": true
+    },
+    "mlflow_trace_id": null,
+    "latency_ms": 59.2,
+    "total_tokens": 7834,
+    "prompt_tokens": 7520,
+    "completion_tokens": 314,
+    "cost_usd": 0.000952,
+    "error": null
+  }
+]

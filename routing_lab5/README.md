@@ -1157,6 +1157,10 @@ tracking your own manual verdict alongside the automated one.
   Level 2 question). Add, remove, or edit rows freely; `test_id` just
   needs to stay unique and stable across runs so `manual_review.csv`
   comments survive.
+- **Check an uploaded document:** set `expected_source` to its original
+  filename and include `source` in `graded`; the expected topic's retrieved
+  passages must include that source. Use `--dataset` and `--output-dir` to
+  run a separate dataset without overwriting the default reports.
 - **Run it:** `python scripts/run_batch_tests.py` (or
   `--ids T001 T015` to run a subset). Reuses the exact same
   `app.graph.build_graph()` as `app.main` and the pytest suite - no

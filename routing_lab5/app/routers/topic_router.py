@@ -68,11 +68,12 @@ def _topic_router_system_prompt() -> str:
         "example 'partition' refers to a Spark compute partition, an Azure Table Storage partition, "
         "or a physical warehouse storage partition depending on context. Use the surrounding context "
         "of the question, not keyword matching alone, to choose the topic. Business-process anchors "
-        "(SmartHome, shipping, warehouses, orders, refunds, customers) are stronger signals than a "
+        "(shipping, warehouses, orders, refunds) are stronger signals than a "
         "generic technical term like 'partition' or 'node' that also appears in cloud/data-engineering "
         "chapters - a question about 'storage partitions in a shipping warehouse' is about "
         "customer_support logistics, not data_engineering or azure_cloud, even though it uses the word "
-        "'partition'."
+        "'partition'. A brand name such as SmartHome does not by itself imply a customer-support "
+        "question: choose topics from what the user actually asks."
     )
     lines.append(
         "Most questions need EXACTLY ONE topic. Only include a second topic if the question "
