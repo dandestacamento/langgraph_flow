@@ -1096,6 +1096,14 @@ re-billing the API. Set `ROUTING_LAB_CACHE_ENABLED=0` to force fresh calls
 (e.g. after changing a prompt, since the cache key is just the literal
 question text).
 
+Embedding responses and cached vectors are checked for the expected batch
+count, non-empty finite numeric values, and consistent dimensions within a
+batch. Invalid results fail explicitly and are not newly cached. If an
+existing cached vector is invalid, investigate the cache or restart with
+`ROUTING_LAB_CACHE_ENABLED=0`; disabling it affects both embedding and LLM
+caching and may incur API charges. These checks do not verify semantic
+quality, compatibility between separate batches, or repair an existing index.
+
 ## Chat application
 
 `routing_lab7` wraps the stateless routing pipeline above in a

@@ -23,12 +23,12 @@ from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
 from app import llm_gateway
-from app.cache import CACHE_ENABLED, CachedEmbeddings
+from app.cache import CACHE_ENABLED, CachedEmbeddings, ValidatedEmbeddings
 from app.config import EMBEDDING_MODEL
 
 
 def get_embeddings_client() -> Embeddings:
     client = OpenAIEmbeddings(model=EMBEDDING_MODEL, **llm_gateway.llm_kwargs())
     if CACHE_ENABLED:
-        return CachedEmbeddings(client, model_name=EMBEDDING_MODEL)
-    return client
+        return ValidatedEmbeddings(CachedEmbeddings(client, model_name=EMBEDDING_MODEL))
+    return ValidatedEmbeddings(client)

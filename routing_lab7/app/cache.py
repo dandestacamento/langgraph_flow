@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import sqlite3
 
@@ -36,6 +37,43 @@ CACHE_DB_PATH = PROJECT_ROOT / ".llm_cache.db"
 CACHE_ENABLED = os.environ.get("ROUTING_LAB_CACHE_ENABLED", "1") != "0"
 
 _llm_cache_enabled = False
+
+
+def validate_embeddings(vectors: object, expected_count: int) -> list[list[float]]:
+    """Reject malformed vectors before they can be cached or indexed."""
+    if not isinstance(vectors, list) or len(vectors) != expected_count:
+        raise ValueError(f"Invalid embedding response: expected {expected_count} vectors")
+    dimension = None
+    for index, vector in enumerate(vectors):
+        if not isinstance(vector, list) or not vector:
+            raise ValueError(f"Invalid embedding vector at index {index}: expected a non-empty list")
+        if dimension is None:
+            dimension = len(vector)
+        elif len(vector) != dimension:
+            raise ValueError(f"Invalid embedding dimension at index {index}")
+        for value in vector:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"Invalid embedding value at index {index}: expected a finite number")
+            try:
+                finite = math.isfinite(value)
+            except OverflowError:
+                finite = False
+            if not finite:
+                raise ValueError(f"Invalid embedding value at index {index}: expected a finite number")
+    return vectors
+
+
+class ValidatedEmbeddings(Embeddings):
+    """Validate embedding responses whether or not caching is enabled."""
+
+    def __init__(self, underlying: Embeddings):
+        self._underlying = underlying
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return validate_embeddings(self._underlying.embed_documents(texts), len(texts))
+
+    def embed_query(self, text: str) -> list[float]:
+        return validate_embeddings([self._underlying.embed_query(text)], 1)[0]
 
 
 def enable_llm_cache() -> bool:
@@ -93,7 +131,16 @@ class CachedEmbeddings(Embeddings):
             row = conn.execute(
                 "SELECT vector FROM embedding_cache WHERE key = ?", (self._key(text),)
             ).fetchone()
-        return json.loads(row[0]) if row else None
+        if row is None:
+            return None
+        try:
+            vector = json.loads(row[0])
+        except json.JSONDecodeError as exc:
+            raise ValueError("Invalid cached embedding: malformed JSON") from exc
+        try:
+            return validate_embeddings([vector], 1)[0]
+        except ValueError as exc:
+            raise ValueError(f"Invalid cached embedding: {exc}") from exc
 
     def _set_cached(self, text: str, vector: list[float]) -> None:
         with sqlite3.connect(CACHE_DB_PATH) as conn:
@@ -106,16 +153,21 @@ class CachedEmbeddings(Embeddings):
         results: list[list[float] | None] = [self._get_cached(t) for t in texts]
         missing_indices = [i for i, r in enumerate(results) if r is None]
         if missing_indices:
-            fresh = self._underlying.embed_documents([texts[i] for i in missing_indices])
+            fresh = validate_embeddings(
+                self._underlying.embed_documents([texts[i] for i in missing_indices]),
+                len(missing_indices),
+            )
             for i, vector in zip(missing_indices, fresh):
                 results[i] = vector
-                self._set_cached(texts[i], vector)
-        return results  # type: ignore[return-value]
+        validated = validate_embeddings([vector for vector in results if vector is not None], len(texts))
+        for i in missing_indices:
+            self._set_cached(texts[i], validated[i])
+        return validated
 
     def embed_query(self, text: str) -> list[float]:
         cached = self._get_cached(text)
         if cached is not None:
             return cached
-        vector = self._underlying.embed_query(text)
+        vector = validate_embeddings([self._underlying.embed_query(text)], 1)[0]
         self._set_cached(text, vector)
         return vector
