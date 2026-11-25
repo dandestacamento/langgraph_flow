@@ -61,8 +61,8 @@ unchanged) rather than adding a second routing mechanism. A dedicated
 
 Level 10 adds `recovery_attempts`: one `RecoveryAttempt` per topic agent
 that ran, recording whether `app.agents._shared.run_topic_agent` tried a
-single bounded retry after its first answer attempt declined or a
-selected tool failed - and if so, whether the retry fixed it. The retry
+single bounded retry after its first answer attempt declined, failed
+verification, or a selected tool failed - and if so, whether the retry fixed it. The retry
 itself (not a separate graph node) broadens retrieval to the whole topic
 (dropping the subtopic filter, recovering from a possible wrong subtopic
 guess) and, for a failed tool, asks the LLM to self-correct the tool
@@ -78,14 +78,7 @@ from __future__ import annotations
 import operator
 from typing import Annotated, Literal, TypedDict
 
-Topic = Literal[
-    "appliances",
-    "azure_cloud",
-    "data_engineering",
-    "python",
-    "finance",
-    "customer_support",
-]
+Topic = str
 
 Complexity = Literal["simple", "intermediate", "complex"]
 ToolName = Literal["calculator", "sql_query", "metadata_lookup"]
@@ -146,7 +139,7 @@ class RecoveryAttempt(TypedDict):
     one has to infer."""
 
     attempted: bool
-    reason: str | None  # "insufficient_info" | "tool_error" | None
+    reason: str | None  # "insufficient_info" | "tool_error" | "answer_not_verified" | None
     succeeded: bool | None
 
 
@@ -206,6 +199,7 @@ class RoutingState(TypedDict):
     # Stage 2 (topic_router): one or more topics the question belongs to.
     topic_decision: TopicDecision | None
     selected_topics: list[Topic]
+    custom_agent_topic: str
 
     # Stage 2b (subtopic_router): one subtopic decision per selected topic.
     subtopic_decisions: Annotated[dict[str, SubtopicDecision], merge_dicts]

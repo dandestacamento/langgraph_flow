@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from app.agents._shared import INSUFFICIENT_INFO_MARKER
+from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER
 
 _NUMBER_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -86,10 +86,11 @@ def groundedness(actual_answer: str, retrieved_passages: list[str]) -> float:
 
 
 def is_insufficient_info(actual_answer: str, marker: str) -> bool:
-    """Whether an agent's answer declined to answer (reported insufficient
-    information) rather than fabricating a response. `marker` should be
-    `app.agents._shared.INSUFFICIENT_INFO_MARKER`."""
-    return marker.lower() in actual_answer.lower()
+    """Whether the agent declined for insufficient information or an unverified answer.
+
+    `marker` should be `app.agents._shared.INSUFFICIENT_INFO_MARKER`.
+    """
+    return marker.lower() in actual_answer.lower() or UNVERIFIED_ANSWER_MARKER.lower() in actual_answer.lower()
 
 
 @dataclass

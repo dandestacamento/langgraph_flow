@@ -369,6 +369,12 @@ export interface KnowledgeDocument {
   created_at: string;
   updated_at: string;
   duplicate: boolean;
+  pending?: {
+    version: number;
+    topic: string | null;
+    subtopic: string | null;
+    classification_confidence: number | null;
+  } | null;
 }
 
 async function knowledgeError(response: Response, fallback: string): Promise<Error> {
@@ -421,6 +427,18 @@ export async function getKnowledgeDocument(documentId: string): Promise<Knowledg
   return response.json();
 }
 
+export async function reindexKnowledgeDocument(documentId: string): Promise<KnowledgeDocument> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/knowledge/documents/${encodeURIComponent(documentId)}/reindex`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    throw await knowledgeError(response, "Re-index failed");
+  }
+  return response.json();
+}
+
 /** The topic -> subtopics taxonomy documents can be classified into
  * (served by the backend so the override form never drifts from
  * app/config.py's TOPIC_SUBTOPICS). */
@@ -442,6 +460,7 @@ export async function overrideClassification(
   documentId: string,
   topic: string,
   subtopic: string,
+  createMissing = false,
 ): Promise<KnowledgeDocument> {
   const token = await getValidToken();
   const response = await fetch(
@@ -449,11 +468,23 @@ export async function overrideClassification(
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ topic, subtopic }),
+      body: JSON.stringify({ topic, subtopic, create_missing: createMissing }),
     },
   );
   if (!response.ok) {
     throw await knowledgeError(response, "Classification override failed");
+  }
+  return response.json();
+}
+
+export async function refreshClassificationSuggestion(documentId: string): Promise<KnowledgeDocument> {
+  const token = await getValidToken();
+  const response = await fetch(
+    `${API_BASE_URL}/knowledge/documents/${encodeURIComponent(documentId)}/suggestion`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    throw await knowledgeError(response, "Suggestion refresh failed");
   }
   return response.json();
 }

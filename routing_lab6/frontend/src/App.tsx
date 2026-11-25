@@ -17,6 +17,8 @@ const ConversationSidebar = lazy(() => import("./components/ConversationSidebar"
 // (chat-ui-plan5.md Phase B).
 const KnowledgeBaseManager = lazy(() => import("./components/KnowledgeBaseManager"));
 
+const APP_TITLE = "Knowledge Base Chat";
+
 // One validated ground-truth question per knowledge-base topic
 // (chat-ui-plan3.md §1.4) - the empty state otherwise gives no hint
 // that the assistant knows more than appliances.
@@ -71,8 +73,8 @@ function App() {
 
   useEffect(() => {
     document.title = activeTitle
-      ? `${activeTitle} - Appliance Troubleshooting Chat`
-      : "Appliance Troubleshooting Chat";
+      ? `${activeTitle} - ${APP_TITLE}`
+      : APP_TITLE;
   }, [activeTitle]);
 
   const sidebar = (closeAfterAction: boolean) => (
@@ -125,7 +127,7 @@ function App() {
               </button>
               <div className="min-w-0">
                 <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                  Appliance Troubleshooting Chat
+                  {APP_TITLE}
                 </h1>
                 <p
                   className="truncate text-xs text-slate-500 dark:text-slate-400"

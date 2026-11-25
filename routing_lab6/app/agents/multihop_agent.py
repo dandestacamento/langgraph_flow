@@ -27,6 +27,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from app import llm_gateway
+from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER
 from app.config import AGENT_MODEL
 from app.state import RoutingState, initial_state
 
@@ -41,7 +42,8 @@ Combine them into ONE clear, well-organized answer to the original question. Pre
 and citation from both answers - do not drop or alter any of them. Do not add any new information \
 beyond what the two answers already say. Each answer below is introduced by a '--- HOP N: ... ---' \
 header - this header is NOT a citation and must never appear in your own Sources line; only copy \
-the real chapter_id/tool values that already appear after each hop's own 'Sources:' line. End your \
+the real source entries, including document names and page details, that already appear after each \
+hop's own 'Sources:' line. End your \
 answer with a single merged 'Sources: ' line listing every one of those values, without duplicates."""
 
 
@@ -77,7 +79,11 @@ def execute_multihop(state: RoutingState) -> dict:
     hop1_question = hop_plan["hop1_question"]
     hop1_state = graph.invoke(initial_state(hop1_question, is_hop_subquestion=True))
     hop1_answer = hop1_state["final_answer"]
-    hop1_extracted = _extract_value(hop1_question, hop1_answer)
+    declined_answers = (INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER)
+    hop1_extracted = (
+        None if any(marker in hop1_answer for marker in declined_answers)
+        else _extract_value(hop1_question, hop1_answer)
+    )
     hop1_result = {
         "hop_number": 1,
         "question": hop1_question,
@@ -106,6 +112,16 @@ def execute_multihop(state: RoutingState) -> dict:
         }
     )
 
+    if hop1_extracted is None:
+        return {
+            "selected_topics": hop1_state.get("selected_topics", []),
+            "retrieved_passages": hop1_state.get("retrieved_passages", {}),
+            "tool_results": hop1_state.get("tool_results", {}),
+            "hop_results": [hop1_result],
+            "final_answer": hop1_answer,
+            "execution_log": log_entries,
+        }
+
     hop2_question = hop_plan["hop2_question_template"].replace("{hop1_answer}", hop1_extracted)
     hop2_state = graph.invoke(initial_state(hop2_question, is_hop_subquestion=True))
     hop2_answer = hop2_state["final_answer"]
@@ -128,14 +144,17 @@ def execute_multihop(state: RoutingState) -> dict:
         }
     )
 
-    llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
-    human_message = (
-        f"Original question: {state['question']}\n\n"
-        f"--- HOP 1: {hop1_question} ---\n{hop1_answer}\n\n"
-        f"--- HOP 2: {hop2_question} ---\n{hop2_answer}"
-    )
-    response = llm.invoke([("system", _SYNTHESIS_SYSTEM_PROMPT), ("human", human_message)])
-    final_answer = response.content.strip()
+    if any(marker in hop2_answer for marker in declined_answers):
+        final_answer = f"{hop1_answer}\n\n{hop2_answer}"
+    else:
+        llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs())
+        human_message = (
+            f"Original question: {state['question']}\n\n"
+            f"--- HOP 1: {hop1_question} ---\n{hop1_answer}\n\n"
+            f"--- HOP 2: {hop2_question} ---\n{hop2_answer}"
+        )
+        response = llm.invoke([("system", _SYNTHESIS_SYSTEM_PROMPT), ("human", human_message)])
+        final_answer = response.content.strip()
     duration_ms = (time.perf_counter() - start) * 1000
 
     log_entries.append(

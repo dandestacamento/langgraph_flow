@@ -90,7 +90,16 @@ def test_chunk_text_merges_small_paragraphs_and_splits_large_content() -> None:
 
     long_paragraph = "x" * 2501
     chunks = chunk_text(long_paragraph)
-    assert "".join(chunks) == long_paragraph
+    assert all(set(chunk) == {"x"} for chunk in chunks)
+    assert sum(map(len, chunks)) >= len(long_paragraph)
+    assert max(map(len, chunks)) <= 1200
+
+
+def test_chunk_text_keeps_sentence_together_at_a_line_boundary() -> None:
+    text = "x" * 1135 + "\nProfiles are based on requirements and risk tolerance,\nand resources."
+    expected = "Profiles are based on requirements and risk tolerance, and resources."
+    chunks = chunk_text(text)
+    assert any(expected in " ".join(chunk.split()) for chunk in chunks)
     assert max(map(len, chunks)) <= 1200
 
 
@@ -179,6 +188,49 @@ def test_registry_dedup_and_event_log() -> None:
     events = registry.get(record["document_id"])["events"]
     assert events[0]["node"] == "extract"
     assert events[0]["elapsed_ms"] == 12
+
+
+def test_postgres_replacement_registry_in_temporary_schema(monkeypatch):
+    import os
+    from contextlib import nullcontext
+    import psycopg
+
+    conn_string = os.environ.get("TEST_POSTGRES_DSN")
+    if not conn_string:
+        pytest.skip("Set TEST_POSTGRES_DSN to run the isolated PostgreSQL registry test")
+    with psycopg.connect(conn_string, autocommit=True) as conn:
+        conn.execute(
+            "CREATE TEMP TABLE knowledge_documents ("
+            "document_id TEXT PRIMARY KEY, filename TEXT NOT NULL, media_type TEXT NOT NULL, "
+            "size_bytes INTEGER NOT NULL, content_hash TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, "
+            "status TEXT NOT NULL, uploaded_by TEXT NOT NULL DEFAULT '', topic TEXT, subtopic TEXT, "
+            "chapters TEXT NOT NULL DEFAULT '[]', classification_confidence REAL, error TEXT, "
+            "chunk_count INTEGER NOT NULL DEFAULT 0, chunk_ids TEXT NOT NULL DEFAULT '[]', "
+            "events TEXT NOT NULL DEFAULT '[]', stored_path TEXT NOT NULL DEFAULT '', "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+        )
+        monkeypatch.setattr(psycopg, "connect", lambda *args, **kwargs: nullcontext(conn))
+        registry = DocumentRegistry(conn_string)
+        document = registry.create(filename="sample.txt", media_type="text/plain", size_bytes=1,
+                                   content_hash="old", uploaded_by="tester")
+        document_id = document["document_id"]
+        registry.update(document_id, status="indexed", chunk_count=1, chunk_ids=["old-id"])
+        pending = {"version": 2, "content_hash": "new"}
+        assert registry.begin_replacement(document_id, 1, pending, indexed_only=True)
+        assert not registry.begin_replacement(document_id, 1, pending, indexed_only=True)
+        assert registry.active_versions() == ((document_id, 1),)
+        registry.recover_interrupted_replacements()
+        assert registry.get(document_id)["status"] == "failed"
+        assert registry.active_versions() == ((document_id, 1),)
+        assert not registry.begin_replacement(document_id, 1, pending, indexed_only=True)
+        assert registry.resume_replacement(document_id, ("failed",))
+        registry.update(document_id, status="needs_review")
+        assert registry.resume_replacement(document_id, ("needs_review",))
+        assert not registry.resume_replacement(document_id, ("needs_review",))
+        registry.update(document_id, status="indexed", version=2, pending=None, cleanup_ids=["old-id"])
+        assert registry.get(document_id)["pending"] is None
+        assert registry.get(document_id)["cleanup_ids"] == ["old-id"]
+        assert registry.active_versions() == ((document_id, 2),)
 
 
 def test_classification_problem_flags_bad_taxonomy_and_low_confidence() -> None:
@@ -407,3 +459,579 @@ def test_unreadable_document_fails_honestly() -> None:
     ).json()
     assert detail["status"] == "failed"
     assert "no readable text" in detail["error"]
+
+
+def test_new_taxonomy_requires_approval_and_persists(tmp_path, monkeypatch):
+    import app.api.main as api
+    import app.ingestion.taxonomy as taxonomy
+    from app.ingestion.storage import LocalDocumentStorage
+
+    store = taxonomy.TaxonomyStore(path=tmp_path / "taxonomy.db")
+    monkeypatch.setattr(taxonomy, "_store", store)
+    monkeypatch.setattr(api, "_document_registry", DocumentRegistry())
+    monkeypatch.setattr(api, "_document_storage", LocalDocumentStorage(tmp_path))
+    monkeypatch.setattr(
+        ingestion_graph, "classify_document",
+        lambda filename, text: DocumentClassification(
+            topic="artificial_intelligence", subtopic="risk_management",
+            chapters=["framework"], confidence=0.9,
+        ),
+    )
+
+    class Store:
+        documents = []
+
+        def add_documents(self, documents, ids):
+            self.documents = documents
+
+        def similarity_search(self, query, k, filter):
+            return self.documents[:k]
+
+    vector_store = Store()
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: vector_store)
+    response = client.post(
+        "/knowledge/documents", files={"file": ("ai.txt", b"AI risk framework", "text/plain")},
+        headers=_auth_headers(),
+    )
+    document_id = response.json()["document_id"]
+    detail = client.get(f"/knowledge/documents/{document_id}", headers=_auth_headers()).json()
+    assert detail["status"] == "needs_review"
+    assert detail["topic"] == "artificial_intelligence"
+    assert "artificial_intelligence" not in store.get()
+    refreshed = client.post(f"/knowledge/documents/{document_id}/suggestion", headers=_auth_headers())
+    assert refreshed.status_code == 200
+    assert client.get(f"/knowledge/documents/{document_id}", headers=_auth_headers()).json()["status"] == "needs_review"
+    body = {"topic": "artificial_intelligence", "subtopic": "risk_management"}
+    rejected = client.post(f"/knowledge/documents/{document_id}/classification", json=body, headers=_auth_headers())
+    assert rejected.status_code == 422
+    invalid = client.post(
+        f"/knowledge/documents/{document_id}/classification",
+        json={**body, "topic": "../bad", "create_missing": True}, headers=_auth_headers(),
+    )
+    assert invalid.status_code == 422
+    approved = client.post(
+        f"/knowledge/documents/{document_id}/classification",
+        json={**body, "create_missing": True}, headers=_auth_headers(),
+    )
+    assert approved.status_code == 200
+    detail = client.get(f"/knowledge/documents/{document_id}", headers=_auth_headers()).json()
+    assert detail["status"] == "indexed", detail["error"]
+    assert detail["chunk_count"] > 0
+    assert client.post(f"/knowledge/documents/{document_id}/suggestion", headers=_auth_headers()).status_code == 409
+    assert taxonomy.TaxonomyStore(path=tmp_path / "taxonomy.db").get()["artificial_intelligence"] == ["risk_management"]
+    store.add("appliances", "ovens")
+    assert "ovens" in taxonomy.TaxonomyStore(path=tmp_path / "taxonomy.db").get()["appliances"]
+
+
+@pytest.mark.parametrize(
+    ("topic", "subtopic"),
+    [("artificial_intelligence", "risk_management"), ("appliances", "ovens")],
+)
+def test_custom_taxonomy_routes_to_retrieved_document(tmp_path, monkeypatch, topic, subtopic):
+    import app.graph as routing_graph
+    import app.ingestion.taxonomy as taxonomy
+    import app.rag.retrieval as retrieval
+    import app.routers.subtopic_router as subtopic_router
+    import app.routers.topic_router as topic_router
+    import app.agents._shared as agent
+    from langchain_core.documents import Document
+    from app.state import initial_state
+
+    store = taxonomy.TaxonomyStore(path=tmp_path / "taxonomy.db")
+    store.add(topic, subtopic)
+    monkeypatch.setattr(taxonomy, "_store", store)
+    models = []
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def with_structured_output(self, model):
+            models.append(model)
+            self.model = model
+            return self
+
+        def invoke(self, messages):
+            if self.model.__name__ == "CurrentTopicOutput":
+                return self.model(
+                    is_ambiguous=False, topics=[topic],
+                    topic_questions=[{"topic": topic, "question": "What is the framework?"}],
+                    confidence=0.9, reasoning="AI risk",
+                )
+            return self.model(subtopic=subtopic, confidence=0.9, reasoning="AI risk")
+
+    class FakeVectorStore:
+        def similarity_search_with_score(self, query, k, filter):
+            assert filter["$and"][0] == {"$and": [{"topic": topic}, {"subtopic": subtopic}]}
+            return [(Document(page_content="The framework manages AI risks.", metadata={
+                "topic": topic, "subtopic": subtopic,
+                "chapter_id": "ingested_framework", "document_id": "DOC-AI",
+            }), 0.1)]
+
+    monkeypatch.setattr(topic_router, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(subtopic_router, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(retrieval, "get_vector_store", lambda: FakeVectorStore())
+    monkeypatch.setattr(retrieval, "_has_uploaded_content", lambda *args: False)
+    monkeypatch.setattr(routing_graph, "classify_complexity", lambda state: {})
+    monkeypatch.setattr(routing_graph, "classify_multihop", lambda state: {"is_multi_hop": False})
+    monkeypatch.setattr(routing_graph, "select_tools", lambda state: {})
+    monkeypatch.setattr(agent, "_generate_answer", lambda topic, question, passages, tool: (passages[0]["text"], False))
+    result = routing_graph.build_graph().invoke(initial_state("What is the framework?"))
+    assert result["selected_topics"] == [topic]
+    assert result["selected_subtopics"][topic] == subtopic
+    assert result["retrieved_passages"][topic][0]["document_id"] == "DOC-AI"
+    assert result["final_answer"] == "The framework manages AI risks."
+    assert topic in str(models[0].model_json_schema())
+
+
+def test_custom_agent_preserves_multitopic_question():
+    from app.graph import route_to_agents
+    from app.state import get_topic_question
+
+    state = {
+        "question": "Ask about AI and appliances",
+        "selected_topics": ["artificial_intelligence", "appliances"],
+        "topic_decision": {"topic_questions": {"artificial_intelligence": "Ask about AI"}},
+    }
+    custom = route_to_agents(state)[0]
+    assert custom.node == "custom_topic_agent"
+    assert custom.arg["custom_agent_topic"] == "artificial_intelligence"
+    assert get_topic_question(custom.arg, "artificial_intelligence") == "Ask about AI"
+
+
+def test_uploaded_sources_include_deduplicated_pages_and_preserve_other_sources(monkeypatch):
+    from types import SimpleNamespace
+    import app.agents._shared as agent
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return SimpleNamespace(content="Risk management supports trustworthy AI.")
+
+    monkeypatch.setattr(agent, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(agent.llm_gateway, "llm_kwargs", lambda: {})
+    monkeypatch.setattr(
+        agent, "taxonomy_store",
+        lambda: SimpleNamespace(get=lambda: {"artificial_intelligence": ["risk_management"]}),
+    )
+    uploaded = {
+        "chapter_id": "ingested_manual", "source": "NIST.AI.100-1.pdf",
+        "document_id": "DOC-123", "version": 1, "text": "AI risk management",
+    }
+    passages = [
+        {**uploaded, "page": 9}, {**uploaded, "page": 1}, {**uploaded, "page": 9},
+        {**uploaded, "page": None},
+        {**uploaded, "document_id": "DOC-789", "version": 2, "page": 3},
+        {"chapter_id": "chapter_01", "text": "Curated chapter"},
+        {"chapter_id": "ingested_note", "source": "notes.txt", "document_id": "DOC-456", "version": 2, "text": "Note"},
+    ]
+    answer, insufficient = agent._generate_answer(
+        "artificial_intelligence", "What is the purpose?", passages,
+        {"tool_name": "calculator", "tool_input": "1+1", "output": "2", "error": None},
+    )
+    assert not insufficient
+    assert "chapter_01" in answer
+    assert "NIST.AI.100-1.pdf (DOC-123; v1; pages 1, 9; other passages without page numbers; retrieved, not verified)" in answer
+    assert "NIST.AI.100-1.pdf (DOC-789; v2; page 3; retrieved, not verified)" in answer
+    assert "notes.txt (DOC-456; v2; retrieved, not verified)" in answer
+    assert "tool:calculator" in answer
+    assert "ingested_manual" not in answer
+
+
+def test_insufficient_answer_does_not_list_uploaded_sources(monkeypatch):
+    from types import SimpleNamespace
+    import app.agents._shared as agent
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return SimpleNamespace(content=agent.INSUFFICIENT_INFO_MARKER)
+
+    monkeypatch.setattr(agent, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(agent.llm_gateway, "llm_kwargs", lambda: {})
+    monkeypatch.setattr(
+        agent, "taxonomy_store",
+        lambda: SimpleNamespace(get=lambda: {"artificial_intelligence": ["risk_management"]}),
+    )
+    answer, insufficient = agent._generate_answer(
+        "artificial_intelligence", "What is missing?",
+        [{"chapter_id": "ingested_manual", "source": "NIST.AI.100-1.pdf", "page": 9, "text": "AI risk"}],
+        None,
+    )
+    assert insufficient
+    assert answer == agent.INSUFFICIENT_INFO_MARKER
+
+
+@pytest.fixture
+def replacement_environment(tmp_path, monkeypatch):
+    import chromadb
+    import uuid
+    import app.api.main as api
+    import app.rag.retrieval as retrieval
+    from app.ingestion.storage import LocalDocumentStorage
+    from langchain_chroma import Chroma
+    from langchain_core.embeddings import Embeddings
+
+    class TestEmbeddings(Embeddings):
+        def embed_documents(self, texts):
+            return [[1.0, 0.0] for _ in texts]
+
+        def embed_query(self, text):
+            return [1.0, 0.0]
+
+    registry = DocumentRegistry()
+    store = Chroma(client=chromadb.Client(), collection_name=f"replacement_{uuid.uuid4().hex}", embedding_function=TestEmbeddings())
+    monkeypatch.setattr(api, "_document_registry", registry)
+    monkeypatch.setattr(api, "_document_storage", LocalDocumentStorage(tmp_path))
+    monkeypatch.setattr(api, "_scope_llm_calls_to", lambda user: None)
+    monkeypatch.setattr(api, "get_vector_store", lambda: store)
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
+    monkeypatch.setattr(retrieval, "get_vector_store", lambda: store)
+    monkeypatch.setattr(retrieval, "_registry_provider", lambda: registry)
+    monkeypatch.setattr(
+        ingestion_graph, "classify_document",
+        lambda filename, text: DocumentClassification(
+            topic="appliances", subtopic="dishwashers", chapters=["manual"], confidence=0.95,
+        ),
+    )
+    return registry, store
+
+
+def _upload_test_version(content: bytes):
+    return client.post(
+        "/knowledge/documents", files={"file": ("replace.txt", content, "text/plain")},
+        headers=_auth_headers(),
+    )
+
+
+def test_section_reference_hints_require_a_unique_visible_topic(replacement_environment):
+    import app.rag.retrieval as retrieval
+
+    _, store = replacement_environment
+    store.add_texts(
+        ["MANAGE 4.3: Active instructions.", "MANAGE 4.3: Pending instructions."],
+        metadatas=[
+            {"topic": "appliances", "subtopic": "dishwashers"},
+            {"topic": "finance", "subtopic": "budgeting", "replacement_pending": True},
+        ],
+        ids=["active", "pending"],
+    )
+    question = "What does MANAGE 4.3 require?"
+    assert retrieval.find_reference_topics(question, ["appliances", "finance"]) == [
+        ("MANAGE 4.3", "appliances"),
+    ]
+    assert retrieval.find_reference_topics("What does MANAGE 4.4 require?", ["appliances", "finance"]) == []
+    store.add_texts(
+        ["MANAGE 4.3: Other active instructions."],
+        metadatas=[{"topic": "finance", "subtopic": "budgeting"}],
+        ids=["other"],
+    )
+    assert retrieval.find_reference_topics(question, ["appliances", "finance"]) == []
+
+
+def test_topic_router_includes_unique_indexed_section_hint(monkeypatch):
+    from types import SimpleNamespace
+    import app.routers.topic_router as topic_router
+
+    prompts = []
+
+    class FakeLLM:
+        def invoke(self, messages):
+            prompts.append(messages[0][1])
+            return SimpleNamespace(
+                topics=["artificial_intelligence"], topic_questions=[], is_ambiguous=False,
+                confidence=0.9, reasoning="The reference matches an indexed topic.",
+            )
+
+    monkeypatch.setattr(topic_router, "build_topic_llm", lambda: FakeLLM())
+    monkeypatch.setattr(topic_router, "taxonomy_store", lambda: SimpleNamespace(
+        get=lambda: {"artificial_intelligence": ["risk_management"]},
+    ))
+    monkeypatch.setattr(topic_router, "find_reference_topics", lambda question, topics: [
+        ("MANAGE 4.3", "artificial_intelligence"),
+    ])
+    result = topic_router.classify_topic({"question": "What does MANAGE 4.3 require?"})
+    assert result["selected_topics"] == ["artificial_intelligence"]
+    assert '["MANAGE 4.3", "artificial_intelligence"]' in prompts[0]
+
+
+def test_force_reindex_same_content_keeps_old_version_until_published(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    content = b"Original dishwasher instructions."
+    document_id = _upload_test_version(content).json()["document_id"]
+    old = registry.get(document_id)
+    observed = []
+    add_documents = store.add_documents
+
+    def observe_during_index(documents, **kwargs):
+        result = add_documents(documents, **kwargs)
+        if documents[0].metadata.get("replacement_pending"):
+            observed.extend(retrieval.retrieve("dishwasher", "appliances", "dishwashers"))
+        return result
+
+    monkeypatch.setattr(store, "add_documents", observe_during_index)
+    response = client.post(f"/knowledge/documents/{document_id}/reindex", headers=_auth_headers())
+    assert response.status_code == 200
+    assert response.json()["pending"]["version"] == 2
+    assert observed[0]["version"] == 1
+    current = registry.get(document_id)
+    assert current["status"] == "indexed"
+    assert current["version"] == 2
+    assert current["content_hash"] == old["content_hash"]
+    assert store.get(ids=old["chunk_ids"])["ids"] == []
+    assert retrieval.retrieve("dishwasher", "appliances", "dishwashers")[0]["version"] == 2
+    assert _upload_test_version(content).json()["duplicate"] is True
+
+
+def test_force_reindex_rejects_pending_and_missing_original(replacement_environment, monkeypatch):
+    import app.api.main as api
+
+    registry, _ = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    record = registry.get(document_id)
+    registry.update(document_id, status="needs_review", pending={"version": 2})
+    assert client.post(f"/knowledge/documents/{document_id}/reindex", headers=_auth_headers()).status_code == 409
+    registry.update(document_id, status="indexed", pending=None)
+    monkeypatch.setattr(api._document_storage, "read_original", lambda *args: (_ for _ in ()).throw(FileNotFoundError()))
+    assert client.post(f"/knowledge/documents/{document_id}/reindex", headers=_auth_headers()).status_code == 409
+    assert registry.get(document_id)["version"] == record["version"]
+    assert registry.get(document_id)["status"] == "indexed"
+
+
+def test_force_reindex_failure_keeps_published_chunks(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    old_ids = registry.get(document_id)["chunk_ids"]
+    monkeypatch.setattr(store, "similarity_search", lambda *args, **kwargs: [])
+    assert client.post(f"/knowledge/documents/{document_id}/reindex", headers=_auth_headers()).status_code == 200
+    failed = registry.get(document_id)
+    assert failed["status"] == "failed"
+    assert failed["version"] == 1
+    assert failed["chunk_ids"] == old_ids
+    assert "validate_retrieval" in failed["error"]
+    assert retrieval.retrieve("dishwasher", "appliances", "dishwashers")[0]["version"] == 1
+
+
+def test_changed_upload_keeps_old_version_until_new_version_is_published(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    first = _upload_test_version(b"Original dishwasher instructions.")
+    document_id = first.json()["document_id"]
+    original = registry.get(document_id)
+    assert original["status"] == "indexed"
+    old_ids = original["chunk_ids"]
+    assert _upload_test_version(b"Original dishwasher instructions.").json()["duplicate"] is True
+    monkeypatch.setattr(
+        ingestion_graph, "classify_document",
+        lambda filename, text: DocumentClassification(
+            topic="finance", subtopic="budgeting", chapters=["budget"], confidence=0.95,
+        ),
+    )
+    add_documents = store.add_documents
+    observed = []
+
+    def observe_during_index(documents, **kwargs):
+        result = add_documents(documents, **kwargs)
+        if documents[0].metadata.get("replacement_pending"):
+            observed.append((
+                retrieval.retrieve("instructions", "appliances", "dishwashers"),
+                retrieval.retrieve("instructions", "finance", "budgeting"),
+                retrieval.retrieve("instructions", "finance", retrieval_mode="hybrid", candidate_pool_size=40),
+                retrieval._has_uploaded_content("finance", "budgeting"),
+            ))
+        return result
+
+    monkeypatch.setattr(store, "add_documents", observe_during_index)
+    response = _upload_test_version(b"Updated budgeting instructions.")
+    assert response.status_code == 200
+    assert response.json()["document_id"] == document_id
+    assert response.json()["pending"]["version"] == 2
+    assert observed and observed[0][0][0]["text"] == "Original dishwasher instructions."
+    assert observed[0][1] == []
+    assert observed[0][2] == []
+    assert observed[0][3] is False
+    current = registry.get(document_id)
+    assert current["status"] == "indexed", current["error"]
+    assert current["version"] == 2
+    assert current["topic"] == "finance"
+    assert current["pending"] is None
+    assert store.get(ids=old_ids)["ids"] == []
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers") == []
+    assert retrieval.retrieve("instructions", "finance", "budgeting")[0]["text"] == "Updated budgeting instructions."
+    assert len(registry.list_documents()) == 1
+
+
+def test_replacement_awaiting_review_keeps_old_version_until_approved(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    old_ids = registry.get(document_id)["chunk_ids"]
+    monkeypatch.setattr(
+        ingestion_graph, "classify_document",
+        lambda filename, text: DocumentClassification(
+            topic="appliances", subtopic="dishwashers", chapters=["manual"], confidence=0.4,
+        ),
+    )
+    _upload_test_version(b"Updated dishwasher instructions.")
+    waiting = registry.get(document_id)
+    assert waiting["status"] == "needs_review"
+    assert waiting["version"] == 1
+    assert waiting["pending"]["version"] == 2
+    assert waiting["chunk_ids"] == old_ids
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers")[0]["text"] == "Original dishwasher instructions."
+    assert _upload_test_version(b"Another replacement.").status_code == 409
+    response = client.post(
+        f"/knowledge/documents/{document_id}/classification",
+        json={"topic": "appliances", "subtopic": "dishwashers"}, headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    updated = registry.get(document_id)
+    assert updated["status"] == "indexed", updated["error"]
+    assert updated["version"] == 2
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers")[0]["text"] == "Updated dishwasher instructions."
+    assert store.get(ids=old_ids)["ids"] == []
+
+
+def test_failed_replacement_preserves_old_index_and_allows_retry(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    old_ids = registry.get(document_id)["chunk_ids"]
+    original_search = store.similarity_search
+    monkeypatch.setattr(store, "similarity_search", lambda *args, **kwargs: [])
+    _upload_test_version(b"Updated dishwasher instructions.")
+    failed = registry.get(document_id)
+    assert failed["status"] == "failed"
+    assert failed["version"] == 1
+    assert failed["chunk_ids"] == old_ids
+    assert "validate_retrieval" in failed["error"]
+    assert store.get(where={"version": 2})["ids"] == []
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers")[0]["text"] == "Original dishwasher instructions."
+    monkeypatch.setattr(store, "similarity_search", original_search)
+    _upload_test_version(b"Updated dishwasher instructions.")
+    updated = registry.get(document_id)
+    assert updated["status"] == "indexed", updated["error"]
+    assert updated["version"] == 3
+    assert store.get(ids=old_ids)["ids"] == []
+
+
+def test_failed_replacement_cleanup_is_reserved_and_retryable(replacement_environment, monkeypatch):
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    original_search = store.similarity_search
+    monkeypatch.setattr(store, "similarity_search", lambda *args, **kwargs: [])
+    _upload_test_version(b"Updated dishwasher instructions.")
+    monkeypatch.setattr(store, "similarity_search", original_search)
+    original_get = store.get
+
+    def fail_cleanup(*args, **kwargs):
+        assert registry.get(document_id)["status"] == "processing"
+        raise RuntimeError("cleanup unavailable")
+
+    monkeypatch.setattr(store, "get", fail_cleanup)
+    assert _upload_test_version(b"Updated dishwasher instructions.").status_code == 503
+    failed = registry.get(document_id)
+    assert failed["pending"]["abandoned_versions"] == [2]
+    assert failed["version"] == 1
+    monkeypatch.setattr(store, "get", original_get)
+    assert _upload_test_version(b"Updated dishwasher instructions.").status_code == 200
+    assert registry.get(document_id)["version"] == 4
+
+
+def test_interrupted_replacement_is_retryable_after_restart(replacement_environment):
+    import app.rag.retrieval as retrieval
+    from langchain_core.documents import Document
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    assert registry.begin_replacement(document_id, 1, {"version": 2, "content_hash": "interrupted"})
+    store.add_documents(
+        [Document(page_content="Interrupted replacement", metadata={
+            "topic": "appliances", "subtopic": "dishwashers", "document_id": document_id,
+            "version": 2, "replacement_pending": True, "chapter_id": "manual",
+        })],
+        ids=["interrupted-2"],
+    )
+    registry.recover_interrupted_replacements()
+    assert registry.get(document_id)["status"] == "failed"
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers")[0]["text"] == "Original dishwasher instructions."
+    _upload_test_version(b"Updated dishwasher instructions.")
+    assert registry.get(document_id)["version"] == 3
+    assert store.get(ids=["interrupted-2"])["ids"] == []
+
+
+def test_cleanup_failure_hides_old_version_and_retries(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    old_ids = registry.get(document_id)["chunk_ids"]
+    original_delete = store.delete
+
+    def fail_old_delete(ids, **kwargs):
+        if ids == old_ids:
+            raise RuntimeError("cleanup unavailable")
+        return original_delete(ids=ids, **kwargs)
+
+    monkeypatch.setattr(store, "delete", fail_old_delete)
+    _upload_test_version(b"Updated dishwasher instructions.")
+    current = registry.get(document_id)
+    assert current["version"] == 2
+    assert current["cleanup_ids"] == old_ids
+    assert "cleanup failed" in current["error"]
+    assert store.get(ids=old_ids)["ids"] == old_ids
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers")[0]["text"] == "Updated dishwasher instructions."
+    monkeypatch.setattr(store, "delete", original_delete)
+    response = _upload_test_version(b"Updated dishwasher instructions.")
+    assert response.json()["duplicate"] is True
+    assert registry.get(document_id)["cleanup_ids"] == []
+    assert store.get(ids=old_ids)["ids"] == []
+
+
+def test_retrieval_keeps_unregistered_legacy_documents_visible(replacement_environment):
+    import app.rag.retrieval as retrieval
+    from langchain_core.documents import Document
+
+    _, store = replacement_environment
+    store.add_documents(
+        [Document(page_content="Legacy indexed text", metadata={
+            "topic": "appliances", "subtopic": "dishwashers", "document_id": "DOC-legacy",
+            "version": 1, "ingested": True, "chapter_id": "legacy",
+        })],
+        ids=["legacy-1"],
+    )
+    assert retrieval.retrieve("legacy", "appliances", "dishwashers")[0]["text"] == "Legacy indexed text"
+
+
+def test_standalone_retrieval_uses_configured_persistent_registry(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, _ = replacement_environment
+    _upload_test_version(b"Original dishwasher instructions.")
+    _upload_test_version(b"Updated dishwasher instructions.")
+    monkeypatch.setattr(retrieval, "_registry_provider", None)
+    monkeypatch.setenv("CHAT_DB_URL", "configured-test-database")
+    monkeypatch.setattr(retrieval, "_standalone_registry", lambda connection: registry)
+    assert retrieval.retrieve("instructions", "appliances", "dishwashers")[0]["text"] == "Updated dishwasher instructions."
+
+
+def test_hybrid_retrieval_refreshes_after_replacement(replacement_environment):
+    import app.rag.retrieval as retrieval
+
+    retrieval._bm25_retriever.cache_clear()
+    _upload_test_version(b"Original dishwasher instructions.")
+    assert retrieval.retrieve("dishwasher", "appliances", "dishwashers", retrieval_mode="hybrid")[0]["text"] == "Original dishwasher instructions."
+    _upload_test_version(b"Updated dishwasher instructions.")
+    assert retrieval.retrieve("dishwasher", "appliances", "dishwashers", retrieval_mode="hybrid")[0]["text"] == "Updated dishwasher instructions."
+    retrieval._bm25_retriever.cache_clear()

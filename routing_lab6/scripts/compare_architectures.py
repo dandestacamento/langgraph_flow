@@ -50,7 +50,7 @@ from app.agents._shared import INSUFFICIENT_INFO_MARKER  # noqa: E402
 from app.architectures.arch_a_llm_router import build_arch_a_graph  # noqa: E402
 from app.architectures.arch_b_hierarchical_router import build_arch_b_graph  # noqa: E402
 from app.cache import enable_llm_cache  # noqa: E402
-from app.evaluation.answer_metrics import AnswerResult  # noqa: E402
+from app.evaluation.answer_metrics import AnswerResult, is_insufficient_info  # noqa: E402
 from app.evaluation.routing_metrics import RoutingResult  # noqa: E402
 from app.graph import build_graph  # noqa: E402
 from app.observability.execution_logger import get_node_sequence  # noqa: E402
@@ -187,7 +187,7 @@ def score_case(case: dict, output: dict) -> dict:
     elif "is_answerable" in case and case["is_answerable"] is False:
         # Level 4 unanswerable rows with no expected_facts list at all.
         final_answer = output.get("final_answer", "")
-        scores["answer_correct"] = INSUFFICIENT_INFO_MARKER.lower() in final_answer.lower()
+        scores["answer_correct"] = is_insufficient_info(final_answer, INSUFFICIENT_INFO_MARKER)
 
     return scores
 

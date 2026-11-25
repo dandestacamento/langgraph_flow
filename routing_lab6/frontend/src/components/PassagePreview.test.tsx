@@ -20,14 +20,19 @@ describe("PassagePreview", () => {
   it("shows the passage's full text and metadata", () => {
     render(<PassagePreview passage={PASSAGE} onClose={() => {}} />);
 
-    expect(screen.getByRole("dialog", { name: /chapter_03_faults/ })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /manual.pdf/ })).toBeInTheDocument();
     expect(screen.getByText("appliances › washing_machines")).toBeInTheDocument();
     expect(screen.getByText("doc1")).toBeInTheDocument();
-    expect(screen.getByText("manual.pdf")).toBeInTheDocument();
+    expect(screen.getAllByText("manual.pdf")).toHaveLength(2);
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("0.79")).toBeInTheDocument();
     expect(screen.getByText(/E21: Drainage problem\. Check the pump filter/)).toBeInTheDocument();
+  });
+
+  it("uses the chapter label when there is no uploaded source", () => {
+    render(<PassagePreview passage={{ ...PASSAGE, source: null }} onClose={() => {}} />);
+    expect(screen.getByRole("dialog", { name: /chapter_03_faults/ })).toBeInTheDocument();
   });
 
   it("closes via the button, the backdrop, and Escape", () => {

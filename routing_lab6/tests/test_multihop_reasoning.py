@@ -79,6 +79,43 @@ def test_multihop_retains_both_hops_evidence(monkeypatch):
     assert [h["tool_results"]["appliances"]["output"] for h in result["hop_results"]] == ["first", "second"]
 
 
+@pytest.mark.parametrize("declined_hop", [1, 2])
+@pytest.mark.parametrize("marker", [
+    multihop_agent.INSUFFICIENT_INFO_MARKER,
+    multihop_agent.UNVERIFIED_ANSWER_MARKER,
+])
+def test_multihop_preserves_declined_answers_without_using_them(monkeypatch, declined_hop, marker):
+    states = iter([
+        {"final_answer": marker if declined_hop == 1 else "model", "execution_log": []},
+        {"final_answer": marker, "execution_log": []},
+    ])
+    calls = []
+
+    class Graph:
+        def invoke(self, state):
+            calls.append(state["question"])
+            return next(states)
+
+    def extract(*args):
+        assert declined_hop == 2
+        return "model"
+
+    def unexpected_synthesis(**kwargs):
+        pytest.fail("A declined hop must not be sent to synthesis")
+
+    monkeypatch.setattr(graph_module, "build_graph", lambda: Graph())
+    monkeypatch.setattr(multihop_agent, "_extract_value", extract)
+    monkeypatch.setattr(multihop_agent, "ChatOpenAI", unexpected_synthesis)
+    result = multihop_agent.execute_multihop({
+        "question": "q", "hop_plan": {"hop1_question": "first", "hop2_question_template": "{hop1_answer}"},
+    })
+    assert len(calls) == declined_hop
+    assert marker in result["final_answer"]
+    assert len(result["hop_results"]) == declined_hop
+    if declined_hop == 1:
+        assert result["hop_results"][0]["extracted_value"] is None
+
+
 def _invoke(compiled_graph, question: str) -> dict:
     return compiled_graph.invoke(initial_state(question))
 

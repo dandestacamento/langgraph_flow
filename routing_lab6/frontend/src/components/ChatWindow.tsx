@@ -213,7 +213,7 @@ export function ChatWindow({
             <p className="text-center text-sm text-slate-400 dark:text-slate-500">
               {isLoadingHistory
                 ? "Loading conversation…"
-                : "Ask a question about appliance troubleshooting to get started."}
+                : "Ask a question about the knowledge base to get started."}
             </p>
             {!isLoadingHistory && starterPrompts && starterPrompts.length > 0 && (
               <div className="mx-auto flex max-w-md flex-wrap justify-center gap-2">

@@ -85,11 +85,11 @@ from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.condense import generate_conversation_title  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
-from app.config import TOPIC_SUBTOPICS  # noqa: E402
 from app.ingestion.graph import run_ingestion  # noqa: E402
 from app.ingestion.registry import DocumentRegistry  # noqa: E402
 from app.ingestion.storage import LocalDocumentStorage  # noqa: E402
-from app.rag.retrieval import get_vector_store  # noqa: E402
+from app.ingestion.taxonomy import taxonomy_store  # noqa: E402
+from app.rag.retrieval import configure_document_registry, get_vector_store  # noqa: E402
 
 enable_llm_cache()
 
@@ -165,6 +165,8 @@ _attachment_store = AttachmentStore(conn_string=_CHAT_DB_URL)
 # Knowledge-ingestion pipeline (chat-ui-plan5.md Phase A): document
 # registry + immutable original storage under data/ (gitignored).
 _document_registry = DocumentRegistry(conn_string=_CHAT_DB_URL)
+_document_registry.recover_interrupted_replacements()
+configure_document_registry(lambda: _document_registry)
 _document_storage = LocalDocumentStorage(PROJECT_ROOT / "data")
 
 # Ingestion documents are text knowledge, not chat snapshots - images are
@@ -273,6 +275,13 @@ class AttachmentMeta(BaseModel):
     extracted_chars: int = 0
 
 
+class PendingKnowledgeDocument(BaseModel):
+    version: int
+    topic: str | None = None
+    subtopic: str | None = None
+    classification_confidence: float | None = None
+
+
 class KnowledgeDocument(BaseModel):
     """One ingested document's registry view (chat-ui-plan5.md Phase A) -
     classification, status, chunk count, and the per-node event log that
@@ -294,6 +303,7 @@ class KnowledgeDocument(BaseModel):
     events: list[dict] = []
     created_at: str
     updated_at: str
+    pending: PendingKnowledgeDocument | None = None
     # True on an upload response when these exact bytes were already
     # ingested - the existing document is returned, nothing reprocessed.
     duplicate: bool = False
@@ -440,6 +450,70 @@ def get_attachment(
     return Response(content=content, media_type=media_type)
 
 
+def _cleanup_previous_chunks(existing: dict) -> dict:
+    if not existing["cleanup_ids"]:
+        return existing
+    try:
+        get_vector_store().delete(ids=existing["cleanup_ids"])
+    except Exception as exc:
+        _document_registry.update(existing["document_id"], error=f"Old chunk cleanup failed: {exc}")
+        raise HTTPException(status_code=503, detail="Previous version cleanup failed; retry the upload.") from exc
+    _document_registry.update(existing["document_id"], cleanup_ids=[], error=None)
+    return _document_registry.get(existing["document_id"]) or existing
+
+
+def _start_document_replacement(
+    existing: dict, content: bytes, media_type: str, background_tasks: BackgroundTasks, user: str,
+    *, indexed_only: bool = False,
+) -> KnowledgeDocument:
+    if not existing["chunk_ids"]:
+        raise HTTPException(status_code=409, detail="The existing document is not indexed; resolve it before replacing it.")
+    content_hash = hashlib.sha256(content).hexdigest()
+    previous_pending = existing.get("pending")
+    next_version = max(existing["version"], previous_pending["version"] if previous_pending else 0) + 1
+    abandoned_versions = (
+        [*previous_pending.get("abandoned_versions", []), previous_pending["version"]]
+        if previous_pending and existing["status"] == "failed" else []
+    )
+    pending = {
+        "version": next_version, "content_hash": content_hash, "media_type": media_type,
+        "size_bytes": len(content), "stored_path": "", "topic": None, "subtopic": None,
+        "classification_confidence": None, "chapters": [], "abandoned_versions": abandoned_versions,
+    }
+    if not _document_registry.begin_replacement(
+        existing["document_id"], existing["version"], pending, indexed_only=indexed_only,
+    ):
+        raise HTTPException(status_code=409, detail="Another replacement is processing or awaiting review.")
+    if abandoned_versions:
+        try:
+            store = get_vector_store()
+            for version in abandoned_versions:
+                abandoned = store.get(where={"$and": [
+                    {"document_id": existing["document_id"]}, {"version": version},
+                ]})["ids"]
+                if abandoned:
+                    store.delete(ids=abandoned)
+        except Exception as exc:
+            _document_registry.update(existing["document_id"], status="failed", error=f"Replacement cleanup failed: {exc}")
+            raise HTTPException(status_code=503, detail="Failed replacement cleanup failed; retry the upload.") from exc
+        pending["abandoned_versions"] = []
+    try:
+        pending["stored_path"] = _document_storage.save_original(
+            existing["document_id"], next_version, existing["filename"], content
+        )
+    except OSError as exc:
+        _document_registry.update(existing["document_id"], status="failed", error=f"Replacement storage failed: {exc}")
+        raise HTTPException(status_code=500, detail="Could not store the replacement; the indexed version remains available.") from exc
+    _document_registry.update(existing["document_id"], pending=pending)
+    replacement = {
+        **existing, "version": next_version, "media_type": media_type,
+        "is_replacement": True,
+    }
+    _scope_llm_calls_to(user)
+    background_tasks.add_task(run_ingestion, _document_registry, replacement, content)
+    return _knowledge_document(_document_registry.get(existing["document_id"]) or existing)
+
+
 @app.post("/knowledge/documents", response_model=KnowledgeDocument)
 async def upload_knowledge_document(
     file: UploadFile, background_tasks: BackgroundTasks, user: str = Depends(get_current_user)
@@ -468,12 +542,23 @@ async def upload_knowledge_document(
         )
 
     content_hash = hashlib.sha256(content).hexdigest()
+    filename = file.filename or "document"
+    matches = [r for r in _document_registry.list_documents() if r["filename"] == filename]
+    if len(matches) > 1:
+        raise HTTPException(status_code=409, detail="Multiple documents have this filename; automatic replacement is ambiguous.")
+    if matches:
+        existing = _cleanup_previous_chunks(matches[0])
+        pending = existing.get("pending")
+        if content_hash == existing["content_hash"] or (pending and content_hash == pending["content_hash"] and existing["status"] != "failed"):
+            return _knowledge_document(existing, duplicate=True)
+        return _start_document_replacement(existing, content, media_type, background_tasks, user)
+
     existing = _document_registry.find_by_hash(content_hash)
     if existing is not None:
         return _knowledge_document(existing, duplicate=True)
 
     record = _document_registry.create(
-        filename=file.filename or "document",
+        filename=filename,
         media_type=media_type,
         size_bytes=len(content),
         content_hash=content_hash,
@@ -487,6 +572,30 @@ async def upload_knowledge_document(
     _scope_llm_calls_to(user)  # classification is an LLM call billed to the uploader
     background_tasks.add_task(run_ingestion, _document_registry, record, content)
     return _knowledge_document({**record, "stored_path": stored_path})
+
+
+@app.post("/knowledge/documents/{document_id}/reindex", response_model=KnowledgeDocument)
+def reindex_knowledge_document(
+    document_id: str, background_tasks: BackgroundTasks, user: str = Depends(get_current_user),
+) -> KnowledgeDocument:
+    record = _document_registry.get(document_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Unknown document.")
+    if record["status"] != "indexed" or record.get("pending") or not record["chunk_ids"]:
+        raise HTTPException(status_code=409, detail="Only an indexed document without a pending replacement can be re-indexed.")
+    try:
+        content = _document_storage.read_original(document_id, record["version"], record["filename"])
+    except OSError as exc:
+        raise HTTPException(status_code=409, detail="The indexed document's stored original is unavailable.") from exc
+    if hashlib.sha256(content).hexdigest() != record["content_hash"]:
+        raise HTTPException(status_code=409, detail="The stored original does not match the indexed document.")
+    original_version = record["version"]
+    record = _cleanup_previous_chunks(record)
+    if record["version"] != original_version:
+        raise HTTPException(status_code=409, detail="The indexed document changed; retry re-indexing.")
+    return _start_document_replacement(
+        record, content, record["media_type"], background_tasks, user, indexed_only=True,
+    )
 
 
 @app.get("/knowledge/documents", response_model=list[KnowledgeDocument])
@@ -511,13 +620,38 @@ def get_knowledge_document(
 class ManualClassificationRequest(BaseModel):
     topic: str
     subtopic: str
+    create_missing: bool = False
 
 
 @app.get("/knowledge/taxonomy")
 def get_knowledge_taxonomy(user: str = Depends(get_current_user)) -> dict[str, list[str]]:
-    """The topic -> subtopics taxonomy, served so the frontend's manual
-    override form can't drift from config.TOPIC_SUBTOPICS."""
-    return TOPIC_SUBTOPICS
+    """The curated and approved topic -> subtopic taxonomy."""
+    return taxonomy_store().get()
+
+
+@app.post("/knowledge/documents/{document_id}/suggestion", response_model=KnowledgeDocument)
+def refresh_classification_suggestion(
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    user: str = Depends(get_current_user),
+) -> KnowledgeDocument:
+    record = _document_registry.get(document_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Unknown document.")
+    if record["status"] != "needs_review":
+        raise HTTPException(status_code=409, detail="Only documents awaiting review can be reclassified.")
+    pending = record.get("pending")
+    version = pending["version"] if pending else record["version"]
+    content = _document_storage.read_original(record["document_id"], version, record["filename"])
+    if pending:
+        if not _document_registry.resume_replacement(document_id, ("needs_review",)):
+            raise HTTPException(status_code=409, detail="Replacement is no longer awaiting review.")
+        record = {**record, "version": version, "media_type": pending["media_type"], "is_replacement": True}
+    else:
+        _document_registry.update(document_id, status="processing", error=None)
+    _scope_llm_calls_to(user)
+    background_tasks.add_task(run_ingestion, _document_registry, record, content)
+    return _knowledge_document(_document_registry.get(document_id) or record)
 
 
 @app.post("/knowledge/documents/{document_id}/classification", response_model=KnowledgeDocument)
@@ -535,15 +669,30 @@ def override_classification(
     record = _document_registry.get(document_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Unknown document.")
-    if request.topic not in TOPIC_SUBTOPICS:
-        raise HTTPException(status_code=422, detail=f"Unknown topic {request.topic!r}.")
-    if request.subtopic not in TOPIC_SUBTOPICS[request.topic]:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Unknown subtopic {request.subtopic!r} for topic {request.topic!r}.",
-        )
     if record["status"] == "processing":
         raise HTTPException(status_code=409, detail="Document is still being processed.")
+    taxonomy = taxonomy_store().get()
+    if request.subtopic not in taxonomy.get(request.topic, []):
+        if not request.create_missing:
+            raise HTTPException(status_code=422, detail="Unknown topic or subtopic; creation requires approval.")
+        try:
+            taxonomy_store().add(request.topic, request.subtopic)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    pending = record.get("pending")
+    if pending:
+        content = _document_storage.read_original(record["document_id"], pending["version"], record["filename"])
+        if not _document_registry.resume_replacement(document_id, ("needs_review", "failed")):
+            raise HTTPException(status_code=409, detail="Replacement is no longer awaiting review.")
+        replacement = {
+            **record, "version": pending["version"], "media_type": pending["media_type"], "is_replacement": True,
+        }
+        _scope_llm_calls_to(user)
+        background_tasks.add_task(
+            run_ingestion, _document_registry, replacement, content, request.topic, request.subtopic,
+        )
+        return _knowledge_document(_document_registry.get(document_id) or record)
 
     # Surgical removal of the previous classification's chunks (if any)
     # before reindexing under the corrected one.

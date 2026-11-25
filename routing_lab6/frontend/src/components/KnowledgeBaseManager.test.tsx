@@ -9,6 +9,8 @@ vi.mock("../api/client", () => ({
   getKnowledgeDocument: vi.fn(),
   uploadKnowledgeDocument: vi.fn(),
   overrideClassification: vi.fn(),
+  reindexKnowledgeDocument: vi.fn(),
+  refreshClassificationSuggestion: vi.fn(),
   fetchKnowledgeTaxonomy: vi.fn(),
 }));
 
@@ -17,6 +19,8 @@ import {
   getKnowledgeDocument,
   listKnowledgeDocuments,
   overrideClassification,
+  reindexKnowledgeDocument,
+  refreshClassificationSuggestion,
   uploadKnowledgeDocument,
 } from "../api/client";
 
@@ -142,6 +146,7 @@ describe("KnowledgeBaseManager", () => {
         "doc-1",
         "appliances",
         "washing_machines",
+        false,
       );
     });
     // The override's response (back to processing) replaces the row.
@@ -156,5 +161,109 @@ describe("KnowledgeBaseManager", () => {
 
     expect(screen.getByText("Pipeline log")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reclassify & index" })).not.toBeInTheDocument();
+  });
+
+  it("re-indexes the stored file without uploading it again", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc()]);
+    vi.mocked(reindexKnowledgeDocument).mockResolvedValue(doc({
+      status: "processing",
+      pending: { version: 2, topic: null, subtopic: null, classification_confidence: null },
+    }));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Re-index stored file" }));
+    await waitFor(() => expect(reindexKnowledgeDocument).toHaveBeenCalledWith("doc-1"));
+    expect(await screen.findByText(/Version 1 remains indexed while replacement version 2/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Re-index stored file" })).not.toBeInTheDocument();
+  });
+
+  it("shows a re-index error without losing the indexed document", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc()]);
+    vi.mocked(reindexKnowledgeDocument).mockRejectedValue(new Error("Stored original unavailable"));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Re-index stored file" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Stored original unavailable");
+    expect(screen.getByText("Indexed")).toBeInTheDocument();
+  });
+
+  it("approves a new suggested topic and subtopic", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([
+      doc({ status: "needs_review", topic: "artificial_intelligence", subtopic: "risk_management" }),
+    ]);
+    vi.mocked(overrideClassification).mockResolvedValue(doc({ status: "processing" }));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve suggestion & index" }));
+    await waitFor(() => expect(overrideClassification).toHaveBeenCalledWith(
+      "doc-1", "artificial_intelligence", "risk_management", true,
+    ));
+  });
+
+  it("lets a user create a subtopic under an existing topic", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc({ status: "needs_review" })]);
+    vi.mocked(overrideClassification).mockResolvedValue(doc({ status: "processing" }));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Create subtopic" }));
+    fireEvent.change(screen.getByLabelText("New subtopic"), { target: { value: "ovens" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reclassify & index" }));
+    await waitFor(() => expect(overrideClassification).toHaveBeenCalledWith("doc-1", "appliances", "ovens", true));
+  });
+
+  it("lets a user create a topic and subtopic", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc({ status: "needs_review" })]);
+    vi.mocked(overrideClassification).mockResolvedValue(doc({ status: "processing" }));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Create topic" }));
+    fireEvent.change(screen.getByLabelText("New topic"), { target: { value: "artificial_intelligence" } });
+    fireEvent.change(screen.getByLabelText("New subtopic"), { target: { value: "risk_management" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reclassify & index" }));
+    await waitFor(() => expect(overrideClassification).toHaveBeenCalledWith(
+      "doc-1", "artificial_intelligence", "risk_management", true,
+    ));
+  });
+
+  it("refreshes a suggestion for an already parked document", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc({ status: "needs_review" })]);
+    vi.mocked(refreshClassificationSuggestion).mockResolvedValue(doc({ status: "processing" }));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Get a fresh suggestion" }));
+    await waitFor(() => expect(refreshClassificationSuggestion).toHaveBeenCalledWith("doc-1"));
+    expect(await screen.findByText("Processing")).toBeInTheDocument();
+  });
+
+  it("shows the published version and replacement suggestion during review", async () => {
+    vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc({
+      status: "needs_review",
+      version: 1,
+      topic: "appliances",
+      subtopic: "washing_machines",
+      pending: { version: 2, topic: "finance", subtopic: "budgeting", classification_confidence: 0.4 },
+    })]);
+    vi.mocked(overrideClassification).mockResolvedValue(doc({ status: "processing" }));
+    render(<KnowledgeBaseManager />);
+    fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
+    expect(screen.getByText(/Version 1 remains indexed while replacement version 2/)).toBeInTheDocument();
+    expect(screen.getByText("finance / budgeting")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Approve suggestion & index" }));
+    await waitFor(() => expect(overrideClassification).toHaveBeenCalledWith(
+      "doc-1", "finance", "budgeting", false,
+    ));
+  });
+
+  it("reports an uploaded replacement while keeping the published version", async () => {
+    vi.mocked(uploadKnowledgeDocument).mockResolvedValue(doc({
+      status: "processing",
+      pending: { version: 2, topic: null, subtopic: null, classification_confidence: null },
+    }));
+    render(<KnowledgeBaseManager />);
+    await screen.findByText(/No documents ingested yet/);
+    fireEvent.change(screen.getByLabelText("Choose documents to ingest"), {
+      target: { files: [new File(["updated"], "bulletin.md", { type: "text/markdown" })] },
+    });
+    expect(await screen.findByText(/previous version remains indexed/)).toBeInTheDocument();
   });
 });

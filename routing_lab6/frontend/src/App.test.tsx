@@ -45,6 +45,17 @@ function baseChatState() {
 }
 
 describe("App", () => {
+  it("uses a topic-neutral app title while preserving the conversation title", () => {
+    mockedUseChat.mockReturnValue(baseChatState());
+    const { rerender } = render(<App />);
+    expect(screen.getByRole("heading", { name: "Knowledge Base Chat" })).toBeInTheDocument();
+    expect(document.title).toBe("First conversation - Knowledge Base Chat");
+
+    mockedUseChat.mockReturnValue({ ...baseChatState(), threadId: "" });
+    rerender(<App />);
+    expect(document.title).toBe("Knowledge Base Chat");
+  });
+
   it("switches back to the chat view when a conversation is selected from the Knowledge base screen", async () => {
     const chatState = baseChatState();
     mockedUseChat.mockReturnValue(chatState);

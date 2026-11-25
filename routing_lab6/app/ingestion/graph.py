@@ -23,9 +23,9 @@ Known caveats, deliberate for Phase A:
   reindexes only the curated knowledge base - ingested documents must be
   re-published afterwards (a `reindex` admin action is Phase C work,
   tracked in chat-ui-plan5.md).
-- Hybrid retrieval's BM25 index is cached per-process; newly ingested
-  content appears in BM25 results only after a backend restart. The
-  default "similarity" mode picks it up immediately.
+- Hybrid retrieval's BM25 index is cached per-process and refreshed
+  when the registry's active document versions change. Changes to
+  unregistered curated content still require a backend restart.
 """
 
 from __future__ import annotations
@@ -42,19 +42,21 @@ from pypdf import PdfReader
 
 from app.ingestion.classify import classification_problem, classify_document
 from app.ingestion.registry import DocumentRegistry
-from app.rag.retrieval import get_vector_store
+from app.rag.retrieval import get_vector_store, index_publication_lock
 
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
 # Merge paragraphs up to roughly this size so an arbitrary uploaded
 # document doesn't explode into hundreds of two-line chunks (the curated
 # KB's chapters are short by construction; uploads aren't).
 _TARGET_CHUNK_CHARS = 1200
+_CHUNK_OVERLAP_CHARS = 200
 _RETRIEVAL_TEST_TOP_K = 5
 
 
 class IngestionState(TypedDict):
     document_id: str
     version: int
+    is_replacement: bool
     filename: str
     media_type: str
     content: bytes
@@ -83,10 +85,12 @@ def _slug(label: str) -> str:
 def chunk_text(text: str) -> list[str]:
     """Paragraph-based chunking with small-paragraph merging - the same
     blank-line splitting the curated KB uses (app/rag/chunking.py), plus
-    merging because uploaded documents aren't pre-shaped into short
-    chapters the way generate_knowledge_base.py output is."""
+    sentence-aware splitting and overlap for oversized paragraphs."""
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=_TARGET_CHUNK_CHARS, chunk_overlap=0, separators=["\n", " ", ""]
+        chunk_size=_TARGET_CHUNK_CHARS,
+        chunk_overlap=_CHUNK_OVERLAP_CHARS,
+        separators=[r"(?<=[.!?])\s+", "\n", " ", ""],
+        is_separator_regex=True,
     )
     paragraphs = [
         part
@@ -222,12 +226,18 @@ def build_ingestion_graph(registry: DocumentRegistry):
                     "source": state["filename"],
                     "version": state["version"],
                     "ingested": True,
+                    **({"replacement_pending": True} if state["is_replacement"] else {}),
                     **({"page": state["chunk_pages"][i]} if state["chunk_pages"][i] is not None else {}),
                 },
             )
             for i, text in enumerate(state["chunks"])
         ]
-        get_vector_store().add_documents(documents, ids=ids)
+        store = get_vector_store()
+        try:
+            store.add_documents(documents, ids=ids)
+        except Exception:
+            store.delete(ids=ids)
+            raise
         return {"chunk_ids": ids, "_event_detail": f"{len(ids)} chunks indexed"}
 
     @timed("validate_retrieval")
@@ -238,7 +248,10 @@ def build_ingestion_graph(registry: DocumentRegistry):
         document must appear in the top results. Deliberately NOT an LLM
         judgment - retrieval success, not answer quality."""
         store = get_vector_store()
-        where = {"$and": [{"topic": state["topic"]}, {"subtopic": state["subtopic"]}]}
+        where = {"$and": [
+            {"topic": state["topic"]}, {"subtopic": state["subtopic"]},
+            {"document_id": state["document_id"]}, {"version": state["version"]},
+        ]}
         misses = []
         sample_indices = sorted({
             0, len(state["chunks"]) // 2, len(state["chunks"]) - 1
@@ -247,7 +260,11 @@ def build_ingestion_graph(registry: DocumentRegistry):
             chunk_text_sample = state["chunks"][sample_index]
             query = " ".join(chunk_text_sample.split()[:12])
             results = store.similarity_search(query, k=_RETRIEVAL_TEST_TOP_K, filter=where)
-            if not any(r.metadata.get("document_id") == state["document_id"] for r in results):
+            if not any(
+                r.metadata.get("document_id") == state["document_id"]
+                and r.metadata.get("version") == state["version"]
+                for r in results
+            ):
                 misses.append(query)
         if misses:
             # Roll back: an unfindable document must not be published.
@@ -311,6 +328,7 @@ def run_ingestion(
     initial: IngestionState = {
         "document_id": record["document_id"],
         "version": record["version"],
+        "is_replacement": record.get("is_replacement", False),
         "filename": record["filename"],
         "media_type": record["media_type"],
         "content": content,
@@ -332,6 +350,46 @@ def run_ingestion(
         final = graph.invoke(initial)
     except Exception as exc:  # noqa: BLE001 - background task must not raise
         registry.update(record["document_id"], status="failed", error=f"ingestion crashed: {exc}")
+        return
+
+    if record.get("is_replacement"):
+        current = registry.get(record["document_id"])
+        if current is None or not current.get("pending") or current["pending"]["version"] != record["version"]:
+            raise RuntimeError("Replacement state changed while ingestion was running.")
+        pending = current["pending"]
+        outcome = final.get("outcome") or "failed"
+        if outcome != "indexed":
+            if final.get("chunk_ids"):
+                try:
+                    get_vector_store().delete(ids=final["chunk_ids"])
+                except Exception as exc:
+                    final["error"] = f"{final.get('error') or outcome}; replacement cleanup failed: {exc}"
+            pending.update(
+                topic=final.get("topic") or None, subtopic=final.get("subtopic") or None,
+                chapters=final.get("chapters", []),
+                classification_confidence=final.get("confidence"),
+            )
+            registry.update(record["document_id"], status=outcome, error=final.get("error") or None, pending=pending)
+            return
+        old_ids = current["chunk_ids"]
+        with index_publication_lock:
+            registry.update(
+                record["document_id"], status="indexed", error=None,
+                version=pending["version"], content_hash=pending["content_hash"],
+                media_type=pending["media_type"], size_bytes=pending["size_bytes"],
+                stored_path=pending["stored_path"], topic=final.get("topic") or None,
+                subtopic=final.get("subtopic") or None, chapters=final.get("chapters", []),
+                classification_confidence=final.get("confidence"),
+                chunk_count=len(final.get("chunk_ids", [])), chunk_ids=final.get("chunk_ids", []),
+                pending=None, cleanup_ids=old_ids,
+            )
+            try:
+                if old_ids:
+                    get_vector_store().delete(ids=old_ids)
+            except Exception as exc:
+                registry.update(record["document_id"], error=f"New version indexed, but old chunk cleanup failed: {exc}")
+            else:
+                registry.update(record["document_id"], cleanup_ids=[])
         return
 
     registry.update(

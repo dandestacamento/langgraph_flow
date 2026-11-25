@@ -13,6 +13,8 @@ import {
   getKnowledgeDocument,
   listKnowledgeDocuments,
   overrideClassification,
+  reindexKnowledgeDocument,
+  refreshClassificationSuggestion,
   uploadKnowledgeDocument,
 } from "../api/client";
 import type { KnowledgeDocument } from "../api/client";
@@ -60,22 +62,37 @@ function OverrideForm({
   document,
   taxonomy,
   onOverridden,
+  onTaxonomyChanged,
 }: {
   document: KnowledgeDocument;
   taxonomy: Record<string, string[]>;
   onOverridden: (updated: KnowledgeDocument) => void;
+  onTaxonomyChanged: (taxonomy: Record<string, string[]>) => void;
 }) {
   const topics = Object.keys(taxonomy);
   const [topic, setTopic] = useState(topics[0] ?? "");
   const [subtopic, setSubtopic] = useState(taxonomy[topics[0] ?? ""]?.[0] ?? "");
+  const [newTopic, setNewTopic] = useState(false);
+  const [newSubtopic, setNewSubtopic] = useState(false);
+  const [customTopic, setCustomTopic] = useState("");
+  const [customSubtopic, setCustomSubtopic] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async () => {
+  const submit = async (selectedTopic: string, selectedSubtopic: string) => {
     setSubmitting(true);
     setError(null);
     try {
-      const updated = await overrideClassification(document.document_id, topic, subtopic);
+      const createMissing = !(taxonomy[selectedTopic] ?? []).includes(selectedSubtopic);
+      const updated = await overrideClassification(
+        document.document_id, selectedTopic, selectedSubtopic, createMissing,
+      );
+      if (createMissing) {
+        onTaxonomyChanged({
+          ...taxonomy,
+          [selectedTopic]: [...(taxonomy[selectedTopic] ?? []), selectedSubtopic],
+        });
+      }
       onOverridden(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Override failed.");
@@ -84,14 +101,48 @@ function OverrideForm({
     }
   };
 
+  const refresh = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      onOverridden(await refreshClassificationSuggestion(document.document_id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Suggestion refresh failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const chosenTopic = newTopic ? customTopic : topic;
+  const chosenSubtopic = newTopic || newSubtopic ? customSubtopic : subtopic;
+  const suggestion = document.pending ?? document;
+
   return (
     <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
       <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-        Classify this document manually to index it:
+        Review the suggested classification or choose your own:
       </p>
+      {suggestion.topic && suggestion.subtopic && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span>Suggested: <strong>{suggestion.topic} / {suggestion.subtopic}</strong></span>
+          <button type="button" disabled={submitting} onClick={() => void submit(suggestion.topic!, suggestion.subtopic!)}
+            className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50">
+            Approve suggestion &amp; index
+          </button>
+        </div>
+      )}
+      {document.status === "needs_review" && (
+        <button type="button" disabled={submitting} onClick={() => void refresh()}
+          className="mb-2 text-xs text-sky-700 underline disabled:opacity-50 dark:text-sky-300">
+          Get a fresh suggestion
+        </button>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs text-slate-600 dark:text-slate-300">
           Topic{" "}
+          {newTopic ? (
+            <input aria-label="New topic" value={customTopic} onChange={(e) => setCustomTopic(e.target.value)}
+              placeholder="e.g. artificial_intelligence" className="rounded border border-slate-300 px-1 py-0.5 text-xs dark:bg-slate-800" />
+          ) : (
           <select
             value={topic}
             onChange={(e) => {
@@ -106,9 +157,17 @@ function OverrideForm({
               </option>
             ))}
           </select>
+          )}
         </label>
+        <button type="button" onClick={() => setNewTopic(!newTopic)} className="text-xs text-sky-700 underline dark:text-sky-300">
+          {newTopic ? "Choose existing topic" : "Create topic"}
+        </button>
         <label className="text-xs text-slate-600 dark:text-slate-300">
           Subtopic{" "}
+          {newTopic || newSubtopic ? (
+            <input aria-label="New subtopic" value={customSubtopic} onChange={(e) => setCustomSubtopic(e.target.value)}
+              placeholder="e.g. risk_management" className="rounded border border-slate-300 px-1 py-0.5 text-xs dark:bg-slate-800" />
+          ) : (
           <select
             value={subtopic}
             onChange={(e) => setSubtopic(e.target.value)}
@@ -120,16 +179,25 @@ function OverrideForm({
               </option>
             ))}
           </select>
+          )}
         </label>
+        {!newTopic && (
+          <button type="button" onClick={() => setNewSubtopic(!newSubtopic)} className="text-xs text-sky-700 underline dark:text-sky-300">
+            {newSubtopic ? "Choose existing subtopic" : "Create subtopic"}
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => void submit()}
-          disabled={submitting || !topic || !subtopic}
+          onClick={() => void submit(chosenTopic, chosenSubtopic)}
+          disabled={submitting || !chosenTopic || !chosenSubtopic}
           className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
           {submitting ? "Reclassifying…" : "Reclassify & index"}
         </button>
       </div>
+      <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+        New names must use lowercase letters, digits and underscores.
+      </p>
       {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
@@ -139,11 +207,28 @@ function DocumentDetail({
   document,
   taxonomy,
   onUpdated,
+  onTaxonomyChanged,
 }: {
   document: KnowledgeDocument;
   taxonomy: Record<string, string[]>;
   onUpdated: (updated: KnowledgeDocument) => void;
+  onTaxonomyChanged: (taxonomy: Record<string, string[]>) => void;
 }) {
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexError, setReindexError] = useState<string | null>(null);
+
+  const reindex = async () => {
+    setReindexing(true);
+    setReindexError(null);
+    try {
+      onUpdated(await reindexKnowledgeDocument(document.document_id));
+    } catch (err) {
+      setReindexError(err instanceof Error ? err.message : "Re-index failed.");
+    } finally {
+      setReindexing(false);
+    }
+  };
+
   return (
     <div className="border-t border-slate-100 px-3 py-2 text-xs dark:border-slate-800">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-600 dark:text-slate-300 sm:grid-cols-3">
@@ -164,13 +249,30 @@ function DocumentDetail({
           <dd>v{document.version}</dd>
         </div>
       </dl>
+      {document.pending && (
+        <p className="mt-2 text-sky-700 dark:text-sky-300">
+          Version {document.version} remains indexed while replacement version {document.pending.version} is processed or reviewed.
+        </p>
+      )}
+      {document.status === "indexed" && !document.pending && document.chunk_count > 0 && (
+        <div className="mt-2">
+          <button type="button" disabled={reindexing} onClick={() => void reindex()}
+            className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50">
+            {reindexing ? "Starting re-index…" : "Re-index stored file"}
+          </button>
+          <p className="mt-1 text-slate-500 dark:text-slate-400">
+            Reclassifies the stored file, even if unchanged. The current version remains available until the new version is ready.
+          </p>
+        </div>
+      )}
+      {reindexError && <p role="alert" className="mt-2 text-red-600 dark:text-red-400">{reindexError}</p>}
       {document.error && (
         <p className="mt-2 rounded bg-red-50 px-2 py-1 text-red-700 dark:bg-red-950/40 dark:text-red-400">
           {document.error}
         </p>
       )}
       {(document.status === "needs_review" || document.status === "failed") && (
-        <OverrideForm document={document} taxonomy={taxonomy} onOverridden={onUpdated} />
+        <OverrideForm document={document} taxonomy={taxonomy} onOverridden={onUpdated} onTaxonomyChanged={onTaxonomyChanged} />
       )}
       {document.events.length > 0 && (
         <div className="mt-2">
@@ -263,7 +365,9 @@ function KnowledgeBaseManager() {
           const uploaded = await uploadKnowledgeDocument(file);
           upsert(uploaded);
           if (uploaded.duplicate) {
-            setNotice(`"${file.name}" was already ingested - nothing reprocessed.`);
+            setNotice(`"${file.name}" is unchanged. To process it again, expand its details and select Re-index stored file.`);
+          } else if (uploaded.pending) {
+            setNotice(`"${file.name}" is being reclassified as version ${uploaded.pending.version}; the previous version remains indexed.`);
           }
           setExpandedId(uploaded.document_id);
         } catch (err) {
@@ -309,7 +413,8 @@ function KnowledgeBaseManager() {
         </p>
         <p className="mt-1 text-xs">
           Documents are classified, chunked, and indexed automatically; low-confidence
-          classifications are parked for your review.
+          classifications are parked for your review. A changed file with the same name replaces
+          the indexed version after the new version is ready.
         </p>
         <input
           ref={fileInputRef}
@@ -371,7 +476,7 @@ function KnowledgeBaseManager() {
                 <StatusBadge status={doc.status} />
               </button>
               {expandedId === doc.document_id && (
-                <DocumentDetail document={doc} taxonomy={taxonomy} onUpdated={upsert} />
+                <DocumentDetail document={doc} taxonomy={taxonomy} onUpdated={upsert} onTaxonomyChanged={setTaxonomy} />
               )}
             </li>
           ))}

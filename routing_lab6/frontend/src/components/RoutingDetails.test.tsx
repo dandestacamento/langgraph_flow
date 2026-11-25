@@ -71,6 +71,7 @@ describe("RoutingDetails", () => {
     expect(screen.getByText(/E21: drainage problem/)).toBeInTheDocument();
     expect(screen.getByText(/retrieved passages \(not verified citations\)/)).toBeInTheDocument();
     expect(screen.getByText(/manual.pdf.*page 4.*v2/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /manual.pdf/ })).not.toHaveTextContent("chapter_03_faults");
   });
 
   it("renders a tool-result card when a tool ran", () => {

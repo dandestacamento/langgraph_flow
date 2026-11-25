@@ -7,7 +7,7 @@ import { ChatWindow } from "./ChatWindow";
 describe("ChatWindow", () => {
   it("shows the empty-state prompt when there are no messages", () => {
     render(<ChatWindow messages={[]} />);
-    expect(screen.getByText(/Ask a question about appliance troubleshooting/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask a question about the knowledge base/)).toBeInTheDocument();
   });
 
   it("renders user and assistant messages, including a humanized streaming status", () => {

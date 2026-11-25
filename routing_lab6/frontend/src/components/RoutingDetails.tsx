@@ -160,8 +160,7 @@ export function RoutingDetails({
                   className="block w-full rounded-lg border border-slate-200 bg-white p-2 text-left hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
                 >
                   <p className="font-medium text-slate-600 dark:text-slate-300">
-                    {passage.chapter_id}
-                    {passage.source && ` · ${passage.source}`}
+                    {passage.source ?? passage.chapter_id}
                     {passage.page != null && ` · page ${passage.page}`}
                     {passage.version != null && ` · v${passage.version}`}
                     {passage.score != null && ` (score ${passage.score.toFixed(2)})`}

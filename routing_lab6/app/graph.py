@@ -88,6 +88,7 @@ from app.agents import (
     python_agent,
 )
 from app.agents.clarification_agent import ask_for_clarification
+from app.agents._shared import run_topic_agent
 from app.agents.multihop_agent import execute_multihop
 from app.agents.synthesis_agent import synthesize
 from app.rag.retrieval import retrieve_evidence
@@ -123,7 +124,16 @@ def route_to_agents(state: RoutingState) -> list[Send]:
     selected topic. A single-topic question (the common case through
     Level 6) produces exactly one Send; a multi-topic question (Level 7)
     produces several, which LangGraph executes in parallel."""
-    return [Send(_TOPIC_AGENT_NODES[topic], state) for topic in state["selected_topics"]]
+    return [
+        Send(_TOPIC_AGENT_NODES[topic], state)
+        if topic in _TOPIC_AGENT_NODES
+        else Send("custom_topic_agent", {**state, "custom_agent_topic": topic})
+        for topic in state["selected_topics"]
+    ]
+
+
+def run_custom_topic_agent(state: RoutingState) -> dict:
+    return run_topic_agent(state["custom_agent_topic"], state)
 
 
 def route_after_topic(state: RoutingState) -> str:
@@ -172,6 +182,7 @@ def build_graph():
     graph.add_node("tool_router", select_tools)
     for topic, node_name in _TOPIC_AGENT_NODES.items():
         graph.add_node(node_name, _TOPIC_AGENT_FUNCS[topic])
+    graph.add_node("custom_topic_agent", run_custom_topic_agent)
     graph.add_node("synthesis_agent", synthesize)
 
     graph.add_edge(START, "complexity_router")
@@ -189,9 +200,10 @@ def build_graph():
     graph.add_edge("subtopic_router", "chapter_selector")
     graph.add_edge("chapter_selector", "rag_retriever")
     graph.add_edge("rag_retriever", "tool_router")
-    graph.add_conditional_edges("tool_router", route_to_agents, list(_TOPIC_AGENT_NODES.values()))
+    graph.add_conditional_edges("tool_router", route_to_agents, [*_TOPIC_AGENT_NODES.values(), "custom_topic_agent"])
     for node_name in _TOPIC_AGENT_NODES.values():
         graph.add_edge(node_name, "synthesis_agent")
+    graph.add_edge("custom_topic_agent", "synthesis_agent")
     graph.add_edge("synthesis_agent", END)
 
     return graph.compile()

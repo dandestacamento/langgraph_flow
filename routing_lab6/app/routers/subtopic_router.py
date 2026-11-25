@@ -23,7 +23,8 @@ from langchain_openai import ChatOpenAI
 from pydantic import Field, create_model
 
 from app import llm_gateway
-from app.config import ROUTER_MODEL, SUBTOPIC_DESCRIPTIONS, TOPIC_SUBTOPICS
+from app.config import ROUTER_MODEL, SUBTOPIC_DESCRIPTIONS
+from app.ingestion.taxonomy import taxonomy_store
 from app.state import RoutingState, get_topic_question
 
 
@@ -34,8 +35,8 @@ def _subtopic_system_prompt(topic: str) -> str:
         "of these subtopics:",
         "",
     ]
-    for subtopic in TOPIC_SUBTOPICS[topic]:
-        description = SUBTOPIC_DESCRIPTIONS.get((topic, subtopic), "")
+    for subtopic in taxonomy_store().get()[topic]:
+        description = SUBTOPIC_DESCRIPTIONS.get((topic, subtopic), subtopic.replace("_", " "))
         lines.append(f"- {subtopic}: {description}")
     lines.append("")
     lines.append("Pick the single subtopic that best matches the specific thing being asked about.")
@@ -46,7 +47,7 @@ def _build_subtopic_output_model(topic: str):
     """Build a one-off Pydantic model whose `subtopic` field is restricted
     (via an enum constraint) to this topic's own subtopics, so structured
     output can't select a subtopic that belongs to a different topic."""
-    subtopics = list(TOPIC_SUBTOPICS[topic])
+    subtopics = taxonomy_store().get()[topic]
     return create_model(
         f"SubtopicOutput_{topic}",
         subtopic=(str, Field(description="The selected subtopic.", json_schema_extra={"enum": subtopics})),
@@ -76,7 +77,8 @@ def classify_subtopic(state: RoutingState) -> dict:
         )
         duration_ms = (time.perf_counter() - start) * 1000
 
-        subtopic = result.subtopic if result.subtopic in TOPIC_SUBTOPICS[topic] else TOPIC_SUBTOPICS[topic][0]
+        subtopics = taxonomy_store().get()[topic]
+        subtopic = result.subtopic if result.subtopic in subtopics else subtopics[0]
         decision = {
             "subtopic": subtopic,
             "confidence": result.confidence,

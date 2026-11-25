@@ -25,14 +25,17 @@ model to ignore text it can still see.
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Literal
 
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from app import llm_gateway
-from app.config import ROUTER_MODEL, TOPIC_SUBTOPICS
+from app.config import ROUTER_MODEL
+from app.ingestion.taxonomy import taxonomy_store
+from app.rag.retrieval import find_reference_topics
 from app.state import RoutingState
 
 TopicLiteral = Literal[
@@ -60,8 +63,9 @@ def _topic_router_system_prompt() -> str:
         "into one or more of these topics (most questions need exactly one):",
         "",
     ]
-    for topic, subtopics in TOPIC_SUBTOPICS.items():
-        lines.append(f"- {topic}: {_TOPIC_DESCRIPTIONS[topic]} (subtopics: {', '.join(subtopics)})")
+    for topic, subtopics in taxonomy_store().get().items():
+        description = _TOPIC_DESCRIPTIONS.get(topic, topic.replace("_", " "))
+        lines.append(f"- {topic}: {description} (subtopics: {', '.join(subtopics)})")
     lines.append("")
     lines.append(
         "Watch for overlapping terminology that means different things in different topics - for "
@@ -145,9 +149,6 @@ def _topic_router_system_prompt() -> str:
     return "\n".join(lines)
 
 
-TOPIC_ROUTER_SYSTEM_PROMPT = _topic_router_system_prompt()
-
-
 class TopicQuestionItem(BaseModel):
     """One (topic, restated question) pair. Used as a list rather than a
     `dict[str, str]` because OpenAI's strict structured-output schema
@@ -184,8 +185,21 @@ class TopicOutput(BaseModel):
 
 
 def build_topic_llm() -> ChatOpenAI:
+    topics = tuple(taxonomy_store().get())
+    allowed_topic = Literal.__getitem__(topics)
+    question_model = create_model(
+        "CurrentTopicQuestion",
+        topic=(allowed_topic, ...),
+        question=(str, Field(description="A standalone question relevant only to this topic.")),
+    )
+    output_model = create_model(
+        "CurrentTopicOutput",
+        __base__=TopicOutput,
+        topics=(list.__class_getitem__(allowed_topic), Field(description="Relevant topic ids.")),
+        topic_questions=(list.__class_getitem__(question_model), Field(description="A question for each selected topic.")),
+    )
     return ChatOpenAI(model=ROUTER_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
-        TopicOutput
+        output_model
     )
 
 
@@ -194,15 +208,25 @@ def classify_topic(state: RoutingState) -> dict:
     flag whether it's too ambiguous to route confidently."""
     start = time.perf_counter()
     llm = build_topic_llm()
+    references = find_reference_topics(state["question"], list(taxonomy_store().get()))
+    reference_hint = (
+        "\nThe following section identifiers occur in exactly one indexed topic each: "
+        f"{json.dumps(references)}. Use them as routing evidence, while still considering "
+        "the whole question and any other topics it explicitly asks about."
+        if references else ""
+    )
     result: TopicOutput = llm.invoke(
         [
-            ("system", TOPIC_ROUTER_SYSTEM_PROMPT),
+            ("system", _topic_router_system_prompt() + reference_hint),
             ("human", state["question"]),
         ]
     )
     duration_ms = (time.perf_counter() - start) * 1000
 
     topics = list(dict.fromkeys(result.topics)) or ["customer_support"]
+    unknown = set(topics) - set(taxonomy_store().get())
+    if unknown:
+        raise ValueError(f"Topic router returned unknown topics: {sorted(unknown)}")
     topic_question_map = {item.topic: item.question for item in result.topic_questions}
     topic_questions = {t: topic_question_map.get(t, state["question"]) for t in topics}
     decision: dict = {

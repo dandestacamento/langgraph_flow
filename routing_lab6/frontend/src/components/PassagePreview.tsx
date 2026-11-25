@@ -40,13 +40,13 @@ export function PassagePreview({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={`Source passage: ${passage.chapter_id ?? "unknown chapter"}`}
+        aria-label={`Source passage: ${passage.source ?? passage.chapter_id ?? "unknown chapter"}`}
         className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
       >
         <header className="flex items-start justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {passage.chapter_id ?? "Source passage"}
+              {passage.source ?? passage.chapter_id ?? "Source passage"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {[passage.topic, passage.subtopic].filter(Boolean).join(" › ")}

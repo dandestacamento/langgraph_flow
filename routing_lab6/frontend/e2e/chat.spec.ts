@@ -217,7 +217,7 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await sidebar.getByRole("button", { name: /^Fridge is too warm/ }).click();
   await expect(page.getByText("Check the thermostat.")).toBeVisible();
   await expect(page.getByTitle("Fridge is too warm")).toBeVisible();
-  await expect(page).toHaveTitle("Fridge is too warm - Appliance Troubleshooting Chat");
+  await expect(page).toHaveTitle("Fridge is too warm - Knowledge Base Chat");
   await page.getByText("Routing details").click();
   await page.getByRole("button", { name: /chapter_03_faults \(score 0\.79\)/ }).click();
   await expect(
@@ -229,10 +229,10 @@ test("lists past conversations in the sidebar, switches between them, and starts
   await sidebar.getByRole("button", { name: "+ New conversation" }).click();
   await expect(page.getByText("Check the thermostat.")).not.toBeVisible();
   await expect(
-    page.getByText("Ask a question about appliance troubleshooting to get started."),
+    page.getByText("Ask a question about the knowledge base to get started."),
   ).toBeVisible();
   await expect(page.getByTitle("New conversation")).toBeVisible();
-  await expect(page).toHaveTitle("Appliance Troubleshooting Chat");
+  await expect(page).toHaveTitle("Knowledge Base Chat");
 });
 
 const TINY_PNG = Buffer.from(

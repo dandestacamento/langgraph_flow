@@ -2,14 +2,65 @@
 
 ## Lab6 additions
 
+Knowledge Base Manager proposes new topic/subtopic identifiers when a document
+doesn't fit the existing taxonomy. Reviewers can approve the suggestion, choose
+an existing category, or create a new topic or subtopic before indexing. For
+documents already awaiting review, use **Get a fresh suggestion** to classify
+them with the updated model prompt. New identifiers use lowercase letters,
+digits and underscores. Approved categories are shared with chat routing and
+persist in PostgreSQL when `CHAT_DB_URL` is configured, or in
+`data/taxonomy.db` otherwise; the document registry itself remains in-memory
+without PostgreSQL. Only matching existing classifications are indexed
+automatically; low-confidence and new classifications require review.
+
 Knowledge-base uploads now index full extracted document text, split oversized
-paragraphs into bounded chunks, and retain PDF page, filename and version
+paragraphs into bounded chunks at sentence boundaries where possible (with
+overlap for oversized splits), and retain PDF page, filename and version
 metadata for retrieved-passage previews. Scanned/image-only pages still require
 OCR and fail explicitly. Existing uploads must be re-ingested to gain this
 metadata. See [`routing-lab-startup.md`](../instructions/learnings/routing-lab-startup.md)
 for the isolated lab6 database, setup and opt-in `--llm-judge` batch evaluation.
 The judge is approximate, makes extra model calls, and does not change the
 deterministic pass/fail score.
+
+Answers list uploaded-document filenames, document IDs, versions, and available
+PDF page numbers from retrieved passages. These are retrieval references, not
+verified citations: some retrieved passages may not support the answer.
+Document-level classification labels do not identify the actual section of
+each uploaded excerpt. If an initial answer declines, the agent retries once
+with topic-wide hybrid retrieval (up to 40 candidates per retriever, returning
+up to 20 passages) and a separate prompt that reconsiders partial evidence;
+it can still decline when the evidence is insufficient. The larger retry may
+use more tokens. For scopes containing uploads, first-pass retrieval retains
+the normal results and adds up to 10 hybrid candidates. Answers using uploaded
+passages receive an additional model-based relevance and support check; an
+unverified answer triggers the same bounded retry and is withheld if still
+unverified. This check is approximate, adds model calls and latency, and does
+not make the listed retrieval references verified citations. If a topic
+declines, multi-topic synthesis preserves the individual responses; multi-hop
+questions do not use a declined first hop as input to a second hop.
+For explicit section identifiers such as `MANAGE 4.3`, the topic router also
+receives a hint when the identifier occurs in exactly one visible topic. Shared
+or absent identifiers do not produce a hint.
+
+Uploading changed bytes under an indexed document's existing filename starts a
+new version and classifies it again. The previous version remains searchable
+until the replacement passes indexing and retrieval validation; if review is
+required, approve its suggested classification or choose another. Once
+published, the new version replaces the old indexed chunks. Re-uploading
+identical bytes is still treated as a duplicate. If old-chunk cleanup fails,
+re-upload the published file to retry it. To reprocess an unchanged document,
+expand it and select **Re-index stored file**. This reclassifies the saved
+original and keeps the current version searchable until its replacement is
+ready. Existing uploads must be re-indexed to use the updated chunking.
+
+Replacement publication is coordinated within one backend process; do not
+run multiple backend workers against the same index. After a backend restart,
+an interrupted replacement is marked failed; upload the changed file again to
+retry it while the old version remains searchable. Use PostgreSQL
+(`CHAT_DB_URL`) for a persistent document registry: without it, registry state
+is lost on restart and replacement versions cannot be reliably resolved by
+standalone retrieval scripts.
 
 A LangGraph application for testing, visualizing, and measuring **routing
 accuracy** - not answer quality - across six knowledge-base topics,

@@ -63,6 +63,14 @@ def select_chapter(state: RoutingState) -> dict:
         subtopic = state["selected_subtopics"][topic]
         chapters = list_chapter_metadata(topic, subtopic)
         chapter_ids = [c["chapter_id"] for c in chapters]
+        if not chapter_ids:
+            log_entries.append({
+                "node": "chapter_selector",
+                "action": f"select_chapter[{topic}/{subtopic}]",
+                "output": {"reason": "No curated chapters; retrieval searches uploaded documents."},
+                "duration_ms": 0,
+            })
+            continue
 
         start = time.perf_counter()
         model = _build_chapter_output_model(chapter_ids)

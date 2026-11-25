@@ -23,13 +23,14 @@ Statuses:
 from __future__ import annotations
 
 import json
+import threading
 import uuid
 from datetime import datetime, timezone
 
 VALID_STATUSES = ("processing", "indexed", "needs_review", "failed")
 
 # Columns that are JSON-encoded in Postgres / kept as objects in memory.
-_JSON_FIELDS = ("chapters", "chunk_ids", "events")
+_JSON_FIELDS = ("chapters", "chunk_ids", "events", "pending", "cleanup_ids")
 
 
 def new_document_id() -> str:
@@ -39,6 +40,7 @@ def new_document_id() -> str:
 class DocumentRegistry:
     def __init__(self, conn_string: str | None = None) -> None:
         self._records: dict[str, dict] = {}
+        self._lock = threading.Lock()
         self._conn_string = conn_string
         if conn_string:
             import psycopg
@@ -58,6 +60,10 @@ class DocumentRegistry:
                     "stored_path TEXT NOT NULL DEFAULT '', "
                     "created_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
                     "updated_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+                )
+                conn.execute("ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS pending TEXT")
+                conn.execute(
+                    "ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS cleanup_ids TEXT NOT NULL DEFAULT '[]'"
                 )
 
     def create(
@@ -87,6 +93,8 @@ class DocumentRegistry:
             "chunk_count": 0,
             "chunk_ids": [],
             "events": [],
+            "pending": None,
+            "cleanup_ids": [],
             "stored_path": stored_path,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -163,6 +171,74 @@ class DocumentRegistry:
                 return dict(record)
         return None
 
+    def begin_replacement(
+        self, document_id: str, version: int, pending: dict, *, indexed_only: bool = False
+    ) -> bool:
+        """Reserve one replacement attempt without changing the published version."""
+        now = datetime.now(timezone.utc).isoformat()
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                row = conn.execute(
+                    "UPDATE knowledge_documents SET pending = %s, status = 'processing', "
+                    "error = NULL, updated_at = %s WHERE document_id = %s AND version = %s "
+                    "AND (status = 'indexed' OR (status = 'failed' AND pending IS NOT NULL)) "
+                    "AND (NOT %s OR (status = 'indexed' AND (pending IS NULL OR pending = 'null'))) "
+                    "RETURNING document_id",
+                    (json.dumps(pending), now, document_id, version, indexed_only),
+                ).fetchone()
+                return row is not None
+        with self._lock:
+            record = self._records.get(document_id)
+            if (
+                record is None or record["version"] != version
+                or not (record["status"] == "indexed" or (record["status"] == "failed" and record["pending"]))
+                or (indexed_only and (record["status"] != "indexed" or record["pending"]))
+            ):
+                return False
+            record.update(pending=pending, status="processing", error=None, updated_at=now)
+            return True
+
+    def resume_replacement(self, document_id: str, statuses: tuple[str, ...]) -> bool:
+        now = datetime.now(timezone.utc).isoformat()
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                row = conn.execute(
+                    "UPDATE knowledge_documents SET status = 'processing', error = NULL, updated_at = %s "
+                    "WHERE document_id = %s AND pending IS NOT NULL AND pending <> 'null' "
+                    "AND status = ANY(%s) RETURNING document_id",
+                    (now, document_id, list(statuses)),
+                ).fetchone()
+                return row is not None
+        with self._lock:
+            record = self._records.get(document_id)
+            if record is None or not record["pending"] or record["status"] not in statuses:
+                return False
+            record.update(status="processing", error=None, updated_at=now)
+            return True
+
+    def recover_interrupted_replacements(self) -> None:
+        """Mark abandoned replacements for retry when the sole backend starts."""
+        message = "Replacement interrupted by backend restart; upload the changed file again to retry."
+        now = datetime.now(timezone.utc).isoformat()
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                conn.execute(
+                    "UPDATE knowledge_documents SET status = 'failed', error = %s, updated_at = %s "
+                    "WHERE status = 'processing' AND pending IS NOT NULL AND pending <> 'null'",
+                    (message, now),
+                )
+            return
+        with self._lock:
+            for record in self._records.values():
+                if record["status"] == "processing" and record["pending"]:
+                    record.update(status="failed", error=message, updated_at=now)
+
     def list_documents(self) -> list[dict]:
         if self._conn_string:
             return self._fetch("TRUE", (), one=False)  # type: ignore[return-value]
@@ -170,11 +246,25 @@ class DocumentRegistry:
         records.sort(key=lambda r: r["created_at"], reverse=True)
         return records
 
+    def active_versions(self) -> tuple[tuple[str, int], ...]:
+        if self._conn_string:
+            import psycopg
+
+            with psycopg.connect(self._conn_string, autocommit=True) as conn:
+                rows = conn.execute(
+                    "SELECT document_id, version FROM knowledge_documents WHERE chunk_count > 0 ORDER BY document_id"
+                ).fetchall()
+            return tuple(rows)
+        return tuple(sorted(
+            (record["document_id"], record["version"])
+            for record in self._records.values() if record["chunk_count"] > 0
+        ))
+
     _COLUMNS = (
         "document_id", "filename", "media_type", "size_bytes", "content_hash", "version",
         "status", "uploaded_by", "topic", "subtopic", "chapters",
         "classification_confidence", "error", "chunk_count", "chunk_ids", "events",
-        "stored_path", "created_at", "updated_at",
+        "stored_path", "created_at", "updated_at", "pending", "cleanup_ids",
     )
 
     def _fetch(self, where: str, params: tuple, one: bool):

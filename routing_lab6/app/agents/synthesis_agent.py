@@ -20,20 +20,24 @@ import time
 from langchain_openai import ChatOpenAI
 
 from app import llm_gateway
+from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER
 from app.config import AGENT_MODEL
 from app.state import RoutingState
 
 _SYNTHESIS_SYSTEM_PROMPT = (
     "You are the Synthesis Agent. You are given one answer per topic from separate specialist "
     "agents, each already grounded in their own retrieved knowledge base excerpts (and, for some "
-    "topics, a tool result) and already carrying its own 'Sources: ' line listing chapter_ids "
+    "topics, a tool result) and already carrying its own 'Sources: ' line listing chapter IDs, "
+    "document names with page details, "
     "and/or a 'tool:<name>' entry. Combine them into ONE clear, well-organized answer to the "
     "original question. Preserve every fact and every cited source from every topic's answer - "
-    "do not drop or alter any of them, whether it's a chapter_id or a 'tool:<name>' citation. Do "
+    "do not drop or alter any of them, including document names, page details, and 'tool:<name>' entries. Do "
     "not add any new information beyond what the topic answers already say. "
+    "If a topic reports insufficient information or an unverified answer, preserve that limitation; "
+    "do not fill its gaps or imply that part was answered. "
     "Each topic's answer below is introduced by a '--- TOPIC: <name> ---' header - this header is "
     "NOT a citation and must never appear in your own Sources line; only copy the real "
-    "chapter_id/tool values that already appear after each topic answer's own 'Sources:' line. "
+    "source entries that already appear after each topic answer's own 'Sources:' line. "
     "End your answer with a single merged 'Sources: ' line listing every one of those values, "
     "without duplicates."
 )
@@ -49,6 +53,13 @@ def synthesize(state: RoutingState) -> dict:
 
     if len(topics) <= 1:
         final_answer = responses.get(topics[0], "") if topics else ""
+        duration_ms = 0.0
+    elif any(
+        marker in responses.get(topic, "")
+        for topic in topics
+        for marker in (INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER)
+    ):
+        final_answer = _format_topic_answers(responses, topics)
         duration_ms = 0.0
     else:
         start = time.perf_counter()
