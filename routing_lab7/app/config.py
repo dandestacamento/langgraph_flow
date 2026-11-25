@@ -23,6 +23,11 @@ AGENT_MODEL = os.environ.get("ROUTING_LAB_MODEL", "gpt-4o-mini")
 
 # Used by app/rag/embeddings.py, app/rag/retrieval.py, and scripts/build_index.py.
 EMBEDDING_MODEL = "text-embedding-3-small"
+
+UPLOAD_CHUNKING_STRATEGY = os.environ.get("ROUTING_LAB_UPLOAD_CHUNKING", "paragraph")
+if UPLOAD_CHUNKING_STRATEGY not in ("paragraph", "semantic"):
+    raise ValueError("ROUTING_LAB_UPLOAD_CHUNKING must be 'paragraph' or 'semantic'")
+
 # 5, not 3: a compound question needing evidence from 2 chapters within a
 # subtopic (Level 6) can have the top-3 slots monopolized by the single
 # most lexically-similar chapter, starving out an equally-relevant second

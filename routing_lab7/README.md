@@ -47,6 +47,19 @@ for the isolated lab6 database, setup and opt-in `--llm-judge` batch evaluation.
 The judge is approximate, makes extra model calls, and does not change the
 deterministic pass/fail score.
 
+For an experimental alternative, set `ROUTING_LAB_UPLOAD_CHUNKING=semantic`
+before starting the backend. Text and PDF uploads then group adjacent
+sentences using their embedding similarity (fixed threshold 0.7), while
+keeping chunks at most 1,200 characters and respecting PDF page boundaries.
+Oversized sentences are split with overlap; sentence detection is heuristic
+and may split abbreviations. CSV uploads retain row-based chunking. The
+default is `paragraph`; invalid settings fail startup. Semantic chunking sends
+additional sentence text to the configured embedding service and can increase
+cost and latency. Embedding failures fail ingestion rather than switching
+strategies. It has not been shown to improve answer quality for this corpus.
+Existing uploads are unchanged until explicitly re-indexed; curated knowledge
+base builds are unaffected.
+
 Knowledge-base `.csv` uploads are parsed as comma-separated UTF-8 (optional
 BOM), with one header row and one logical record per indexed passage.
 Each passage carries its CSV row number (header is row 1, including when a

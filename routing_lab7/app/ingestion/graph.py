@@ -28,18 +28,23 @@ from __future__ import annotations
 
 import csv
 import io
+import math
 import re
 import time
 from pathlib import Path
 from typing import TypedDict
 
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import END, START, StateGraph
 from pypdf import PdfReader
 
+from app.cache import validate_embeddings
+from app.config import UPLOAD_CHUNKING_STRATEGY
 from app.ingestion.classify import classification_problem, classify_document
 from app.ingestion.registry import DocumentRegistry
+from app.rag.embeddings import get_embeddings_client
 from app.rag.retrieval import get_vector_store, index_publication_lock
 
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
@@ -48,6 +53,8 @@ _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
 # KB's chapters are short by construction; uploads aren't).
 _TARGET_CHUNK_CHARS = 1200
 _CHUNK_OVERLAP_CHARS = 200
+_SEMANTIC_SIMILARITY_THRESHOLD = 0.7
+_SEMANTIC_BATCH_SIZE = 128
 _RETRIEVAL_TEST_TOP_K = 5
 
 
@@ -133,6 +140,50 @@ def chunk_text(text: str) -> list[str]:
             current = f"{current}\n\n{paragraph}" if current else paragraph
     if current:
         chunks.append(current)
+    return chunks
+
+
+def semantic_chunk_text(text: str, embeddings: Embeddings) -> list[str]:
+    """Group adjacent sentences by embedding similarity, within the character limit."""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=_TARGET_CHUNK_CHARS,
+        chunk_overlap=_CHUNK_OVERLAP_CHARS,
+        separators=["\n", " ", ""],
+    )
+    sentences = [
+        part
+        for sentence in re.split(r"(?<=[.!?])\s+|\n\s*\n", text.strip())
+        if sentence.strip()
+        for part in splitter.split_text(sentence.strip())
+    ]
+    if len(sentences) < 2:
+        return sentences
+
+    chunks: list[str] = []
+    current = sentences[0]
+    previous: list[float] | None = None
+    previous_norm = 0.0
+    for start in range(0, len(sentences), _SEMANTIC_BATCH_SIZE):
+        batch = sentences[start:start + _SEMANTIC_BATCH_SIZE]
+        vectors = validate_embeddings(embeddings.embed_documents(batch), len(batch))
+        for sentence, vector in zip(batch, vectors):
+            norm = math.hypot(*vector)
+            if not math.isfinite(norm) or norm == 0:
+                raise ValueError("Semantic chunking requires finite, non-zero embedding norms")
+            if previous is not None:
+                if len(previous) != len(vector):
+                    raise ValueError("Invalid embedding dimension across semantic chunking batches")
+                similarity = math.fsum(
+                    (left / previous_norm) * (right / norm)
+                    for left, right in zip(previous, vector)
+                )
+                if similarity < _SEMANTIC_SIMILARITY_THRESHOLD or len(current) + len(sentence) + 1 > _TARGET_CHUNK_CHARS:
+                    chunks.append(current)
+                    current = sentence
+                else:
+                    current = f"{current} {sentence}"
+            previous, previous_norm = vector, norm
+    chunks.append(current)
     return chunks
 
 
@@ -230,21 +281,26 @@ def build_ingestion_graph(registry: DocumentRegistry):
         chunks = []
         chunk_pages = []
         chunk_rows = []
+        semantic = UPLOAD_CHUNKING_STRATEGY == "semantic" and not is_csv_document(
+            state["filename"], state["media_type"]
+        )
+        embeddings = get_embeddings_client() if semantic else None
         for row_number, text in state["csv_rows"]:
             row_chunks = chunk_text(text)
             chunks.extend(row_chunks)
             chunk_pages.extend([None] * len(row_chunks))
             chunk_rows.extend([row_number] * len(row_chunks))
         for page_number, text in enumerate(state["pages"], start=1):
-            page_chunks = chunk_text(text)
+            page_chunks = semantic_chunk_text(text, embeddings) if embeddings is not None else chunk_text(text)
             chunks.extend(page_chunks)
             page = page_number if state["media_type"] == "application/pdf" else None
             chunk_pages.extend([page] * len(page_chunks))
             chunk_rows.extend([None] * len(page_chunks))
         if not chunks:
             return {"outcome": "failed", "error": "chunk: no chunks produced"}
+        detail = f"{len(chunks)} chunks" + (" (semantic)" if semantic else "")
         return {"chunks": chunks, "chunk_pages": chunk_pages, "chunk_rows": chunk_rows,
-                "_event_detail": f"{len(chunks)} chunks"}
+                "_event_detail": detail}
 
     @timed("index")
     def index(state: IngestionState) -> dict:

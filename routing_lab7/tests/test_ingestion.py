@@ -17,6 +17,7 @@ import jwt as pyjwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
+from langchain_core.embeddings import Embeddings
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
@@ -105,6 +106,59 @@ def test_chunk_text_keeps_sentence_together_at_a_line_boundary() -> None:
     chunks = chunk_text(text)
     assert any(expected in " ".join(chunk.split()) for chunk in chunks)
     assert max(map(len, chunks)) <= 1200
+
+
+class _SemanticTestEmbeddings(Embeddings):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0, 1.0] if "Paris" in text else [1.0, 0.0] for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
+
+
+def test_semantic_chunking_groups_similar_sentences_and_splits_topic_changes():
+    text = "Wash dishes first. Dry the dishes. Paris is in France. Paris has museums."
+    assert ingestion_graph.semantic_chunk_text(text, _SemanticTestEmbeddings()) == [
+        "Wash dishes first. Dry the dishes.",
+        "Paris is in France. Paris has museums.",
+    ]
+
+
+def test_semantic_chunking_bounds_long_sentences_and_batches():
+    class CountingEmbeddings(_SemanticTestEmbeddings):
+        batches: list[int]
+
+        def __init__(self):
+            self.batches = []
+
+        def embed_documents(self, texts):
+            self.batches.append(len(texts))
+            return super().embed_documents(texts)
+
+    embeddings = CountingEmbeddings()
+    text = " ".join(f"Sentence {i}." for i in range(130)) + " " + "x" * 2501
+    chunks = ingestion_graph.semantic_chunk_text(text, embeddings)
+    assert embeddings.batches == [128, 5]
+    assert all(len(chunk) <= 1200 for chunk in chunks)
+    assert all(f"Sentence {i}." in " ".join(chunks) for i in range(130))
+    assert sum(chunk.count("x") for chunk in chunks) >= 2501
+
+
+def test_semantic_chunking_rejects_zero_and_inconsistent_embeddings():
+    class InvalidEmbeddings(_SemanticTestEmbeddings):
+        def embed_documents(self, texts):
+            return [[0.0, 0.0] for _ in texts]
+
+    with pytest.raises(ValueError, match="non-zero"):
+        ingestion_graph.semantic_chunk_text("One. Two.", InvalidEmbeddings())
+
+    class InconsistentEmbeddings(_SemanticTestEmbeddings):
+        def embed_documents(self, texts):
+            return [[1.0] if "128" in text else [1.0, 0.0] for text in texts]
+
+    text = " ".join(f"Sentence {i}." for i in range(129))
+    with pytest.raises(ValueError, match="dimension"):
+        ingestion_graph.semantic_chunk_text(text, InconsistentEmbeddings())
 
 
 def test_csv_upload_indexes_rows_and_surfaces_provenance(monkeypatch, tmp_path):
@@ -224,6 +278,87 @@ def _text_pdf(*pages: str) -> bytes:
     output = io.BytesIO()
     writer.write(output)
     return output.getvalue()
+
+
+def test_semantic_upload_preserves_pdf_page_provenance(monkeypatch):
+    class Store:
+        def add_documents(self, documents, ids):
+            self.documents = documents
+
+        def similarity_search(self, query, k, filter):
+            return self.documents[:k]
+
+    store = Store()
+    monkeypatch.setattr(ingestion_graph, "UPLOAD_CHUNKING_STRATEGY", "semantic")
+    monkeypatch.setattr(ingestion_graph, "get_embeddings_client", _SemanticTestEmbeddings)
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
+    content = _text_pdf("Wash dishes. Dry dishes. Paris is in France.", "Paris has museums.")
+    registry = DocumentRegistry()
+    record = registry.create(
+        filename="manual.pdf", media_type="application/pdf", size_bytes=len(content),
+        content_hash="semantic-pdf", uploaded_by="u1",
+    )
+    ingestion_graph.run_ingestion(
+        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
+    )
+    detail = registry.get(record["document_id"])
+    assert detail["status"] == "indexed", detail["error"]
+    assert [(doc.metadata["page"], doc.page_content) for doc in store.documents] == [
+        (1, "Wash dishes. Dry dishes."),
+        (1, "Paris is in France."),
+        (2, "Paris has museums."),
+    ]
+    assert any(event["node"] == "chunk" and "semantic" in event["detail"] for event in detail["events"])
+
+
+def test_semantic_strategy_leaves_csv_row_chunking_unchanged(monkeypatch):
+    class Store:
+        def add_documents(self, documents, ids):
+            self.documents = documents
+
+        def similarity_search(self, query, k, filter):
+            return self.documents[:k]
+
+    store = Store()
+    monkeypatch.setattr(ingestion_graph, "UPLOAD_CHUNKING_STRATEGY", "semantic")
+    monkeypatch.setattr(ingestion_graph, "get_embeddings_client", lambda: pytest.fail("CSV is not semantic"))
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
+    content = b"name,description\nD1,Wash dishes. Paris is in France.\n"
+    registry = DocumentRegistry()
+    record = registry.create(
+        filename="devices.csv", media_type="text/plain", size_bytes=len(content),
+        content_hash="semantic-csv", uploaded_by="u1",
+    )
+    ingestion_graph.run_ingestion(
+        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
+    )
+    detail = registry.get(record["document_id"])
+    assert detail["status"] == "indexed", detail["error"]
+    assert [(doc.metadata["row"], doc.page_content) for doc in store.documents] == [
+        (2, "name: D1\ndescription: Wash dishes. Paris is in France."),
+    ]
+
+
+def test_semantic_embedding_failure_fails_before_indexing(monkeypatch):
+    class FailingEmbeddings(_SemanticTestEmbeddings):
+        def embed_documents(self, texts):
+            raise RuntimeError("embedding service unavailable")
+
+    monkeypatch.setattr(ingestion_graph, "UPLOAD_CHUNKING_STRATEGY", "semantic")
+    monkeypatch.setattr(ingestion_graph, "get_embeddings_client", FailingEmbeddings)
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: pytest.fail("must not index"))
+    content = b"First sentence. Second sentence."
+    registry = DocumentRegistry()
+    record = registry.create(
+        filename="manual.txt", media_type="text/plain", size_bytes=len(content),
+        content_hash="semantic-failure", uploaded_by="u1",
+    )
+    ingestion_graph.run_ingestion(
+        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
+    )
+    detail = registry.get(record["document_id"])
+    assert detail["status"] == "failed"
+    assert "chunk: embedding service unavailable" in detail["error"]
 
 
 @pytest.mark.parametrize("media_type", ["text/plain", "application/pdf"])
