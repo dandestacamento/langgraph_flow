@@ -60,6 +60,10 @@ same configured services as other knowledge uploads.
 Answers list uploaded-document filenames, document IDs, versions, and available
 PDF page numbers from retrieved passages. These are retrieval references, not
 verified citations: some retrieved passages may not support the answer.
+Passage scores identify their type: vector distances are lower-is-closer,
+hybrid rank indicators are higher-is-earlier, and reranker scores are
+higher-is-better. These scales are not comparable or calibrated confidence
+values. Older saved conversations may show an unknown score type.
 Document-level classification labels do not identify the actual section of
 each uploaded excerpt. If an initial answer declines, the agent retries once
 with topic-wide hybrid retrieval (up to 40 candidates per retriever, returning

@@ -25,6 +25,7 @@ export interface RetrievedPassage {
   row?: number | null;
   subtopic: string | null;
   score: number | null;
+  score_type?: "vector_distance" | "hybrid_rank" | "reranker" | null;
   text: string | null;
 }
 

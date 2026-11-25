@@ -358,7 +358,42 @@ def test_hybrid_search_fuses_wider_candidates_before_limiting_results(monkeypatc
     assert not any("any order" in p["text"] for p in narrow)
     assert any("any order" in p["text"] for p in wider)
     assert len(wider) == 20
+    assert all(p["score_type"] == "hybrid_rank" for p in wider)
     retrieval._bm25_retriever.cache_clear()
+
+
+def test_vector_distance_type_survives_routing_summary(monkeypatch):
+    from langchain_core.documents import Document
+    import app.rag.retrieval as retrieval
+
+    class Store:
+        def similarity_search_with_score(self, query, k, filter):
+            return [(Document(page_content="evidence", metadata={"chapter_id": "c1"}), 0.25)]
+
+    monkeypatch.setattr(retrieval, "get_vector_store", lambda: Store())
+    monkeypatch.setattr(retrieval, "_active_versions", lambda: None)
+    passages = retrieval.retrieve("question", "ai", retrieval_mode="similarity")
+    summary = build_routing_summary({"retrieved_passages": {"ai": passages}})
+    assert summary["passages"]["ai"][0]["score"] == 0.25
+    assert summary["passages"]["ai"][0]["score_type"] == "vector_distance"
+
+
+def test_reranker_replaces_previous_score_type(monkeypatch):
+    import app.rag.reranking as reranking
+
+    class Encoder:
+        def score(self, pairs):
+            return [0.2, 0.8]
+
+    monkeypatch.setattr(reranking, "_get_cross_encoder", lambda: Encoder())
+    passages = [
+        {"text": "first", "score": 0.1, "score_type": "vector_distance"},
+        {"text": "second", "score": 0.5, "score_type": "hybrid_rank"},
+    ]
+    result = reranking.rerank("question", passages, top_k=2)
+    assert [(p["text"], p["score"], p["score_type"]) for p in result] == [
+        ("second", 0.8, "reranker"), ("first", 0.2, "reranker"),
+    ]
 
 
 def test_hybrid_search_returns_no_results_for_empty_scope(monkeypatch):

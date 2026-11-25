@@ -41,6 +41,16 @@ describe("PassagePreview", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 
+  it.each([
+    ["vector_distance", "Vector distance (lower is closer)"],
+    ["hybrid_rank", "Hybrid rank indicator (higher is earlier)"],
+    ["reranker", "Reranker score (higher is better)"],
+    [undefined, "Score (type unavailable)"],
+  ] as const)("explains %s scores", (score_type, label) => {
+    render(<PassagePreview passage={{ ...PASSAGE, score_type }} onClose={() => {}} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
   it("closes via the button, the backdrop, and Escape", () => {
     const onClose = vi.fn();
     render(<PassagePreview passage={PASSAGE} onClose={onClose} />);

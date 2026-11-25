@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import type { RetrievedPassage } from "../api/client";
+import { retrievalScoreLabel } from "./retrievalScore";
 
 /** A retrieved passage plus the topic it was retrieved for - what a
  * citation chip opens (chat-ui-plan3.md §2 item 1 / chat-ui-plan2.md
@@ -93,7 +94,7 @@ export function PassagePreview({
           )}
           {passage.score != null && (
             <>
-              <dt className="text-slate-500 dark:text-slate-400">Retrieval score</dt>
+              <dt className="text-slate-500 dark:text-slate-400">{retrievalScoreLabel(passage.score_type)}</dt>
               <dd className="text-slate-700 dark:text-slate-300">
                 {passage.score.toFixed(2)}
               </dd>

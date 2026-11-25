@@ -31,6 +31,7 @@ def build_routing_summary(routing_result: dict) -> dict:
                     "row": passage.get("row"),
                     "subtopic": passage.get("subtopic"),
                     "score": passage.get("score"),
+                    "score_type": passage.get("score_type"),
                     "text": passage.get("text"),
                 }
                 for passage in passages

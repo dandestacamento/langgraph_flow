@@ -130,7 +130,7 @@ def _similarity_candidates(query: str, topic: str, subtopic: str | None, top_k: 
     where = _build_where(topic, subtopic, active_versions)
     results = get_vector_store().similarity_search_with_score(query, k=top_k, filter=where)
     return [
-        {**document.metadata, "text": document.page_content, "score": score}
+        {**document.metadata, "text": document.page_content, "score": score, "score_type": "vector_distance"}
         for document, score in results
     ]
 
@@ -157,7 +157,8 @@ def _hybrid_candidates(
     # pseudo-score keeps the same dict shape every other mode returns
     # (useful for logging/the dashboard) without claiming false precision.
     return [
-        {**document.metadata, "text": document.page_content, "score": round(1.0 / (rank + 1), 4)}
+        {**document.metadata, "text": document.page_content, "score": round(1.0 / (rank + 1), 4),
+         "score_type": "hybrid_rank"}
         for rank, document in enumerate(documents)
     ]
 
@@ -174,8 +175,8 @@ def retrieve(
     """Retrieve the top_k most similar chunks for `query`, filtered to the
     given topic (and subtopic, if provided). Returns a list of dicts with
     `text`, `chapter_id`, `document_id`, `topic`, `subtopic`, `chunk_index`,
-    and `score`, ordered by relevance (lower Chroma L2 distance or higher
-    rank-based/cross-encoder score, depending on mode - see below).
+    `score`, and `score_type`, ordered by relevance (lower Chroma distance
+    or higher rank-based/cross-encoder score, depending on mode - see below).
 
     `retrieval_mode`: "similarity" (default - Chroma vector search only)
     or "hybrid" (vector + BM25 keyword search, see `_hybrid_candidates`).
