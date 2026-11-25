@@ -21,12 +21,16 @@ from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 import app.api.auth as auth_module
+import app.api.main as api_module
 import app.ingestion.graph as ingestion_graph
+from app.agents._shared import _source_labels
 from app.api.attachments import MAX_EXTRACTED_CHARS, extract_document_text
 from app.api.main import app
+from app.chat.routing_summary import build_routing_summary
 from app.ingestion.classify import DocumentClassification, classification_problem
 from app.ingestion.graph import chunk_text
 from app.ingestion.registry import DocumentRegistry
+from app.ingestion.storage import LocalDocumentStorage
 from app.rag.retrieval import get_vector_store
 
 client = TestClient(app)
@@ -101,6 +105,105 @@ def test_chunk_text_keeps_sentence_together_at_a_line_boundary() -> None:
     chunks = chunk_text(text)
     assert any(expected in " ".join(chunk.split()) for chunk in chunks)
     assert max(map(len, chunks)) <= 1200
+
+
+def test_csv_upload_indexes_rows_and_surfaces_provenance(monkeypatch, tmp_path):
+    class Store:
+        def __init__(self):
+            self.documents = []
+
+        def add_documents(self, documents, ids):
+            self.documents = documents
+
+        def similarity_search(self, query, k, filter):
+            return self.documents[:k]
+
+    store = Store()
+    registry = DocumentRegistry()
+    monkeypatch.setattr(api_module, "_document_registry", registry)
+    monkeypatch.setattr(api_module, "_document_storage", LocalDocumentStorage(tmp_path))
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
+    monkeypatch.setattr(
+        ingestion_graph, "classify_document",
+        lambda filename, text: DocumentClassification(
+            topic="appliances", subtopic="dishwashers", chapters=["manual"], confidence=0.95
+        ),
+    )
+    content = b'\xef\xbb\xbfmodel,description\r\nD1,"quiet, efficient"\r\nD2,"line one\nline two"\r\n'
+    response = client.post(
+        "/knowledge/documents", files={"file": ("devices.csv", content, "text/csv")},
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    detail = registry.get(response.json()["document_id"])
+    assert detail["status"] == "indexed", detail["error"]
+    assert [(doc.metadata["row"], doc.page_content) for doc in store.documents] == [
+        (2, "model: D1\ndescription: quiet, efficient"),
+        (3, "model: D2\ndescription: line one\nline two"),
+    ]
+    passage = {**store.documents[1].metadata, "text": store.documents[1].page_content}
+    summary = build_routing_summary({"retrieved_passages": {"appliances": [passage]}})
+    assert summary["passages"]["appliances"][0]["row"] == 3
+    assert "row 3" in _source_labels([passage])[0]
+
+    # Identical bytes under a non-CSV name must not reuse differently parsed content.
+    other = client.post(
+        "/knowledge/documents", files={"file": ("devices.txt", content, "text/plain")},
+        headers=_auth_headers(),
+    )
+    assert other.status_code == 200
+    assert other.json()["document_id"] != response.json()["document_id"]
+    assert registry.get(other.json()["document_id"])["status"] == "indexed"
+    assert all("row" not in doc.metadata for doc in store.documents)
+
+
+def test_large_csv_row_keeps_row_metadata_across_chunks(monkeypatch):
+    class Store:
+        def add_documents(self, documents, ids):
+            self.documents = documents
+
+        def similarity_search(self, query, k, filter):
+            return self.documents[:k]
+
+    store = Store()
+    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
+    content = ("model,description\nD1," + "x" * 2500 + "\n").encode()
+    registry = DocumentRegistry()
+    record = registry.create(
+        filename="devices.CSV", media_type="text/plain", size_bytes=len(content),
+        content_hash="large", uploaded_by="u1",
+    )
+    ingestion_graph.run_ingestion(
+        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
+    )
+    detail = registry.get(record["document_id"])
+    assert detail["status"] == "indexed", detail["error"]
+    assert len(store.documents) > 1
+    assert all(doc.metadata["row"] == 2 and len(doc.page_content) <= 1200 for doc in store.documents)
+    assert sum(doc.page_content.count("x") for doc in store.documents) >= 2500
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b"name,name\nx,y\n", b"name,\nx,y\n", b"name,value\nx\n",
+     b'name,value\nx,"unterminated', b"name,value\n", b"name,value\n\nx,y\n"],
+)
+def test_invalid_csv_fails_before_indexing(content, monkeypatch):
+    monkeypatch.setattr(
+        ingestion_graph, "get_vector_store",
+        lambda: pytest.fail("invalid CSV must not reach indexing"),
+    )
+    registry = DocumentRegistry()
+    record = registry.create(
+        filename="invalid.csv", media_type="text/plain", size_bytes=len(content),
+        content_hash="invalid", uploaded_by="u1",
+    )
+    ingestion_graph.run_ingestion(
+        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
+    )
+    detail = registry.get(record["document_id"])
+    assert detail["status"] == "failed"
+    assert "extract:" in detail["error"]
 
 
 def _text_pdf(*pages: str) -> bytes:

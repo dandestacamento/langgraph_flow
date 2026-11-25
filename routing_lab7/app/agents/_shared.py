@@ -77,7 +77,7 @@ def _build_context_block(passages: list[dict]) -> str:
 
 def _source_labels(passages: list[dict]) -> list[str]:
     chapters: set[str] = set()
-    documents: dict[tuple[str, str, str], tuple[set[int], bool]] = {}
+    documents: dict[tuple[str, str, str], tuple[set[int], set[int], bool]] = {}
     for passage in passages:
         filename = passage.get("source")
         if not isinstance(filename, str) or not filename:
@@ -86,16 +86,19 @@ def _source_labels(passages: list[dict]) -> list[str]:
         document_id = str(passage.get("document_id") or "")
         version = str(passage.get("version") or "")
         key = (filename, document_id, version)
-        pages, missing_page = documents.get(key, (set(), False))
+        pages, rows, missing_page = documents.get(key, (set(), set(), False))
         page = passage.get("page")
+        row = passage.get("row")
         if isinstance(page, int) and not isinstance(page, bool) and page > 0:
             pages.add(page)
+        elif isinstance(row, int) and not isinstance(row, bool) and row > 0:
+            rows.add(row)
         else:
             missing_page = True
-        documents[key] = (pages, missing_page)
+        documents[key] = (pages, rows, missing_page)
 
     labels = sorted(chapters)
-    for (filename, document_id, version), (pages, missing_page) in sorted(documents.items()):
+    for (filename, document_id, version), (pages, rows, missing_page) in sorted(documents.items()):
         details = []
         if document_id:
             details.append(document_id)
@@ -104,6 +107,9 @@ def _source_labels(passages: list[dict]) -> list[str]:
         if pages:
             page_label = "page" if len(pages) == 1 else "pages"
             details.append(f"{page_label} {', '.join(str(page) for page in sorted(pages))}")
+        if rows:
+            row_label = "row" if len(rows) == 1 else "rows"
+            details.append(f"{row_label} {', '.join(str(row) for row in sorted(rows))}")
         if missing_page and pages:
             details.append("other passages without page numbers")
         details.append("retrieved, not verified")

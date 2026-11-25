@@ -73,6 +73,12 @@ export function PassagePreview({
               <dd className="text-slate-700 dark:text-slate-300">{passage.page}</dd>
             </>
           )}
+          {passage.row != null && (
+            <>
+              <dt className="text-slate-500 dark:text-slate-400">CSV row</dt>
+              <dd className="text-slate-700 dark:text-slate-300">{passage.row}</dd>
+            </>
+          )}
           {passage.version != null && (
             <>
               <dt className="text-slate-500 dark:text-slate-400">Version</dt>

@@ -28,6 +28,7 @@ def build_routing_summary(routing_result: dict) -> dict:
                     "source": passage.get("source"),
                     "version": passage.get("version"),
                     "page": passage.get("page"),
+                    "row": passage.get("row"),
                     "subtopic": passage.get("subtopic"),
                     "score": passage.get("score"),
                     "text": passage.get("text"),

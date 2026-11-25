@@ -47,6 +47,16 @@ for the isolated lab6 database, setup and opt-in `--llm-judge` batch evaluation.
 The judge is approximate, makes extra model calls, and does not change the
 deterministic pass/fail score.
 
+Knowledge-base `.csv` uploads are parsed as comma-separated UTF-8 (optional
+BOM), with one header row and one logical record per indexed passage.
+Each passage carries its CSV row number (header is row 1, including when a
+quoted field spans physical lines), filename and version. Large records can
+produce multiple passages with the same row number. Empty or duplicate headers,
+blank rows, malformed CSV and inconsistent column counts fail ingestion
+instead of publishing partial data. Existing CSV uploads need reindexing to
+gain row-level metadata. CSV content is classified and embedded using the
+same configured services as other knowledge uploads.
+
 Answers list uploaded-document filenames, document IDs, versions, and available
 PDF page numbers from retrieved passages. These are retrieval references, not
 verified citations: some retrieved passages may not support the answer.

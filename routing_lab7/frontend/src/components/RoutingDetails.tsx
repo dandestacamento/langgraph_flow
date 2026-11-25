@@ -162,6 +162,7 @@ export function RoutingDetails({
                   <p className="font-medium text-slate-600 dark:text-slate-300">
                     {passage.source ?? passage.chapter_id}
                     {passage.page != null && ` · page ${passage.page}`}
+                    {passage.row != null && ` · row ${passage.row}`}
                     {passage.version != null && ` · v${passage.version}`}
                     {passage.score != null && ` (score ${passage.score.toFixed(2)})`}
                   </p>

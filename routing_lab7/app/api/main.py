@@ -85,7 +85,7 @@ from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.condense import generate_conversation_title  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
-from app.ingestion.graph import run_ingestion  # noqa: E402
+from app.ingestion.graph import is_csv_document, run_ingestion  # noqa: E402
 from app.ingestion.registry import DocumentRegistry  # noqa: E402
 from app.ingestion.storage import LocalDocumentStorage  # noqa: E402
 from app.ingestion.taxonomy import taxonomy_store  # noqa: E402
@@ -543,7 +543,8 @@ async def upload_knowledge_document(
 
     content_hash = hashlib.sha256(content).hexdigest()
     filename = file.filename or "document"
-    matches = [r for r in _document_registry.list_documents() if r["filename"] == filename]
+    documents = _document_registry.list_documents()
+    matches = [r for r in documents if r["filename"] == filename]
     if len(matches) > 1:
         raise HTTPException(status_code=409, detail="Multiple documents have this filename; automatic replacement is ambiguous.")
     if matches:
@@ -553,7 +554,11 @@ async def upload_knowledge_document(
             return _knowledge_document(existing, duplicate=True)
         return _start_document_replacement(existing, content, media_type, background_tasks, user)
 
-    existing = _document_registry.find_by_hash(content_hash)
+    existing = next(
+        (r for r in documents if r["content_hash"] == content_hash
+         and is_csv_document(r["filename"], r["media_type"]) == is_csv_document(filename, media_type)),
+        None,
+    )
     if existing is not None:
         return _knowledge_document(existing, duplicate=True)
 

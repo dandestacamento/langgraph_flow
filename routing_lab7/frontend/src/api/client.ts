@@ -22,6 +22,7 @@ export interface RetrievedPassage {
   source?: string | null;
   version?: number | null;
   page?: number | null;
+  row?: number | null;
   subtopic: string | null;
   score: number | null;
   text: string | null;
