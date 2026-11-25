@@ -888,7 +888,17 @@ re-chunked and re-embedded (verified: a single edited chapter triggers
 exactly that chapter's chunks being replaced; a rerun with no content
 changes is a true no-op). Use `--rebuild` to force a full rebuild (e.g.
 after changing the chunking strategy or embedding model - this also
-happens automatically via `INGEST_SIGNATURE`).
+happens automatically via `INGEST_SIGNATURE`). Full rebuilds preserve
+uploaded vectors when the manifest signature matches; if uploaded vectors
+exist and the signature is missing or changed, the rebuild stops before
+deleting anything. Migrate uploads to a separate index before changing the
+signature. The signature check does not independently verify which model
+created each upload. Unrecognized vector records also stop a rebuild rather
+than being deleted. Run index builds with the backend stopped: the rebuild
+is not transactional or coordinated across processes, and a failure can
+leave the curated index incomplete. Rerun the build after a failure; an
+interrupted rebuild is detected and retried. Restart the backend after a
+successful build.
 
 **Other fixes from this self-review** (`instructions/learnings/routing-project-learnings.md`
 section 11):

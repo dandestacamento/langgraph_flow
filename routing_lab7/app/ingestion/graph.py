@@ -18,11 +18,7 @@ base uses, with the same metadata keys the retriever filters on
 ingested=True) - so retrieval, citations, and the existing router work on
 ingested knowledge with zero changes.
 
-Known caveats, deliberate for Phase A:
-- `scripts/build_index.py --rebuild` wipes the whole collection and
-  reindexes only the curated knowledge base - ingested documents must be
-  re-published afterwards (a `reindex` admin action is Phase C work,
-  tracked in chat-ui-plan5.md).
+Known caveat:
 - Hybrid retrieval's BM25 index is cached per-process and refreshed
   when the registry's active document versions change. Changes to
   unregistered curated content still require a backend restart.
