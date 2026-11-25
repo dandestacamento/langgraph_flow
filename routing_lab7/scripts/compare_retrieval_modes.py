@@ -1,4 +1,4 @@
-"""Benchmarks retrieval modes against the Level 4 (single-chapter recall)
+"""Benchmarks similarity, MMR, and hybrid retrieval against Level 4 (single-chapter recall)
 and Level 6 (multi-chapter coverage) ground truth, per
 instructions/learnings/routing-lab2-learnings.md section 4 (P1) - this is
 the validation harness that decides whether hybrid retrieval and/or
@@ -53,6 +53,7 @@ GROUND_TRUTH_PATH = PROJECT_ROOT / "datasets" / "routing_ground_truth.jsonl"
 # trusted.
 MODES: dict[str, dict] = {
     "similarity": {"retrieval_mode": "similarity", "use_reranking": False},
+    "mmr": {"retrieval_mode": "mmr", "use_reranking": False},
     "hybrid": {"retrieval_mode": "hybrid", "use_reranking": False},
     "hybrid+rerank": {"retrieval_mode": "hybrid", "use_reranking": True},
 }

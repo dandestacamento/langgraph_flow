@@ -44,6 +44,7 @@ describe("PassagePreview", () => {
   it.each([
     ["vector_distance", "Vector distance (lower is closer)"],
     ["hybrid_rank", "Hybrid rank indicator (higher is earlier)"],
+    ["mmr_rank", "MMR result rank indicator (higher is earlier)"],
     ["reranker", "Reranker score (higher is better)"],
     [undefined, "Score (type unavailable)"],
   ] as const)("explains %s scores", (score_type, label) => {

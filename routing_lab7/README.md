@@ -74,9 +74,9 @@ Answers list uploaded-document filenames, document IDs, versions, and available
 PDF page numbers from retrieved passages. These are retrieval references, not
 verified citations: some retrieved passages may not support the answer.
 Passage scores identify their type: vector distances are lower-is-closer,
-hybrid rank indicators are higher-is-earlier, and reranker scores are
-higher-is-better. These scales are not comparable or calibrated confidence
-values. Older saved conversations may show an unknown score type.
+hybrid and MMR result rank indicators are higher-is-earlier, and reranker
+scores are higher-is-better. These scales are not comparable or calibrated
+confidence values. Older saved conversations may show an unknown score type.
 Document-level classification labels do not identify the actual section of
 each uploaded excerpt. If an initial answer declines, the agent retries once
 with topic-wide hybrid retrieval (up to 40 candidates per retriever, returning
@@ -93,6 +93,16 @@ questions do not use a declined first hop as input to a second hop.
 For explicit section identifiers such as `MANAGE 4.3`, the topic router also
 receives a hint when the identifier occurs in exactly one visible topic. Shared
 or absent identifiers do not produce a hint.
+
+For an experimental diversity-aware vector search, set
+`ROUTING_LAB_RETRIEVAL_MODE=mmr` before starting the backend. MMR selects
+passages from at least 20 vector candidates using a fixed relevance/diversity
+weight of 0.5. Chroma returns selected passages in vector-candidate order;
+the displayed rank indicator is not an MMR score. Existing topic, subtopic,
+and active-version filters still apply, and uploaded content still receives
+the hybrid supplement. The default remains `similarity`. MMR may omit relevant
+passages, and its answer quality on this corpus has not been established.
+Use `scripts/compare_retrieval_modes.py` to compare retrieval coverage.
 
 Uploading changed bytes under an indexed document's existing filename starts a
 new version and classifies it again. The previous version remains searchable

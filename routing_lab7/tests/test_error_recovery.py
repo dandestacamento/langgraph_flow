@@ -378,6 +378,77 @@ def test_vector_distance_type_survives_routing_summary(monkeypatch):
     assert summary["passages"]["ai"][0]["score_type"] == "vector_distance"
 
 
+def test_mmr_diversifies_candidates_and_respects_active_scope(monkeypatch):
+    import uuid
+    import chromadb
+    from langchain_chroma import Chroma
+    from langchain_core.documents import Document
+    from langchain_core.embeddings import Embeddings
+    import app.rag.retrieval as retrieval
+
+    vectors = {
+        "first": [1.0, 0.1],
+        "near duplicate": [1.0, 0.11],
+        "diverse": [0.6, -0.8],
+        "old version": [1.0, 0.0],
+        "pending": [1.0, 0.0],
+        "other topic": [1.0, 0.0],
+        "other subtopic": [1.0, 0.0],
+    }
+
+    class TestEmbeddings(Embeddings):
+        def embed_documents(self, texts):
+            return [vectors[text] for text in texts]
+
+        def embed_query(self, text):
+            return [1.0, 0.0]
+
+    store = Chroma(client=chromadb.Client(), collection_name=f"mmr_{uuid.uuid4().hex}",
+                   embedding_function=TestEmbeddings())
+    store.add_documents([
+        Document(page_content=text, metadata={
+            "topic": "other" if text == "other topic" else "ai",
+            "subtopic": "other" if text == "other subtopic" else "risk", "chapter_id": text,
+            "document_id": "doc1" if text == "old version" else text,
+            "version": 1 if text == "old version" else 2,
+            "replacement_pending": text == "pending",
+        })
+        for text in vectors
+    ])
+    monkeypatch.setattr(retrieval, "get_vector_store", lambda: store)
+    monkeypatch.setattr(retrieval, "_active_versions", lambda: (("doc1", 2),))
+    similarity = retrieval.retrieve("question", "ai", "risk", top_k=2, retrieval_mode="similarity")
+    passages = retrieval.retrieve("question", "ai", "risk", top_k=2, retrieval_mode="mmr")
+    assert [p["text"] for p in similarity] == ["first", "near duplicate"]
+    assert [p["text"] for p in passages] == ["first", "diverse"]
+    summary = build_routing_summary({"retrieved_passages": {"ai": passages}})
+    assert [p["score_type"] for p in summary["passages"]["ai"]] == ["mmr_rank", "mmr_rank"]
+    assert [p["score"] for p in passages] == [1.0, 0.5]
+    assert retrieval.retrieve("question", "missing", top_k=2, retrieval_mode="mmr") == []
+
+
+def test_mmr_uses_requested_candidate_pool_and_existing_filter(monkeypatch):
+    from langchain_core.documents import Document
+    import app.rag.retrieval as retrieval
+
+    calls = []
+
+    class Store:
+        def max_marginal_relevance_search(self, query, **kwargs):
+            calls.append((query, kwargs))
+            return [Document(page_content="passage", metadata={"chapter_id": "c1"})]
+
+    monkeypatch.setattr(retrieval, "get_vector_store", lambda: Store())
+    monkeypatch.setattr(retrieval, "_active_versions", lambda: None)
+    passages = retrieval.retrieve("question", "ai", "risk", top_k=3,
+                                  retrieval_mode="mmr", candidate_pool_size=40)
+    assert calls == [("question", {
+        "k": 3, "fetch_k": 40, "lambda_mult": 0.5,
+        "filter": retrieval._build_where("ai", "risk", None),
+    })]
+    assert passages[0]["score_type"] == "mmr_rank"
+
+
 def test_reranker_replaces_previous_score_type(monkeypatch):
     import app.rag.reranking as reranking
 

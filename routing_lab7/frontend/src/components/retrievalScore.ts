@@ -6,6 +6,8 @@ export function retrievalScoreLabel(type: RetrievedPassage["score_type"]): strin
       return "Vector distance (lower is closer)";
     case "hybrid_rank":
       return "Hybrid rank indicator (higher is earlier)";
+    case "mmr_rank":
+      return "MMR result rank indicator (higher is earlier)";
     case "reranker":
       return "Reranker score (higher is better)";
     default:

@@ -14,9 +14,9 @@ five evaluation questions in
 instructions/Langgraph_routing/1_architecture.md ("Routing" and
 "Retrieval" are tracked as separate questions).
 
-`retrieve()` also supports an optional "hybrid" retrieval mode (vector +
-BM25 keyword search) and optional cross-encoder reranking - see
-instructions/learnings/routing-lab2-learnings.md section 4 (P1). Both are
+`retrieve()` also supports optional "hybrid" retrieval (vector + BM25),
+MMR vector retrieval, and cross-encoder reranking - see
+instructions/learnings/routing-lab2-learnings.md section 4 (P1). All are
 opt-in (off by default via `app.config.RETRIEVAL_MODE`/`RERANK_ENABLED`):
 Level 4's baseline is already 100% Retrieval Recall@K on plain similarity
 search, so there's no benchmarked evidence yet that either improves
@@ -41,6 +41,8 @@ from langchain_core.documents import Document
 from app.config import (
     CHROMA_COLLECTION_NAME,
     CHROMA_PERSIST_DIR,
+    MMR_FETCH_K,
+    MMR_LAMBDA,
     RERANK_ENABLED,
     RERANK_FETCH_K,
     RETRIEVAL_MODE,
@@ -135,6 +137,21 @@ def _similarity_candidates(query: str, topic: str, subtopic: str | None, top_k: 
     ]
 
 
+def _mmr_candidates(
+    query: str, topic: str, subtopic: str | None, top_k: int,
+    active_versions: tuple[tuple[str, int], ...] | None, candidate_pool_size: int,
+) -> list[dict]:
+    documents = get_vector_store().max_marginal_relevance_search(
+        query, k=top_k, fetch_k=candidate_pool_size, lambda_mult=MMR_LAMBDA,
+        filter=_build_where(topic, subtopic, active_versions),
+    )
+    return [
+        {**document.metadata, "text": document.page_content, "score": round(1.0 / (rank + 1), 4),
+         "score_type": "mmr_rank"}
+        for rank, document in enumerate(documents)
+    ]
+
+
 def _hybrid_candidates(
     query: str, topic: str, subtopic: str | None, top_k: int,
     active_versions: tuple[tuple[str, int], ...] | None, candidate_pool_size: int,
@@ -177,17 +194,20 @@ def retrieve(
     `text`, `chapter_id`, `document_id`, `topic`, `subtopic`, `chunk_index`,
     `score`, and `score_type`, ordered by relevance (lower Chroma distance
     or higher rank-based/cross-encoder score, depending on mode - see below).
+    MMR results are selected for diversity and returned in Chroma's vector
+    candidate order; their rank indicator is not an MMR similarity score.
 
     `retrieval_mode`: "similarity" (default - Chroma vector search only)
-    or "hybrid" (vector + BM25 keyword search, see `_hybrid_candidates`).
+    "hybrid" (vector + BM25 keyword search), or "mmr" (diversified vector
+    candidates).
     `use_reranking`: if True, fetches a larger candidate pool
     (`max(top_k, RERANK_FETCH_K)`) and re-scores it with a cross-encoder
     (`app.rag.reranking.rerank`) before narrowing back down to `top_k`.
 
-    `candidate_pool_size`: for hybrid retrieval, fetch at least this many
-    results from each retriever before fusion and limiting to `top_k`.
+    `candidate_pool_size`: for hybrid or MMR retrieval, fetch at least this
+    many candidates before selecting the results.
 
-    Both parameters default to `app.config`'s `RETRIEVAL_MODE`/
+    The retrieval and reranking parameters default to `app.config`'s `RETRIEVAL_MODE`/
     `RERANK_ENABLED` (both opt-in, off by default) - override them
     explicitly for experiments (see `scripts/compare_retrieval_modes.py`)
     rather than changing the config defaults without benchmarked
@@ -199,14 +219,15 @@ def retrieve(
         raise ValueError("candidate_pool_size must be positive")
 
     fetch_k = max(top_k, RERANK_FETCH_K) if use_reranking else top_k
-    hybrid_pool_size = max(fetch_k, candidate_pool_size or fetch_k)
+    pool_size = max(fetch_k, candidate_pool_size or fetch_k)
     with index_publication_lock:
         active_versions = _active_versions()
-        candidates = (
-            _hybrid_candidates(query, topic, subtopic, fetch_k, active_versions, hybrid_pool_size)
-            if retrieval_mode == "hybrid"
-            else _similarity_candidates(query, topic, subtopic, fetch_k, active_versions)
-        )
+        if retrieval_mode == "hybrid":
+            candidates = _hybrid_candidates(query, topic, subtopic, fetch_k, active_versions, pool_size)
+        elif retrieval_mode == "mmr":
+            candidates = _mmr_candidates(query, topic, subtopic, fetch_k, active_versions, max(MMR_FETCH_K, pool_size))
+        else:
+            candidates = _similarity_candidates(query, topic, subtopic, fetch_k, active_versions)
 
     if use_reranking:
         return rerank(query, candidates, top_k)
