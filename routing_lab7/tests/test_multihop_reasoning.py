@@ -1,0 +1,219 @@
+"""Level 9 tests: complex multi-hop reasoning.
+
+Loads every Level 9 question from datasets/routing_ground_truth.jsonl and
+runs it through the full graph, checking three independent things:
+
+1. Multi-hop detection: did the Multi-Hop Router correctly decide this
+   question is (or, for the two regression-check questions, is NOT)
+   genuinely multi-hop - a second part whose subject isn't named until a
+   first part identifies it? Misclassifying an ordinary question as
+   multi-hop would trigger two extra full pipeline invocations for no
+   reason, so this is scored both ways, not just "did it detect genuine
+   cases", consistent with Level 8's tool-selection accuracy.
+2. Hop 1 resolution: for a genuinely multi-hop question, did hop 1
+   resolve to the expected entity (e.g. "WM-900")? This is the specific
+   new failure mode Level 9 introduces that no earlier level has - hop 2
+   is only as good as the value substituted into its `{hop1_answer}`
+   placeholder.
+3. Answer: does the final, synthesized answer contain the expected facts
+   from BOTH hops - proving hop 2 was actually resolved using hop 1's
+   real answer, not a hallucinated or generic one.
+
+All scored deterministically (boolean/substring matching), not an LLM
+judge - consistent with Levels 1-8.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+import app.agents.multihop_agent as multihop_agent
+import app.graph as graph_module
+from app.evaluation.answer_metrics import AnswerResult, summarize_answers
+from app.evaluation.routing_metrics import MultiHopResult, summarize_multihop
+from app.state import initial_state
+from tests.conftest import load_ground_truth
+
+LEVEL_9_CASES = load_ground_truth(level=9)
+assert LEVEL_9_CASES, "No Level 9 cases found in datasets/routing_ground_truth.jsonl"
+
+MULTIHOP_CASES = [c for c in LEVEL_9_CASES if c["expected_is_multi_hop"]]
+REGRESSION_CASES = [c for c in LEVEL_9_CASES if not c["expected_is_multi_hop"]]
+
+MIN_MULTIHOP_ACCURACY = 0.9
+MIN_ANSWER_ACCURACY = 0.85
+
+
+def test_multihop_retains_both_hops_evidence(monkeypatch):
+    hop_states = iter([
+        {
+            "final_answer": "model", "execution_log": [], "selected_topics": ["appliances"],
+            "retrieved_passages": {"appliances": [{"chapter_id": "a", "text": "first"}]},
+            "tool_results": {"appliances": {"tool_name": "sql_query", "output": "first", "error": None}},
+        },
+        {
+            "final_answer": "price", "execution_log": [], "selected_topics": ["appliances"],
+            "retrieved_passages": {"appliances": [{"chapter_id": "b", "text": "second"}]},
+            "tool_results": {"appliances": {"tool_name": "sql_query", "output": "second", "error": None}},
+        },
+    ])
+
+    class Graph:
+        def invoke(self, state):
+            return next(hop_states)
+
+    class Model:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return type("Response", (), {"content": "model and price"})()
+
+    monkeypatch.setattr(graph_module, "build_graph", lambda: Graph())
+    monkeypatch.setattr(multihop_agent, "_extract_value", lambda *args: "model")
+    monkeypatch.setattr(multihop_agent, "ChatOpenAI", Model)
+    result = multihop_agent.execute_multihop({
+        "question": "q", "hop_plan": {"hop1_question": "first", "hop2_question_template": "{hop1_answer}"},
+    })
+    assert [p["text"] for p in result["retrieved_passages"]["appliances"]] == ["first", "second"]
+    assert [h["tool_results"]["appliances"]["output"] for h in result["hop_results"]] == ["first", "second"]
+
+
+@pytest.mark.parametrize("declined_hop", [1, 2])
+@pytest.mark.parametrize("marker", [
+    multihop_agent.INSUFFICIENT_INFO_MARKER,
+    multihop_agent.UNVERIFIED_ANSWER_MARKER,
+])
+def test_multihop_preserves_declined_answers_without_using_them(monkeypatch, declined_hop, marker):
+    states = iter([
+        {"final_answer": marker if declined_hop == 1 else "model", "execution_log": []},
+        {"final_answer": marker, "execution_log": []},
+    ])
+    calls = []
+
+    class Graph:
+        def invoke(self, state):
+            calls.append(state["question"])
+            return next(states)
+
+    def extract(*args):
+        assert declined_hop == 2
+        return "model"
+
+    def unexpected_synthesis(**kwargs):
+        pytest.fail("A declined hop must not be sent to synthesis")
+
+    monkeypatch.setattr(graph_module, "build_graph", lambda: Graph())
+    monkeypatch.setattr(multihop_agent, "_extract_value", extract)
+    monkeypatch.setattr(multihop_agent, "ChatOpenAI", unexpected_synthesis)
+    result = multihop_agent.execute_multihop({
+        "question": "q", "hop_plan": {"hop1_question": "first", "hop2_question_template": "{hop1_answer}"},
+    })
+    assert len(calls) == declined_hop
+    assert marker in result["final_answer"]
+    assert len(result["hop_results"]) == declined_hop
+    if declined_hop == 1:
+        assert result["hop_results"][0]["extracted_value"] is None
+
+
+def _invoke(compiled_graph, question: str) -> dict:
+    return compiled_graph.invoke(initial_state(question))
+
+
+def _hop1_value(output: dict) -> str | None:
+    hop_results = output.get("hop_results") or []
+    return hop_results[0]["extracted_value"] if hop_results else None
+
+
+@pytest.mark.parametrize("case", LEVEL_9_CASES, ids=[c["id"] for c in LEVEL_9_CASES])
+def test_multihop_detection_matches_expected(compiled_graph, case):
+    """The Multi-Hop Router must correctly decide is_multi_hop - and,
+    when true, hop 1 must resolve to the expected entity."""
+    output = _invoke(compiled_graph, case["question"])
+
+    result = MultiHopResult(
+        question_id=case["id"],
+        expected_is_multi_hop=case["expected_is_multi_hop"],
+        expected_hop1_fact=case["expected_hop1_fact"],
+        actual_is_multi_hop=output["is_multi_hop"],
+        actual_hop1_value=_hop1_value(output),
+    )
+    assert result.is_correct, (
+        f"{case['id']}: expected is_multi_hop={case['expected_is_multi_hop']!r} "
+        f"(hop1_fact={case['expected_hop1_fact']!r}), got is_multi_hop={output['is_multi_hop']!r} "
+        f"(hop1_value={_hop1_value(output)!r}) (question: {case['question']!r})"
+    )
+
+
+@pytest.mark.parametrize("case", LEVEL_9_CASES, ids=[c["id"] for c in LEVEL_9_CASES])
+def test_final_answer_contains_facts_from_both_hops(compiled_graph, case):
+    """The final (synthesized, for genuine multi-hop cases) answer must
+    contain every expected fact, proving hop 2 was resolved using hop 1's
+    real answer rather than a hallucinated one."""
+    output = _invoke(compiled_graph, case["question"])
+
+    result = AnswerResult(
+        question_id=case["id"],
+        actual_answer=output["final_answer"],
+        expected_facts=case["expected_facts"],
+        retrieved_texts=[],
+        is_answerable=True,
+    )
+    assert result.is_correct, (
+        f"{case['id']}: final answer missing expected facts {case['expected_facts']} "
+        f"(correctness={result.correctness:.2f}). Final answer was: {output['final_answer']!r}"
+    )
+
+
+def test_level_9_overall_multihop_accuracy(compiled_graph):
+    """Suite-level multi-hop detection accuracy across every Level 9 question."""
+    results = []
+    for case in LEVEL_9_CASES:
+        output = _invoke(compiled_graph, case["question"])
+        results.append(
+            MultiHopResult(
+                question_id=case["id"],
+                expected_is_multi_hop=case["expected_is_multi_hop"],
+                expected_hop1_fact=case["expected_hop1_fact"],
+                actual_is_multi_hop=output["is_multi_hop"],
+                actual_hop1_value=_hop1_value(output),
+            )
+        )
+
+    summary = summarize_multihop(results)
+    print(f"\nLevel 9 multi-hop detection summary: {summary}")
+    failures = [r.question_id for r in results if not r.is_correct]
+    if failures:
+        print(f"Failed questions: {failures}")
+
+    assert summary["multihop_accuracy"] >= MIN_MULTIHOP_ACCURACY, (
+        f"Level 9 multi-hop accuracy {summary['multihop_accuracy']:.0%} is below the "
+        f"{MIN_MULTIHOP_ACCURACY:.0%} target. Failed: {failures}"
+    )
+
+
+def test_level_9_overall_answer_accuracy(compiled_graph):
+    """Suite-level answer accuracy across every Level 9 question."""
+    results = []
+    for case in LEVEL_9_CASES:
+        output = _invoke(compiled_graph, case["question"])
+        results.append(
+            AnswerResult(
+                question_id=case["id"],
+                actual_answer=output["final_answer"],
+                expected_facts=case["expected_facts"],
+                retrieved_texts=[],
+                is_answerable=True,
+            )
+        )
+
+    summary = summarize_answers(results)
+    print(f"\nLevel 9 answer summary: {summary}")
+    failures = [r.question_id for r in results if not r.is_correct]
+    if failures:
+        print(f"Failed questions: {failures}")
+
+    assert summary["answer_accuracy"] >= MIN_ANSWER_ACCURACY, (
+        f"Level 9 answer accuracy {summary['answer_accuracy']:.0%} is below the "
+        f"{MIN_ANSWER_ACCURACY:.0%} target. Failed: {failures}"
+    )

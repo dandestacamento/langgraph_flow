@@ -1,0 +1,4 @@
+model,type,capacity_kg,standard_warranty_years,motor_warranty_years,price_aud
+WM-300,top-load,7,1,5,699
+WM-500,front-load,9,2,10,999
+WM-900,front-load,11,3,10,1499

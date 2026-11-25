@@ -1,0 +1,86 @@
+[
+  {
+    "test_id": "DW650-01", "level": 4,
+    "question": "How many place settings does the SmartHome DW-650 dishwasher hold?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["14"], "expected_answer": "The DW-650 holds 14 place settings."
+  },
+  {
+    "test_id": "DW650-02", "level": 4,
+    "question": "What does CL mean on the SmartHome DW-650 dishwasher display?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["child lock"], "expected_answer": "CL means the child lock is active."
+  },
+  {
+    "test_id": "DW650-03", "level": 4,
+    "question": "How many minutes does the SmartHome DW-650 dishwasher Eco 50 cycle take?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["185"], "expected_answer": "The Eco 50 cycle takes 185 minutes."
+  },
+  {
+    "test_id": "DW650-04", "level": 4,
+    "question": "Which SmartHome DW-650 dishwasher cycle uses a 70 C final rinse?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["hygiene"], "expected_answer": "The Hygiene 70 cycle uses a 70 C final rinse."
+  },
+  {
+    "test_id": "DW650-05", "level": 4,
+    "question": "Where should tall plates be placed in the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["lower rack"], "expected_answer": "Place tall plates in the lower rack."
+  },
+  {
+    "test_id": "DW650-06", "level": 4,
+    "question": "Which SmartHome DW-650 dishwasher part should be cleaned every 14 days?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["filter"], "expected_answer": "Clean the removable mesh filter every 14 days."
+  },
+  {
+    "test_id": "DW650-07", "level": 4,
+    "question": "What does error E14 mean on the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["low", "flow"], "expected_answer": "E14 indicates low incoming water flow."
+  },
+  {
+    "test_id": "DW650-08", "level": 4,
+    "question": "What does error E26 mean on the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["restrict", "drain"], "expected_answer": "E26 indicates a restricted drain path."
+  },
+  {
+    "test_id": "DW650-09", "level": 4,
+    "question": "What does error E33 mean on the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["door", "latch", "closed"], "expected_answer": "E33 means the door latch was not detected as closed."
+  },
+  {
+    "test_id": "DW650-10", "level": 4,
+    "question": "What is the standard warranty term for the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["3-year"], "expected_answer": "The DW-650 has a 3-year standard warranty."
+  },
+  {
+    "test_id": "DW650-11", "level": 4,
+    "question": "What is the motor warranty term for the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["7-year"], "expected_answer": "The DW-650 has a 7-year motor warranty."
+  },
+  {
+    "test_id": "DW650-12", "level": 4,
+    "question": "What information should I provide when contacting support about the SmartHome DW-650 dishwasher?",
+    "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
+    "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["serial", "model", "purchase"], "expected_answer": "Provide the model number, serial number, and purchase date."
+  }
+]

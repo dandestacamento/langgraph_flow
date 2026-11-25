@@ -1,0 +1,122 @@
+[
+  {
+    "test_id": "NIST-01", "level": 4,
+    "question": "What two outcomes does the AI RMF aim for when addressing AI impacts?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["negative", "positive"],
+    "expected_answer": "Minimize negative impacts and identify opportunities to maximize positive impacts."
+  },
+  {
+    "test_id": "NIST-02", "level": 4,
+    "question": "What are the four AI RMF Core functions?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["govern", "map", "measure", "manage"],
+    "expected_answer": "GOVERN, MAP, MEASURE, and MANAGE."
+  },
+  {
+    "test_id": "NIST-03", "level": 4,
+    "question": "Assuming a governance structure is in place, must the AI RMF functions be performed in a fixed order?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["order"],
+    "expected_answer": "No. They may be performed in any order as appropriate for the user."
+  },
+  {
+    "test_id": "NIST-04", "level": 4,
+    "question": "Which three functions is GOVERN designed to be infused throughout?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["map", "measure", "manage"],
+    "expected_answer": "MAP, MEASURE, and MANAGE."
+  },
+  {
+    "test_id": "NIST-05", "level": 4,
+    "question": "The outcomes of MAP form the basis for which two functions?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["measure", "manage"],
+    "expected_answer": "MEASURE and MANAGE."
+  },
+  {
+    "test_id": "NIST-06", "level": 4,
+    "question": "According to the MEASURE function, when should AI systems be tested?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["before", "deployment", "regularly"],
+    "expected_answer": "Before deployment and regularly while in operation."
+  },
+  {
+    "test_id": "NIST-07", "level": 4,
+    "question": "What four risk-response options are listed in MANAGE 1.3?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["mitigat", "transfer", "avoid", "accept"],
+    "expected_answer": "Mitigating, transferring, avoiding, and accepting risk."
+  },
+  {
+    "test_id": "NIST-08", "level": 4,
+    "question": "According to MANAGE 4.3, to whom should incidents and errors be communicated?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["actors", "affected communities"],
+    "expected_answer": "Relevant AI actors, including affected communities."
+  },
+  {
+    "test_id": "NIST-09", "level": 4,
+    "question": "Does the AI RMF prescribe an organization's risk tolerance?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["risk tolerance"],
+    "expected_answer": "No."
+  },
+  {
+    "test_id": "NIST-10", "level": 4,
+    "question": "What seven characteristics of trustworthy AI are listed in the framework?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["valid", "reliable", "safe", "secure", "resilient", "accountable", "transparent", "explainable", "interpretable", "privacy", "fair", "bias"],
+    "expected_answer": "Valid and reliable; safe; secure and resilient; accountable and transparent; explainable and interpretable; privacy-enhanced; and fair with harmful bias managed."
+  },
+  {
+    "test_id": "NIST-11", "level": 4,
+    "question": "Which questions do transparency, explainability, and interpretability respectively help answer?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["what", "how", "why"],
+    "expected_answer": "Transparency addresses what happened; explainability addresses how a decision was made; interpretability addresses why the decision was made and its meaning or context to the user."
+  },
+  {
+    "test_id": "NIST-12", "level": 4,
+    "question": "What three major categories of AI bias does NIST identify?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["systemic", "computational", "statistical", "human", "cognitive"],
+    "expected_answer": "Systemic, computational and statistical, and human-cognitive bias."
+  },
+  {
+    "test_id": "NIST-13", "level": 4,
+    "question": "An AI RMF use-case profile is based on which three aspects of the framework user?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["requirements", "risk tolerance", "resources"],
+    "expected_answer": "The user's requirements, risk tolerance, and resources."
+  },
+  {
+    "test_id": "NIST-14", "level": 4,
+    "question": "What is the difference between an AI RMF Current Profile and a Target Profile?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["current", "target", "outcomes"],
+    "expected_answer": "A Current Profile describes current AI risk-management outcomes; a Target Profile describes the outcomes needed to achieve desired risk-management goals."
+  },
+  {
+    "test_id": "NIST-15", "level": 4,
+    "question": "What should be employed when choosing trustworthiness metrics and their precise threshold values?",
+    "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
+    "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_facts": ["human", "judg"],
+    "expected_answer": "Human judgment."
+  }
+]

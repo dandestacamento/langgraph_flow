@@ -1,0 +1,18 @@
+model_list:
+  # Both this project's chat/router model (app/config.py's
+  # ROUTER_MODEL/AGENT_MODEL) and its embedding model
+  # (app/config.py's EMBEDDING_MODEL) are declared here under the exact
+  # same names the app already requests - app/llm_gateway.py only needs
+  # to point ChatOpenAI/OpenAIEmbeddings at this proxy's base_url, not
+  # change which model name they ask for.
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
