@@ -1213,8 +1213,10 @@ chat API, then run from `routing_lab7\`:
 ```
 
 Enter the local Keycloak demo password when prompted. Use `--username` for a
-different local user, or `--ids NIST-05 NIST-07` for a subset. The runner
-creates a persistent conversation visible in the chat sidebar, uses the
+different local user, or `--ids NIST-05 NIST-07` for a subset. Add
+`--fresh-conversations` to test standalone questions in separate new threads;
+omit it for the original shared-conversation follow-up test. Each thread is
+persisted and visible in the chat sidebar. The runner uses the
 running backend's cache and gateway configuration, and can incur model costs.
 It uses the non-streaming `/chat` API rather than automating the browser;
 token usage and cost are not reported by that endpoint. The runner connects
@@ -1227,7 +1229,10 @@ are preserved across reruns). Automatic answer checks are approximate
 substring matches, not a semantic verdict or proof of citation support.
 Failed requests stop the run and leave the partial report intact; failed
 checks or requests produce a nonzero exit code. Generated reports are
-replaced on rerun; use `--output-dir` to retain separate runs.
+replaced on rerun; use `--output-dir` to retain separate runs. The chat
+runner currently supports only `topic`, `subtopic`, and `source` in `graded`
+(plus optional `expected_evidence`); other routing dimensions, such as
+T015's `behavior`, require the standalone runner or manual UI review.
 
 ### Quick reference
 
@@ -1275,10 +1280,34 @@ tracking your own manual verdict alongside the automated one.
   filename and include `source` in `graded`; the expected topic's retrieved
   passages must include that source. Use `--dataset` and `--output-dir` to
   run a separate dataset without overwriting the default reports.
+- **Check reviewed evidence:** optionally add `expected_evidence` to a case,
+  for example:
+
+  ```json
+  "expected_evidence": [
+    {"source": "manual.pdf", "page": 2, "text_contains": "reviewed passage text"}
+  ]
+  ```
+
+  Each entry requires a nonblank `text_contains` and either `source` or
+  `chapter_id`. It can also specify `topic`, `document_id`, positive integer
+  `version`, and positive integer PDF `page`. Every entry must match one
+  retrieved passage's metadata and text; text matching ignores case and
+  whitespace differences. Multiple entries can cover different documents.
+  Malformed entries are rejected. The result appears separately as
+  `evidence_correct` and affects `overall_correct`. It only confirms that
+  the specified text was retrieved, not that the answer is supported, complete,
+  or correct. Use a reviewed document ID/version when identity matters; a
+  filename alone may not uniquely identify a document. Four example cases in
+  the NIST and DW-650 datasets contain reviewed page/text expectations.
+  Reports for these cases include retrieved passage text: protect the output
+  directory and avoid storing sensitive document contents in shared locations.
 - **Run it:** `python scripts/run_batch_tests.py` (or
   `--ids T001 T015` to run a subset). Reuses the exact same
   `app.graph.build_graph()` as `app.main` and the pytest suite - no
-  second implementation to keep in sync.
+  second implementation to keep in sync. Add `--fail-on-regression` to exit
+  nonzero for any failed, incomplete, unscored overall or errored case after
+  writing reports. Without it, existing exit behavior is unchanged.
 - **Read the results:**
   - `outputs/batch_report.md` - readable per-question report: expected
     vs. actual routing chain, retrieved chapters, tool/multi-hop/recovery
@@ -1303,8 +1332,9 @@ tracking your own manual verdict alongside the automated one.
   The overall summary counts all enabled, scored dimensions; cases with
   `score_answer: false` do not establish answer correctness. Automated
   fact checks are substring matches, not proof of factual accuracy. The
-  standalone routing batch runner does not yet fail its exit code for
-  ordinary wrong answers or execution errors; inspect the reports.
+  standalone routing batch runner only fails its exit code for ordinary wrong
+  answers or execution errors when `--fail-on-regression` is set; inspect the
+  reports and manually review quality even when automated checks pass.
 
 ## Next step
 

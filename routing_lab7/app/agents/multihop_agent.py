@@ -21,13 +21,14 @@ whole sentence it appears in), which is substituted into hop 2's
 
 from __future__ import annotations
 
+import json
 import time
 
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from app import llm_gateway
-from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER
+from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER, _answer_is_supported
 from app.config import AGENT_MODEL
 from app.state import RoutingState, initial_state
 
@@ -144,6 +145,7 @@ def execute_multihop(state: RoutingState) -> dict:
         }
     )
 
+    verification_fallback = False
     if any(marker in hop2_answer for marker in declined_answers):
         final_answer = f"{hop1_answer}\n\n{hop2_answer}"
     else:
@@ -155,13 +157,28 @@ def execute_multihop(state: RoutingState) -> dict:
         )
         response = llm.invoke([("system", _SYNTHESIS_SYSTEM_PROMPT), ("human", human_message)])
         final_answer = response.content.strip()
+        evidence = [
+            passage
+            for hop_state in (hop1_state, hop2_state)
+            for passages in hop_state.get("retrieved_passages", {}).values()
+            for passage in passages
+        ]
+        evidence.extend(
+            {"text": json.dumps({"topic": topic, "tool_result": tool_result})}
+            for hop_state in (hop1_state, hop2_state)
+            for topic, tool_result in hop_state.get("tool_results", {}).items()
+            if tool_result and tool_result.get("error") is None
+        )
+        if not _answer_is_supported(state["question"], final_answer, evidence, None):
+            final_answer = f"{hop1_answer}\n\n{hop2_answer}"
+            verification_fallback = True
     duration_ms = (time.perf_counter() - start) * 1000
 
     log_entries.append(
         {
             "node": "multihop_agent",
             "action": "synthesize_hops",
-            "output": {"hops_combined": 2},
+            "output": {"hops_combined": 2, "verification_fallback": verification_fallback},
             "duration_ms": round(duration_ms, 1),
         }
     )

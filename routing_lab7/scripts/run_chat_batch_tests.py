@@ -1,4 +1,4 @@
-"""Run a dataset against the real chat API as one conversation."""
+"""Run a dataset against the real chat API, in one or separate conversations."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import time
 import uuid
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import parse_qs, urljoin, urlsplit
 
 import httpx
@@ -32,6 +33,10 @@ from scripts.run_batch_tests import (  # noqa: E402
 ISSUER = "http://localhost:8082/realms/routing-lab6"
 CLIENT_ID = "routing-lab6-frontend"
 REDIRECT_URI = "http://localhost:5173/"
+
+
+class _TokenSession(Protocol):
+    def token(self) -> str: ...
 
 
 class LoginFormParser(HTMLParser):
@@ -126,7 +131,6 @@ class LocalKeycloakSession:
 
 def score_chat_response(case: dict, response: dict) -> dict:
     summary = response["routing_summary"]
-    answer = response["final_answer"].split("\n\nSources:", 1)[0]
     output = {
         "selected_topics": summary["topics"],
         "selected_subtopics": summary["subtopics"],
@@ -136,17 +140,18 @@ def score_chat_response(case: dict, response: dict) -> dict:
         "is_multi_hop": summary["is_multi_hop"],
         "hop_results": summary["hop_results"],
         "recovery_attempts": summary["recovery_attempts"],
-        "final_answer": answer,
+        "final_answer": response["final_answer"],
     }
     return score_case(case, output)
 
 
-def render_report(details: list[dict], thread_id: str, selected_count: int) -> str:
+def render_report(details: list[dict], thread_id: str, selected_count: int, fresh_conversations: bool = False) -> str:
     lines = [
         "# Chat API regression report", "",
-        f"Conversation: `{thread_id}`",
+        "Conversation mode: separate conversations" if fresh_conversations else f"Conversation: `{thread_id}`",
         f"Processed {len(details)} of {selected_count} selected questions.",
-        "Questions were sent in order to the real chat API in one conversation.",
+        "Questions were sent to the real chat API in separate conversations." if fresh_conversations
+        else "Questions were sent in order to the real chat API in one conversation.",
         "Fact checks are substring checks, not semantic judgments; review answers and passages manually.",
         "Retrieved sources are not verified citations. Token usage and cost are not available from the API.",
         "",
@@ -155,6 +160,8 @@ def render_report(details: list[dict], thread_id: str, selected_count: int) -> s
         case, response, scores = detail["case"], detail.get("response"), detail.get("scores")
         lines.extend([f"## {case['test_id']}: {case['question']}", "",
                       f"**Expected answer:** {case.get('expected_answer', '')}", ""])
+        if fresh_conversations:
+            lines.extend([f"**Conversation:** `{detail['thread_id']}`", ""])
         if detail.get("error"):
             lines.extend([f"**Request error:** {detail['error']}", ""])
             continue
@@ -165,6 +172,7 @@ def render_report(details: list[dict], thread_id: str, selected_count: int) -> s
             f"**Expected route:** {case.get('expected_topics')} / {case.get('expected_subtopic')}",
             f"**Actual route:** {summary['topics']} / {summary['subtopics']}",
             f"**Expected source:** {case.get('expected_source')}",
+            f"**Expected evidence:** {case.get('expected_evidence')}",
             f"**Guardrail blocked reason:** {response.get('guardrail_blocked_reason')}",
             f"**Checks:** {scores}", "",
             "**Retrieved passages:**", "",
@@ -180,10 +188,14 @@ def render_report(details: list[dict], thread_id: str, selected_count: int) -> s
     return "\n".join(lines)
 
 
-def write_reports(output_dir: Path, cases: list[dict], details: list[dict], thread_id: str) -> None:
+def write_reports(
+    output_dir: Path, cases: list[dict], details: list[dict], thread_id: str, fresh_conversations: bool = False,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "chat_details.json").write_text(json.dumps(details, indent=2, ensure_ascii=False), encoding="utf-8")
-    (output_dir / "chat_report.md").write_text(render_report(details, thread_id, len(cases)), encoding="utf-8")
+    (output_dir / "chat_report.md").write_text(
+        render_report(details, thread_id, len(cases), fresh_conversations), encoding="utf-8"
+    )
     rows = [{
         "test_id": d["case"]["test_id"], "level": d["case"]["level"], "question": d["case"]["question"],
         **(d.get("scores") or {"routing_correct": False, "answer_correct": False, "overall_correct": False}),
@@ -197,11 +209,15 @@ def write_reports(output_dir: Path, cases: list[dict], details: list[dict], thre
     write_manual_review_csv(output_dir / "manual_review.csv", merge_manual_review(output_dir / "manual_review.csv", cases))
 
 
-def run_batch(client: httpx.Client, session: LocalKeycloakSession, api_url: str, cases: list[dict], output_dir: Path) -> list[dict]:
+def run_batch(
+    client: httpx.Client, session: _TokenSession, api_url: str, cases: list[dict],
+    output_dir: Path, fresh_conversations: bool = False,
+) -> list[dict]:
     _origin(api_url)
-    thread_id = f"chat-regression-{uuid.uuid4()}"
+    shared_thread_id = f"chat-regression-{uuid.uuid4()}"
     details = []
     for case in cases:
+        thread_id = f"chat-regression-{uuid.uuid4()}" if fresh_conversations else shared_thread_id
         started = time.perf_counter()
         try:
             response = client.post(
@@ -219,12 +235,14 @@ def run_batch(client: httpx.Client, session: LocalKeycloakSession, api_url: str,
         except (httpx.HTTPError, RuntimeError, KeyError, TypeError, ValueError) as exc:
             detail = {"case": case, "error": f"{type(exc).__name__}: {exc}"}
             print(f"{case['test_id']}: {detail['error']}", file=sys.stderr, flush=True)
+        detail["thread_id"] = thread_id
         detail["latency_ms"] = round((time.perf_counter() - started) * 1000, 1)
         details.append(detail)
-        write_reports(output_dir, cases, details, thread_id)
+        write_reports(output_dir, cases, details, shared_thread_id, fresh_conversations)
         if detail.get("error"):
             break
-    print(f"Conversation {thread_id}; reports: {output_dir}", flush=True)
+    conversation_label = "Separate conversations" if fresh_conversations else f"Conversation {shared_thread_id}"
+    print(f"{conversation_label}; reports: {output_dir}", flush=True)
     return details
 
 
@@ -235,6 +253,10 @@ def main() -> None:
     parser.add_argument("--ids", nargs="+")
     parser.add_argument("--api-url", default="http://localhost:8000")
     parser.add_argument("--username", default="demo")
+    parser.add_argument(
+        "--fresh-conversations", action="store_true",
+        help="Use a separate new conversation for each question rather than one shared conversation.",
+    )
     args = parser.parse_args()
     _origin(args.api_url)
     cases = load_questions(args.dataset, args.ids)
@@ -246,7 +268,7 @@ def main() -> None:
     password = os.environ.get("ROUTING_CHAT_PASSWORD") or getpass.getpass("Keycloak password: ")
     with httpx.Client(timeout=180, follow_redirects=False, trust_env=False) as client:
         session = LocalKeycloakSession(client, args.username, password)
-        details = run_batch(client, session, args.api_url, cases, args.output_dir)
+        details = run_batch(client, session, args.api_url, cases, args.output_dir, args.fresh_conversations)
     if len(details) != len(cases) or any(d.get("error") or d["scores"]["overall_correct"] is not True for d in details):
         raise SystemExit(1)
 

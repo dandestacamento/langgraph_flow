@@ -72,11 +72,59 @@ def test_multihop_retains_both_hops_evidence(monkeypatch):
     monkeypatch.setattr(graph_module, "build_graph", lambda: Graph())
     monkeypatch.setattr(multihop_agent, "_extract_value", lambda *args: "model")
     monkeypatch.setattr(multihop_agent, "ChatOpenAI", Model)
+    monkeypatch.setattr(multihop_agent, "_answer_is_supported", lambda *args: True)
     result = multihop_agent.execute_multihop({
         "question": "q", "hop_plan": {"hop1_question": "first", "hop2_question_template": "{hop1_answer}"},
     })
     assert [p["text"] for p in result["retrieved_passages"]["appliances"]] == ["first", "second"]
     assert [h["tool_results"]["appliances"]["output"] for h in result["hop_results"]] == ["first", "second"]
+
+
+@pytest.mark.parametrize("supported", [True, False])
+def test_multihop_checks_final_answer_against_both_hops(monkeypatch, supported):
+    states = iter([
+        {
+            "final_answer": "First answer", "execution_log": [], "selected_topics": ["appliances"],
+            "retrieved_passages": {"appliances": [{"text": "first passage"}]},
+            "tool_results": {"appliances": {"output": "first tool", "error": None}},
+        },
+        {
+            "final_answer": "Second answer", "execution_log": [], "selected_topics": ["appliances"],
+            "retrieved_passages": {"appliances": [{"text": "second passage"}]},
+            "tool_results": {"appliances": {"output": "second tool", "error": None}},
+        },
+    ])
+
+    class Graph:
+        def invoke(self, state):
+            return next(states)
+
+    class Model:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return type("Response", (), {"content": "Synthesized answer"})()
+
+    checked = []
+
+    def check(question, answer, evidence, tool):
+        checked.append((question, answer, evidence, tool))
+        return supported
+
+    monkeypatch.setattr(graph_module, "build_graph", lambda: Graph())
+    monkeypatch.setattr(multihop_agent, "_extract_value", lambda *args: "model")
+    monkeypatch.setattr(multihop_agent, "ChatOpenAI", Model)
+    monkeypatch.setattr(multihop_agent, "_answer_is_supported", check)
+    result = multihop_agent.execute_multihop({
+        "question": "original", "hop_plan": {"hop1_question": "first", "hop2_question_template": "{hop1_answer}"},
+    })
+
+    assert result["final_answer"] == ("Synthesized answer" if supported else "First answer\n\nSecond answer")
+    assert len(checked) == 1
+    assert checked[0][0:2] == ("original", "Synthesized answer")
+    evidence = " ".join(entry["text"] for entry in checked[0][2])
+    assert all(value in evidence for value in ("first passage", "second passage", "first tool", "second tool"))
 
 
 @pytest.mark.parametrize("declined_hop", [1, 2])

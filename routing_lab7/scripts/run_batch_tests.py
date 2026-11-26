@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 import time
 import warnings
@@ -79,8 +80,47 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs"
 MANUAL_REVIEW_FIELDS = ["test_id", "level", "question", "answer_verdict", "route_verdict", "comments"]
 RESULTS_FIELDS = [
     "test_id", "level", "question", "routing_correct", "answer_correct",
-    "answer_scoring_issue", "overall_correct", "latency_ms", "total_tokens", "cost_usd", "error",
+    "answer_scoring_issue", "evidence_correct", "overall_correct", "latency_ms", "total_tokens", "cost_usd", "error",
 ]
+
+
+def _validate_expected_evidence(case: dict) -> None:
+    if "expected_evidence" not in case:
+        return
+    expected = case["expected_evidence"]
+    prefix = f"{case.get('test_id', '<unknown>')}: expected_evidence"
+    if not isinstance(expected, list) or not expected:
+        raise ValueError(f"{prefix} must be a non-empty list.")
+    string_fields = {"source", "chapter_id", "document_id", "topic", "text_contains"}
+    number_fields = {"page", "version"}
+    for item in expected:
+        if not isinstance(item, dict) or set(item) - string_fields - number_fields:
+            raise ValueError(f"{prefix} contains an invalid entry or unknown field.")
+        if not (item.get("source") or item.get("chapter_id")) or "text_contains" not in item:
+            raise ValueError(f"{prefix} entries require source or chapter_id and text_contains.")
+        for field in string_fields & item.keys():
+            if not isinstance(item[field], str) or not item[field].strip():
+                raise ValueError(f"{prefix}.{field} must be a non-empty string.")
+        for field in number_fields & item.keys():
+            if type(item[field]) is not int or item[field] < 1:
+                raise ValueError(f"{prefix}.{field} must be a positive integer.")
+
+
+def _matches_expected_evidence(expected: dict, topic: str, passage: dict) -> bool:
+    if "topic" in expected and expected["topic"] != topic:
+        return False
+    if any(
+        passage.get(key) != expected[key]
+        for key in ("source", "chapter_id", "document_id", "page", "version")
+        if key in expected
+    ):
+        return False
+    if any(type(passage.get(key)) is not int for key in ("page", "version") if key in expected):
+        return False
+    text = passage.get("text")
+    if not isinstance(text, str):
+        return False
+    return " ".join(expected["text_contains"].split()).casefold() in " ".join(text.split()).casefold()
 
 
 def load_questions(path: Path, ids: list[str] | None = None) -> list[dict]:
@@ -91,6 +131,8 @@ def load_questions(path: Path, ids: list[str] | None = None) -> list[dict]:
         missing = wanted - {c["test_id"] for c in cases}
         if missing:
             raise SystemExit(f"Unknown test_id(s) in {path}: {sorted(missing)}")
+    for case in cases:
+        _validate_expected_evidence(case)
     return cases
 
 
@@ -108,6 +150,7 @@ def score_case(case: dict, output: dict) -> dict:
     the same dataclasses the per-level pytest files use - see that
     field's values in datasets/batch_test_questions.json for which
     dimensions apply to which level."""
+    _validate_expected_evidence(case)
     graded = case.get("graded", [])
     scores: dict = {}
     expected_topics = case.get("expected_topics")
@@ -215,7 +258,7 @@ def score_case(case: dict, output: dict) -> dict:
             scores["answer_correctness"] = None
             scores["groundedness"] = None
         else:
-            final_answer = output.get("final_answer", "")
+            final_answer = re.split(r"\n\s*Sources:\s*", output.get("final_answer", ""), maxsplit=1, flags=re.IGNORECASE)[0]
             retrieved_texts = [
                 p["text"]
                 for topic_passages in (output.get("retrieved_passages") or {}).values()
@@ -236,7 +279,24 @@ def score_case(case: dict, output: dict) -> dict:
         scores["answer_correctness"] = None
         scores["groundedness"] = None
 
-    overall_dims = [d for d in (scores["routing_correct"], scores["answer_correct"]) if d is not None]
+    evidence = case.get("expected_evidence")
+    if evidence is not None:
+        evidence_matches = [
+            any(
+                _matches_expected_evidence(item, topic, passage)
+                for topic, passages in (output.get("retrieved_passages") or {}).items()
+                for passage in passages
+            )
+            for item in evidence
+        ]
+        scores["evidence_matches"] = evidence_matches
+        scores["evidence_correct"] = all(evidence_matches)
+    else:
+        scores["evidence_correct"] = None
+
+    overall_dims = [
+        d for d in (scores["routing_correct"], scores["answer_correct"], scores["evidence_correct"]) if d is not None
+    ]
     scores["answer_scoring_issue"] = answer_scoring_issue
     scores["overall_correct"] = (
         False if False in overall_dims
@@ -332,6 +392,7 @@ def build_detail(case: dict, run_result: dict, scores: dict) -> dict:
             "is_answerable": case.get("is_answerable"),
             "facts": case.get("expected_facts"),
             "answer": case.get("expected_answer"),
+            "evidence": case.get("expected_evidence"),
         },
         "actual": {
             "node_sequence": get_node_sequence(output.get("execution_log", [])),
@@ -340,6 +401,7 @@ def build_detail(case: dict, run_result: dict, scores: dict) -> dict:
             "selected_chapters": output.get("selected_chapters"),
             "retrieved_chapters_by_topic": retrieved_by_topic,
             "retrieved_sources_by_topic": sources_by_topic,
+            "retrieved_passages": output.get("retrieved_passages") if case.get("expected_evidence") else None,
             "tool_decisions": output.get("tool_decisions"),
             "tool_results": output.get("tool_results"),
             "is_multi_hop": output.get("is_multi_hop"),
@@ -373,6 +435,7 @@ def write_results_csv(path: Path, details: list[dict]) -> None:
                     "routing_correct": d["scores"].get("routing_correct"),
                     "answer_correct": d["scores"].get("answer_correct"),
                     "answer_scoring_issue": d["scores"].get("answer_scoring_issue") or "",
+                    "evidence_correct": d["scores"].get("evidence_correct"),
                     "overall_correct": d["scores"].get("overall_correct"),
                     "latency_ms": d["latency_ms"],
                     "total_tokens": d["total_tokens"],
@@ -438,6 +501,7 @@ def render_markdown_report(details: list[dict], dataset_path: Path, output_dir: 
     total = len(details)
     routing_dims = [d["scores"]["routing_correct"] for d in details if d["scores"].get("routing_correct") is not None]
     answer_dims = [d["scores"]["answer_correct"] for d in details if d["scores"].get("answer_correct") is not None]
+    evidence_dims = [d["scores"]["evidence_correct"] for d in details if d["scores"].get("evidence_correct") is not None]
     overall_dims = [d["scores"]["overall_correct"] for d in details if d["scores"].get("overall_correct") is not None]
     errors = [d for d in details if d["error"]]
     unscored_answers = [d for d in details if d["scores"].get("answer_scoring_issue")]
@@ -458,6 +522,8 @@ def render_markdown_report(details: list[dict], dataset_path: Path, output_dir: 
         lines.append(f"- **{sum(routing_dims)}/{len(routing_dims)}** correct routing decisions")
     if answer_dims:
         lines.append(f"- **{sum(answer_dims)}/{len(answer_dims)}** correct answers")
+    if evidence_dims:
+        lines.append(f"- **{sum(evidence_dims)}/{len(evidence_dims)}** expected evidence checks matched")
     if overall_dims:
         lines.append(f"- **{sum(overall_dims)}/{len(overall_dims)}** correct on all scored dimensions")
     if unscored_answers:
@@ -500,6 +566,13 @@ def render_markdown_report(details: list[dict], dataset_path: Path, output_dir: 
         lines.append("")
         lines.append(f"**Expected answer:** {_fmt(exp['answer'])}")
         lines.append("")
+        if exp["evidence"]:
+            lines.append(f"**Expected evidence:** {exp['evidence']}")
+            lines.append("")
+            lines.append(f"**Evidence matches:** {d['scores'].get('evidence_matches')}")
+            lines.append("")
+            lines.append(f"**Retrieved passages:** {_fmt(act['retrieved_passages'])}")
+            lines.append("")
         lines.append(f"**Routing chain:** {' -> '.join(act['node_sequence']) or '(none)'}")
         lines.append("")
         lines.append(
@@ -539,11 +612,17 @@ def main() -> None:
         "--llm-judge", action="store_true",
         help="Also assess evidence support with an LLM (extra model calls; separate from pass/fail).",
     )
+    parser.add_argument(
+        "--fail-on-regression", action="store_true",
+        help="Exit nonzero if any case fails, is unscored overall, or raises an error.",
+    )
     args = parser.parse_args()
 
     dataset_path = Path(args.dataset)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    cases = load_questions(dataset_path, args.ids)
 
     if enable_llm_cache():
         print("(LLM/embedding response cache active - see app/cache.py)")
@@ -552,7 +631,6 @@ def main() -> None:
     else:
         print("(MLflow NOT reachable - these runs will not be traced; run ..\\start_mlflow.ps1 first for traces)")
 
-    cases = load_questions(dataset_path, args.ids)
     print(f"\nRunning {len(cases)} test question(s) through the full graph...\n")
 
     graph = build_graph()
@@ -599,6 +677,10 @@ def main() -> None:
         "(batch_results.csv, batch_details.json, batch_report.md, manual_review.csv, routing_graph.mmd)"
     )
     if any(d["scores"].get("answer_scoring_issue") for d in details):
+        raise SystemExit(1)
+    if args.fail_on_regression and (
+        not details or any(d["error"] or d["scores"].get("overall_correct") is not True for d in details)
+    ):
         raise SystemExit(1)
 
 

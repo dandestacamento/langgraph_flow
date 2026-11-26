@@ -19,5 +19,6 @@ These fault codes are shared across the WM-300, WM-500, and WM-900:
 Whether a repair is covered under the standard parts warranty or the
 extended motor warranty depends on the fault's root cause and the
 machine's purchase date, not on the error code alone. A drainage fault
-(E21) is almost always a parts issue (pump or hose), not a motor issue, so
-it is typically covered only under the shorter standard warranty window.
+(E21) often involves a pump or hose rather than a motor. If the repair is
+eligible, it may fall under the standard parts warranty rather than the
+extended motor warranty.

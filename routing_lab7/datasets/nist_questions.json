@@ -12,6 +12,7 @@
     "question": "What are the four AI RMF Core functions?",
     "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
     "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_evidence": [{"source": "NIST.AI.100-1.pdf", "page": 25, "text_contains": "GOVERN, MAP, MEASURE, and MANAGE"}],
     "expected_facts": ["govern", "map", "measure", "manage"],
     "expected_answer": "GOVERN, MAP, MEASURE, and MANAGE."
   },
@@ -116,6 +117,7 @@
     "question": "What should be employed when choosing trustworthiness metrics and their precise threshold values?",
     "expected_topics": ["artificial_intelligence"], "expected_subtopic": "risk_management",
     "expected_source": "NIST.AI.100-1.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_evidence": [{"source": "NIST.AI.100-1.pdf", "page": 17, "text_contains": "Human judgment should be employed"}],
     "expected_facts": ["human", "judg"],
     "expected_answer": "Human judgment."
   }

@@ -9,9 +9,9 @@ version: 1.0
 # Table Storage Partitions
 Azure Table Storage scales by distributing rows across partitions,
 identified by a PartitionKey value. Rows that share a PartitionKey are
-stored together and can be queried efficiently as a batch. Choosing a
-high-cardinality PartitionKey avoids a single partition becoming a
-scalability hotspot under heavy load.
+stored together and can be queried efficiently as a batch. A
+high-cardinality PartitionKey can help spread load across partitions,
+but does not prevent hotspots if requests concentrate on one key.
 
 Note: this "partition" is a storage-layer concept used to distribute data
 across storage servers. It is unrelated to a Spark DataFrame partition,

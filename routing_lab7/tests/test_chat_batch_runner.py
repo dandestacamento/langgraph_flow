@@ -56,6 +56,30 @@ def test_one_conversation_is_used_for_all_chat_requests_and_reports(tmp_path):
         assert len(list(csv.DictReader(file))) == 2
 
 
+def test_fresh_conversation_per_question_prevents_cross_question_history(tmp_path):
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        return httpx.Response(200, json=_response(body["thread_id"]))
+
+    class Session:
+        def token(self):
+            return "test-token"
+
+    cases = [_case("N1"), _case("N2")]
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        details = run_batch(
+            client, Session(), "http://localhost:8000", cases, tmp_path, fresh_conversations=True,
+        )
+    assert requests[0]["thread_id"] != requests[1]["thread_id"]
+    assert all(item["scores"]["overall_correct"] for item in details)
+    report = (tmp_path / "chat_report.md").read_text(encoding="utf-8")
+    assert "separate conversations" in report
+    assert all(request["thread_id"] in report for request in requests)
+
+
 def test_request_failure_stops_conversation_and_writes_error(tmp_path):
     requests = []
 
@@ -74,9 +98,45 @@ def test_request_failure_stops_conversation_and_writes_error(tmp_path):
     assert "HTTP 429" in (tmp_path / "chat_report.md").read_text(encoding="utf-8")
 
 
+def test_fresh_conversation_error_keeps_partial_report_and_thread_ids(tmp_path):
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 2:
+            return httpx.Response(429)
+        return httpx.Response(200, json=_response(body["thread_id"]))
+
+    class Session:
+        def token(self):
+            return "test-token"
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        details = run_batch(
+            client, Session(), "http://localhost:8000", [_case("N1"), _case("N2"), _case("N3")],
+            tmp_path, fresh_conversations=True,
+        )
+    assert len(details) == 2 and "HTTP 429" in details[1]["error"]
+    report = (tmp_path / "chat_report.md").read_text(encoding="utf-8")
+    assert "Processed 2 of 3" in report
+    assert all(request["thread_id"] in report for request in requests)
+
+
 def test_facts_in_source_labels_do_not_make_answer_pass():
     response = _response("thread", "No answer.\n\nSources: measure-manage.pdf")
     assert score_chat_response(_case("N1"), response)["answer_correct"] is False
+
+
+def test_chat_batch_scores_expected_evidence():
+    case = {
+        **_case("N1"),
+        "expected_evidence": [{"source": "manual.pdf", "page": 4, "text_contains": "MEASURE and MANAGE"}],
+    }
+    scores = score_chat_response(case, _response("thread"))
+    assert scores["answer_correct"] is True
+    assert scores["evidence_correct"] is False
+    assert scores["overall_correct"] is False
 
 
 def test_local_login_uses_pkce_and_refreshes_token():

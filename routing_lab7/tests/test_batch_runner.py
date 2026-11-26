@@ -136,6 +136,171 @@ def test_batch_scores_expected_retrieved_source(source, expected):
     assert scores["overall_correct"] is expected
 
 
+def test_batch_requires_each_expected_passage_from_the_correct_document_and_version():
+    case = {
+        "test_id": "EV1", "question": "What are the two limits?",
+        "expected_facts": ["10", "20"], "graded": [],
+        "expected_evidence": [
+            {"source": "first.pdf", "document_id": "doc-a", "version": 2, "page": 3,
+             "text_contains": "Limit is 10"},
+            {"source": "second.txt", "text_contains": "Limit is 20"},
+        ],
+    }
+    passages = [
+        {"source": "first.pdf", "document_id": "doc-a", "version": 2, "page": 3, "text": "Limit\nis 10."},
+        {"source": "second.txt", "text": "Limit is 20."},
+    ]
+    output = {"final_answer": "Limits are 10 and 20.", "retrieved_passages": {"example": passages}}
+    assert score_case(case, output)["evidence_correct"] is True
+    assert score_case(case, output)["overall_correct"] is True
+
+    for changed in (
+        {**passages[0], "version": 1},
+        {**passages[0], "page": 4},
+        {**passages[0], "document_id": "another-doc"},
+        {**passages[0], "text": "Limit is 30."},
+    ):
+        scores = score_case(case, {**output, "retrieved_passages": {"example": [changed, passages[1]]}})
+        assert scores["answer_correct"] is True
+        assert scores["evidence_correct"] is False
+        assert scores["overall_correct"] is False
+
+
+def test_expected_passage_cannot_combine_metadata_and_text_from_different_chunks():
+    case = {
+        "test_id": "EV2", "question": "What is the limit?", "expected_facts": ["10"],
+        "expected_evidence": [{"source": "manual.pdf", "page": 2, "text_contains": "Limit is 10"}],
+    }
+    output = {
+        "final_answer": "10",
+        "retrieved_passages": {"example": [
+            {"source": "manual.pdf", "page": 2, "text": "Unrelated content"},
+            {"source": "other.pdf", "page": 2, "text": "Limit is 10"},
+        ]},
+    }
+    assert score_case(case, output)["evidence_correct"] is False
+
+
+@pytest.mark.parametrize("expected_evidence", [
+    [], [{}], [{"source": "manual.pdf"}],
+    [{"source": "manual.pdf", "text_contains": "  "}],
+    [{"source": "manual.pdf", "page": True, "text_contains": "fact"}],
+    [{"source": "manual.pdf", "text_contains": "fact", "pages": 2}],
+])
+def test_invalid_expected_evidence_is_rejected(expected_evidence):
+    with pytest.raises(ValueError, match="expected_evidence"):
+        score_case({"test_id": "EV3", "expected_evidence": expected_evidence}, {})
+
+
+def test_source_labels_cannot_satisfy_answer_facts_in_standalone_batch():
+    case = {"test_id": "EV4", "question": "Which functions?", "expected_facts": ["measure", "manage"]}
+    scores = score_case(case, {"final_answer": "No answer.\n\nSources: measure-manage.pdf"})
+    assert scores["answer_correct"] is False
+
+
+def test_expected_evidence_is_in_reports(tmp_path):
+    case = {
+        "test_id": "EV5", "level": 1, "question": "What is the limit?", "expected_facts": ["10"],
+        "expected_evidence": [{"source": "manual.pdf", "page": 2, "text_contains": "Limit is 10"}],
+    }
+    output = {
+        "final_answer": "10",
+        "retrieved_passages": {"example": [{"chapter_id": "manual", "source": "manual.pdf", "page": 2, "text": "Limit is 10"}]},
+    }
+    run_result = {
+        "output": output, "error": None, "trace_id": None, "latency_ms": 1,
+        "total_tokens": 0, "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0,
+    }
+    detail = build_detail(case, run_result, score_case(case, output))
+    report = render_markdown_report([detail], Path("questions.json"), tmp_path)
+    batch_module.write_results_csv(tmp_path / "results.csv", [detail])
+    assert "Expected evidence" in report and "manual.pdf" in report and "Limit is 10" in report
+    with (tmp_path / "results.csv").open(encoding="utf-8", newline="") as file:
+        assert next(csv.DictReader(file))["evidence_correct"] == "True"
+
+
+@pytest.mark.parametrize(
+    ("answer", "page", "expected"),
+    [("The DW-650 holds 14 place settings.", 1, True),
+     ("The DW-650 holds 12 place settings.", 1, False),
+     ("The DW-650 holds 14 place settings.", 2, False)],
+)
+def test_dishwasher_question_answer_and_evidence_regression(answer, page, expected):
+    from pypdf import PdfReader
+    from app.ingestion.graph import chunk_text
+
+    case = load_questions(batch_module.PROJECT_ROOT / "datasets" / "dishwasher_manual_file2_questions.json", ["DW650-01"])[0]
+    manual = batch_module.PROJECT_ROOT.parent / "instructions" / "sample_files" / "dishwasher_manual_file2.pdf"
+    text = PdfReader(manual).pages[page - 1].extract_text()
+    passages = [
+        {"source": case["expected_source"], "page": page, "text": chunk}
+        for chunk in chunk_text(text)
+    ]
+    output = {
+        "selected_topics": ["appliances"], "selected_subtopics": {"appliances": "dishwashers"},
+        "retrieved_passages": {"appliances": passages}, "final_answer": answer,
+    }
+    assert score_case(case, output)["overall_correct"] is expected
+
+
+@pytest.mark.parametrize(("answer", "error", "fails"), [
+    ("The answer is 10.", None, False),
+    ("The answer is 20.", None, True),
+    ("", "RuntimeError: unavailable", True),
+])
+def test_fail_on_regression_exits_nonzero_on_wrong_answers_or_errors(monkeypatch, tmp_path, answer, error, fails):
+    case = {"test_id": "EV6", "level": 1, "question": "What is the answer?", "expected_facts": ["10"]}
+    dataset = tmp_path / "questions.json"
+    dataset.write_text(json.dumps([case]), encoding="utf-8")
+    output_dir = tmp_path / "reports"
+    monkeypatch.setattr(sys, "argv", [
+        "run_batch_tests.py", "--dataset", str(dataset), "--output-dir", str(output_dir), "--fail-on-regression",
+    ])
+    monkeypatch.setattr(batch_module, "enable_llm_cache", lambda: False)
+    monkeypatch.setattr(batch_module, "enable_mlflow_tracing_if_available", lambda: False)
+    monkeypatch.setattr(batch_module, "build_graph", lambda: None)
+    monkeypatch.setattr(batch_module, "render_graph_diagram", lambda _graph: (None, "graph"))
+    monkeypatch.setattr(batch_module, "run_case", lambda _graph, _case: {
+        "output": {"final_answer": answer}, "error": error, "trace_id": None, "latency_ms": 1,
+        "total_tokens": 0, "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0,
+    })
+    if fails:
+        with pytest.raises(SystemExit) as exc:
+            batch_module.main()
+        assert exc.value.code == 1
+    else:
+        batch_module.main()
+    assert (output_dir / "batch_report.md").exists()
+
+
+def test_fail_on_regression_exits_nonzero_on_missing_evidence(monkeypatch, tmp_path):
+    case = {
+        "test_id": "EV7", "level": 1, "question": "What is the answer?", "expected_facts": ["10"],
+        "expected_evidence": [{"source": "manual.pdf", "page": 2, "text_contains": "The answer is 10"}],
+    }
+    dataset = tmp_path / "questions.json"
+    dataset.write_text(json.dumps([case]), encoding="utf-8")
+    output_dir = tmp_path / "reports"
+    monkeypatch.setattr(sys, "argv", [
+        "run_batch_tests.py", "--dataset", str(dataset), "--output-dir", str(output_dir), "--fail-on-regression",
+    ])
+    monkeypatch.setattr(batch_module, "enable_llm_cache", lambda: False)
+    monkeypatch.setattr(batch_module, "enable_mlflow_tracing_if_available", lambda: False)
+    monkeypatch.setattr(batch_module, "build_graph", lambda: None)
+    monkeypatch.setattr(batch_module, "render_graph_diagram", lambda _graph: (None, "graph"))
+    monkeypatch.setattr(batch_module, "run_case", lambda _graph, _case: {
+        "output": {"final_answer": "The answer is 10."}, "error": None, "trace_id": None, "latency_ms": 1,
+        "total_tokens": 0, "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0,
+    })
+    with pytest.raises(SystemExit) as exc:
+        batch_module.main()
+    assert exc.value.code == 1
+    with (output_dir / "batch_results.csv").open(encoding="utf-8", newline="") as file:
+        row = next(csv.DictReader(file))
+    assert row["answer_correct"] == "True"
+    assert row["evidence_correct"] == "False"
+
+
 def test_report_identifies_custom_dataset_output_and_retrieved_source():
     case = {
         "test_id": "S001", "level": 1, "question": "What is the cycle name?",

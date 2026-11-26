@@ -62,7 +62,7 @@ review; an uploaded document may add or conflict with evidence.
 | T001 | What is a Python decorator? | A function that wraps another function to extend or modify its behavior. `functools.wraps` preserves metadata. [Decorators](../knowledge_base/python/fundamentals/chapter_02_decorators.md). |
 | T002 | What is Method Resolution Order in Python? | The order used to look up methods and attributes with inheritance; Python uses C3 linearization. [Inheritance](../knowledge_base/python/oop/chapter_02_inheritance.md). |
 | T003 | What is a Network Security Group used for in Azure? | It filters inbound and outbound traffic using allow/deny rules; lower priority numbers are evaluated first. [NSGs](../knowledge_base/azure_cloud/networking/chapter_03_nsg.md). |
-| T004 | What is a PartitionKey used for in Azure Table Storage? | It groups rows into partitions; an appropriate high-cardinality key helps avoid hotspots. [Table partitions](../knowledge_base/azure_cloud/storage/chapter_02_table_partitions.md). |
+| T004 | What is a PartitionKey used for in Azure Table Storage? | It groups rows into partitions; a high-cardinality key can help spread load, but does not prevent hotspots when requests concentrate on one key. [Table partitions](../knowledge_base/azure_cloud/storage/chapter_02_table_partitions.md). |
 | T005 | What is Delta Lake time travel? | Query an earlier version of a table, for example with `VERSION AS OF` or `TIMESTAMP AS OF`. [Delta Lake](../knowledge_base/data_engineering/databricks/chapter_02_delta_lake.md). |
 | T006 | What is the 50/30/20 budgeting rule? | Roughly 50% of after-tax income for needs, 30% for wants and 20% for savings or debt repayment. [Budgeting](../knowledge_base/finance/budgeting/chapter_01_basics.md). |
 | T007 | What's the difference between APR and APY? | APR is the stated annual rate; APY also accounts for compounding frequency. [Interest](../knowledge_base/finance/loans/chapter_01_interest.md). |
@@ -75,7 +75,7 @@ review; an uploaded document may add or conflict with evidence.
 | T014 | What are the three access tiers in Azure Blob Storage? | Hot, Cool and Archive, according to this test knowledge base. [Blob storage](../knowledge_base/azure_cloud/storage/chapter_01_blob.md). |
 | T015 | Is it covered? | Ask what item or service is meant; do not assume a referent. Run this in a fresh conversation. |
 | T016 | What does E21 mean on the WM-500, and what is its standard warranty term? | E21 is a drainage fault; WM-500 has a 2-year standard warranty. The term alone does not establish coverage of a specific repair. [Faults](../knowledge_base/appliances/washing_machines/chapter_03_faults.md), [models](../knowledge_base/appliances/washing_machines/chapter_01_types.md). |
-| T017 | My WM-500 is showing error E21 - is that covered under warranty, and what's SmartHome's standard refund policy? | E21 is a drainage fault; specific coverage depends on root cause and purchase date. The standard refund is within 30 days for unopened, undamaged items. See the warning below. [Faults](../knowledge_base/appliances/washing_machines/chapter_03_faults.md), [refund policy](../knowledge_base/customer_support/refunds/chapter_01_policy.md). |
+| T017 | My WM-500 is showing error E21 - is that covered under warranty, and what's SmartHome's standard refund policy? | E21 is a drainage fault; specific coverage depends on root cause and purchase date. The standard refund is within 30 days for unopened, undamaged items. [Faults](../knowledge_base/appliances/washing_machines/chapter_03_faults.md), [refund policy](../knowledge_base/customer_support/refunds/chapter_01_policy.md). |
 | T018 | What's the price of the WM-900 washing machine? | AUD 1,499 according to the test specifications; inspect the `sql_query` tool result. [Specifications](../knowledge_base/appliances/washing_machines/specifications.csv). |
 | T019 | Which washing machine model has the largest capacity, and what's its price? | WM-900, 11 kg, AUD 1,499. Inspect the multi-hop results and evidence for both facts. [Models](../knowledge_base/appliances/washing_machines/chapter_01_types.md), [specifications](../knowledge_base/appliances/washing_machines/specifications.csv). |
 | T020 | What is the maximum amperage draw of the RF-900 refrigerator's compressor? | With the curated knowledge base alone, there is insufficient information. Do not invent an amperage or claim a model does not exist outside the available sources. [Refrigerator overview](../knowledge_base/appliances/refrigerators/chapter_01_overview.md). |
@@ -86,12 +86,10 @@ For T018, expect one application-generated `Sources:` line, including
 `tool:sql_query` when the SQL tool was used. For T017, a refusal to verify
 an otherwise supported answer is also a regression; record it for review.
 
-**T017 reference conflict:** The dataset's `expected_answer` asserts that
-the repair is covered. The curated fault chapter says coverage depends on
-the root cause and purchase date, so the dataset assertion is not supported
-by that source. Review the actual evidence; do not fail a suitably qualified
-answer merely because it disagrees with that dataset text. This discrepancy
-still needs a dataset-owner decision.
+**T004 and T017:** The dataset references and curated sources were corrected
+after review. The automated fact-substring score can still pass an answer
+that overstates hotspot avoidance or warranty coverage; inspect the full
+answer and supporting evidence.
 
 ## 2. NIST AI RMF questions
 

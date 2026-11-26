@@ -4,6 +4,7 @@
     "question": "How many place settings does the SmartHome DW-650 dishwasher hold?",
     "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
     "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_evidence": [{"source": "dishwasher_manual_file2.pdf", "page": 1, "text_contains": "DW-650 holds 14 place settings"}],
     "expected_facts": ["14"], "expected_answer": "The DW-650 holds 14 place settings."
   },
   {
@@ -39,6 +40,7 @@
     "question": "Which SmartHome DW-650 dishwasher part should be cleaned every 14 days?",
     "expected_topics": ["appliances"], "expected_subtopic": "dishwashers",
     "expected_source": "dishwasher_manual_file2.pdf", "graded": ["topic", "subtopic", "source"],
+    "expected_evidence": [{"source": "dishwasher_manual_file2.pdf", "page": 4, "text_contains": "Clean the removable mesh filter every 14 days"}],
     "expected_facts": ["filter"], "expected_answer": "Clean the removable mesh filter every 14 days."
   },
   {
