@@ -6,7 +6,7 @@ sharing one raw `OPENAI_API_KEY` with no per-user cost control at all.
 
 `llm_kwargs()` is a no-op (returns `{}`) unless `LITELLM_BASE_URL` is
 set, so nothing changes for `routing_lab/`, `routing_lab2/`, or anyone
-running `routing_lab7/` without LiteLLM - every one of the 16 call
+running `routing_lab6/` without LiteLLM - every one of the 16 call
 sites below is unconditionally safe to spread `**llm_kwargs()` into.
 
 Per-user routing uses a `contextvars.ContextVar`, not a process-global

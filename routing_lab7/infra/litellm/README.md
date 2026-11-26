@@ -11,6 +11,7 @@ docker compose up -d litellm
 This requires `OPENAI_API_KEY` to be set in the repo-root `.env` (the same one this project
 already reuses - see `routing_lab7/README.md`'s "VS Code setup") - `docker-compose.yml`'s
 `litellm` service reads it from there via `env_file: ../.env`.
+The gateway is available on http://localhost:4001.
 
 `app/llm_gateway.py` is the one place in the app that knows about this proxy: every
 `ChatOpenAI`/`OpenAIEmbeddings` call site (16 of them, across `app/routers/`, `app/agents/`,

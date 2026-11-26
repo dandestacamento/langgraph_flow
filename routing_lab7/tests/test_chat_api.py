@@ -425,7 +425,7 @@ def test_first_turn_generates_a_short_title_and_rename_still_wins() -> None:
 
 
 def test_client_error_is_logged_and_returns_204(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level("ERROR", logger="routing_lab7.client_errors"):
+    with caplog.at_level("ERROR", logger="routing_lab6.client_errors"):
         response = client.post(
             "/client-error",
             json={

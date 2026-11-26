@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import type { ExecutionStep, HopResult, RoutingSummary, ToolResult } from "../api/client";
 import type { SelectedPassage } from "./PassagePreview";
-import { retrievalScoreLabel } from "./retrievalScore";
 
 function Badge({ children, tone = "slate" }: { children: ReactNode; tone?: "slate" | "amber" | "green" }) {
   const toneClasses = {
@@ -163,9 +162,8 @@ export function RoutingDetails({
                   <p className="font-medium text-slate-600 dark:text-slate-300">
                     {passage.source ?? passage.chapter_id}
                     {passage.page != null && ` · page ${passage.page}`}
-                    {passage.row != null && ` · row ${passage.row}`}
                     {passage.version != null && ` · v${passage.version}`}
-                    {passage.score != null && ` · ${retrievalScoreLabel(passage.score_type)}: ${passage.score.toFixed(2)}`}
+                    {passage.score != null && ` (score ${passage.score.toFixed(2)})`}
                   </p>
                   {passage.text && <p className="mt-1 text-slate-500 dark:text-slate-400">{passage.text.slice(0, 220)}{passage.text.length > 220 ? "…" : ""}</p>}
                 </button>

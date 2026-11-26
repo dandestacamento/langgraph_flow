@@ -10,8 +10,8 @@ import type { Page } from "@playwright/test";
  * Authentication is NOT mocked - the app now requires a real login via
  * Keycloak (instructions/learnings/chat-ui-plan1.md section 2.3/Phase
  * D), so `login` below drives the actual OIDC redirect against the
- * demo realm in routing_lab7/infra/keycloak - that realm must be
- * running (`docker compose up -d` from routing_lab7/, or the
+ * demo realm in routing_lab6/infra/keycloak - that realm must be
+ * running (`docker compose up -d` from routing_lab6/, or the
  * `keycloak` service container in CI) for this suite to pass.
  */
 function sseBody(events: Array<{ event: string; data: unknown }>): string {

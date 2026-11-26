@@ -30,7 +30,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     ports:
-      - "8081:8080"
+      - "8082:8080"
     volumes:
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
 
@@ -38,18 +38,14 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: routing_lab7
-      POSTGRES_PASSWORD: routing-lab6-dev-password
+      POSTGRES_PASSWORD: routing-lab7-dev-password
       POSTGRES_DB: routing_lab7_chat
     ports:
-      # Host-side 5433, not Postgres's usual 5432 - avoids silently
-      # colliding with any pre-existing native Postgres installation
-      # already running on the host (confirmed to happen on this exact
-      # machine during this phase's validation: a host-level postgres.exe
-      # was already listening on 5432, and connections intended for this
-      # container were reaching that unrelated server instead).
-      - "5433:5432"
+      # Use a separate host port from lab 6 and native PostgreSQL.
+      - "5434:5432"
     volumes:
-      - routing_lab7_postgres_data:/var/lib/postgresql/data
+      # Retain the existing volume name so copied lab 7 data is preserved.
+      - routing_lab6_postgres_data:/var/lib/postgresql/data
       # Runs once, only on a brand-new data volume - creates the
       # separate `litellm` database the litellm service below needs
       # (see infra/postgres/init-litellm-db.sql for why it must be
@@ -66,7 +62,7 @@ services:
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     env_file:
       # Reuses the repo-root .env for OPENAI_API_KEY - same convention
-      # routing_lab7 already follows for everything else (see
+      # routing_lab6 already follows for everything else (see
       # README.md's "VS Code setup").
       - ../.env
     environment:
@@ -78,10 +74,10 @@ services:
       # Prisma-managed migration tooling refuses to share a database
       # that already has unrelated tables in it (a real conflict hit
       # while validating this phase, not a hypothetical one).
-      DATABASE_URL: postgresql://routing_lab7:routing-lab6-dev-password@postgres:5432/litellm
+      DATABASE_URL: postgresql://routing_lab7:routing-lab7-dev-password@postgres:5432/litellm
       STORE_MODEL_IN_DB: "False"
     ports:
-      - "4000:4000"
+      - "4001:4000"
     volumes:
       - ./infra/litellm/config.yaml:/app/config.yaml:ro
     depends_on:
@@ -89,4 +85,4 @@ services:
         condition: service_healthy
 
 volumes:
-  routing_lab7_postgres_data:
+  routing_lab6_postgres_data:

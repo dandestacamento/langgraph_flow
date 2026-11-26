@@ -18,7 +18,11 @@ base uses, with the same metadata keys the retriever filters on
 ingested=True) - so retrieval, citations, and the existing router work on
 ingested knowledge with zero changes.
 
-Known caveat:
+Known caveats, deliberate for Phase A:
+- `scripts/build_index.py --rebuild` wipes the whole collection and
+  reindexes only the curated knowledge base - ingested documents must be
+  re-published afterwards (a `reindex` admin action is Phase C work,
+  tracked in chat-ui-plan5.md).
 - Hybrid retrieval's BM25 index is cached per-process and refreshed
   when the registry's active document versions change. Changes to
   unregistered curated content still require a backend restart.
@@ -26,25 +30,18 @@ Known caveat:
 
 from __future__ import annotations
 
-import csv
 import io
-import math
 import re
 import time
-from pathlib import Path
 from typing import TypedDict
 
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import END, START, StateGraph
 from pypdf import PdfReader
 
-from app.cache import validate_embeddings
-from app.config import UPLOAD_CHUNKING_STRATEGY
 from app.ingestion.classify import classification_problem, classify_document
 from app.ingestion.registry import DocumentRegistry
-from app.rag.embeddings import get_embeddings_client
 from app.rag.retrieval import get_vector_store, index_publication_lock
 
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
@@ -53,8 +50,6 @@ _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n")
 # KB's chapters are short by construction; uploads aren't).
 _TARGET_CHUNK_CHARS = 1200
 _CHUNK_OVERLAP_CHARS = 200
-_SEMANTIC_SIMILARITY_THRESHOLD = 0.7
-_SEMANTIC_BATCH_SIZE = 128
 _RETRIEVAL_TEST_TOP_K = 5
 
 
@@ -67,14 +62,12 @@ class IngestionState(TypedDict):
     content: bytes
     extracted_text: str
     pages: list[str]
-    csv_rows: list[tuple[int, str]]
     topic: str
     subtopic: str
     chapters: list[str]
     confidence: float
     chunks: list[str]
     chunk_pages: list[int | None]
-    chunk_rows: list[int | None]
     chunk_ids: list[str]
     outcome: str  # "", "failed", "needs_review", "indexed"
     error: str
@@ -87,31 +80,6 @@ class IngestionState(TypedDict):
 
 def _slug(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or "general"
-
-
-def is_csv_document(filename: str, media_type: str) -> bool:
-    return media_type == "text/plain" and Path(filename).suffix.lower() == ".csv"
-
-
-def parse_csv_rows(content: bytes) -> list[tuple[int, str]]:
-    """Parse UTF-8 CSV into individually attributable logical records."""
-    reader = csv.reader(io.StringIO(content.decode("utf-8-sig"), newline=""), strict=True)
-    headers = next(reader, None)
-    if not headers or any(not header.strip() for header in headers):
-        raise ValueError("CSV requires a non-empty header for every column")
-    headers = [header.strip() for header in headers]
-    if len(set(headers)) != len(headers):
-        raise ValueError("CSV column headers must be unique")
-    rows = []
-    for row_number, values in enumerate(reader, start=2):
-        if not values:
-            raise ValueError(f"CSV row {row_number} is blank")
-        if len(values) != len(headers):
-            raise ValueError(f"CSV row {row_number} has {len(values)} columns; expected {len(headers)}")
-        rows.append((row_number, "\n".join(f"{header}: {value}" for header, value in zip(headers, values))))
-    if not rows:
-        raise ValueError("CSV must contain at least one data row")
-    return rows
 
 
 def chunk_text(text: str) -> list[str]:
@@ -140,50 +108,6 @@ def chunk_text(text: str) -> list[str]:
             current = f"{current}\n\n{paragraph}" if current else paragraph
     if current:
         chunks.append(current)
-    return chunks
-
-
-def semantic_chunk_text(text: str, embeddings: Embeddings) -> list[str]:
-    """Group adjacent sentences by embedding similarity, within the character limit."""
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=_TARGET_CHUNK_CHARS,
-        chunk_overlap=_CHUNK_OVERLAP_CHARS,
-        separators=["\n", " ", ""],
-    )
-    sentences = [
-        part
-        for sentence in re.split(r"(?<=[.!?])\s+|\n\s*\n", text.strip())
-        if sentence.strip()
-        for part in splitter.split_text(sentence.strip())
-    ]
-    if len(sentences) < 2:
-        return sentences
-
-    chunks: list[str] = []
-    current = sentences[0]
-    previous: list[float] | None = None
-    previous_norm = 0.0
-    for start in range(0, len(sentences), _SEMANTIC_BATCH_SIZE):
-        batch = sentences[start:start + _SEMANTIC_BATCH_SIZE]
-        vectors = validate_embeddings(embeddings.embed_documents(batch), len(batch))
-        for sentence, vector in zip(batch, vectors):
-            norm = math.hypot(*vector)
-            if not math.isfinite(norm) or norm == 0:
-                raise ValueError("Semantic chunking requires finite, non-zero embedding norms")
-            if previous is not None:
-                if len(previous) != len(vector):
-                    raise ValueError("Invalid embedding dimension across semantic chunking batches")
-                similarity = math.fsum(
-                    (left / previous_norm) * (right / norm)
-                    for left, right in zip(previous, vector)
-                )
-                if similarity < _SEMANTIC_SIMILARITY_THRESHOLD or len(current) + len(sentence) + 1 > _TARGET_CHUNK_CHARS:
-                    chunks.append(current)
-                    current = sentence
-                else:
-                    current = f"{current} {sentence}"
-            previous, previous_norm = vector, norm
-    chunks.append(current)
     return chunks
 
 
@@ -221,11 +145,6 @@ def build_ingestion_graph(registry: DocumentRegistry):
 
     @timed("extract")
     def extract(state: IngestionState) -> dict:
-        if is_csv_document(state["filename"], state["media_type"]):
-            rows = parse_csv_rows(state["content"])
-            text = "\n\n".join(row for _, row in rows)
-            return {"extracted_text": text, "pages": [], "csv_rows": rows,
-                    "_event_detail": f"{len(rows)} CSV rows, {len(text)} chars"}
         if state["media_type"] == "application/pdf":
             reader = PdfReader(io.BytesIO(state["content"]))
             pages = []
@@ -280,27 +199,14 @@ def build_ingestion_graph(registry: DocumentRegistry):
     def chunk(state: IngestionState) -> dict:
         chunks = []
         chunk_pages = []
-        chunk_rows = []
-        semantic = UPLOAD_CHUNKING_STRATEGY == "semantic" and not is_csv_document(
-            state["filename"], state["media_type"]
-        )
-        embeddings = get_embeddings_client() if semantic else None
-        for row_number, text in state["csv_rows"]:
-            row_chunks = chunk_text(text)
-            chunks.extend(row_chunks)
-            chunk_pages.extend([None] * len(row_chunks))
-            chunk_rows.extend([row_number] * len(row_chunks))
         for page_number, text in enumerate(state["pages"], start=1):
-            page_chunks = semantic_chunk_text(text, embeddings) if embeddings is not None else chunk_text(text)
+            page_chunks = chunk_text(text)
             chunks.extend(page_chunks)
             page = page_number if state["media_type"] == "application/pdf" else None
             chunk_pages.extend([page] * len(page_chunks))
-            chunk_rows.extend([None] * len(page_chunks))
         if not chunks:
             return {"outcome": "failed", "error": "chunk: no chunks produced"}
-        detail = f"{len(chunks)} chunks" + (" (semantic)" if semantic else "")
-        return {"chunks": chunks, "chunk_pages": chunk_pages, "chunk_rows": chunk_rows,
-                "_event_detail": detail}
+        return {"chunks": chunks, "chunk_pages": chunk_pages, "_event_detail": f"{len(chunks)} chunks"}
 
     @timed("index")
     def index(state: IngestionState) -> dict:
@@ -322,7 +228,6 @@ def build_ingestion_graph(registry: DocumentRegistry):
                     "ingested": True,
                     **({"replacement_pending": True} if state["is_replacement"] else {}),
                     **({"page": state["chunk_pages"][i]} if state["chunk_pages"][i] is not None else {}),
-                    **({"row": state["chunk_rows"][i]} if state["chunk_rows"][i] is not None else {}),
                 },
             )
             for i, text in enumerate(state["chunks"])
@@ -429,14 +334,12 @@ def run_ingestion(
         "content": content,
         "extracted_text": "",
         "pages": [],
-        "csv_rows": [],
         "topic": "",
         "subtopic": "",
         "chapters": [],
         "confidence": 0.0,
         "chunks": [],
         "chunk_pages": [],
-        "chunk_rows": [],
         "chunk_ids": [],
         "outcome": "",
         "error": "",

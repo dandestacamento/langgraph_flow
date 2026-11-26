@@ -153,14 +153,22 @@ describe("KnowledgeBaseManager", () => {
     expect(await screen.findByText("Processing")).toBeInTheDocument();
   });
 
-  it("does not show the override form for indexed documents", async () => {
+  it("allows correcting the classification of an indexed document", async () => {
     vi.mocked(listKnowledgeDocuments).mockResolvedValue([doc()]);
+    vi.mocked(overrideClassification).mockResolvedValue(doc({
+      status: "processing",
+      pending: { version: 2, topic: null, subtopic: null, classification_confidence: null },
+    }));
 
     render(<KnowledgeBaseManager />);
     fireEvent.click(await screen.findByRole("button", { name: /bulletin\.md/ }));
 
-    expect(screen.getByText("Pipeline log")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Reclassify & index" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Topic/), { target: { value: "finance" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reclassify & index" }));
+    await waitFor(() => expect(overrideClassification).toHaveBeenCalledWith(
+      "doc-1", "finance", "budgeting", false,
+    ));
+    expect(await screen.findByText(/Version 1 remains indexed while replacement version 2/)).toBeInTheDocument();
   });
 
   it("re-indexes the stored file without uploading it again", async () => {

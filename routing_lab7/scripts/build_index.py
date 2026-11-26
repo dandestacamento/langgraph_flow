@@ -15,8 +15,7 @@ a true no-op. Falls back to a full rebuild if there's no manifest yet (an
 index built before this feature existed), the knowledge base's chunking
 strategy or embedding model changed (`INGEST_SIGNATURE` - old chunk ids
 would no longer line up with current chunk boundaries/vectors), or
-`--rebuild` is passed explicitly. Full rebuilds preserve uploaded
-documents and stop if their existing index signature is unknown or changed.
+`--rebuild` is passed explicitly.
 
 Usage:
     python scripts/build_index.py              # incremental (default)
@@ -93,13 +92,19 @@ def _get_store() -> Chroma:
     )
 
 
-def _full_rebuild(
-    store: Chroma, documents: list[dict], current_stats: dict[str, dict], manifest: dict,
-) -> None:
+def _full_rebuild(store: Chroma, documents: list[dict], current_stats: dict[str, dict]) -> None:
     chunks = chunk_all_documents(documents)
     print(f"Loaded {len(documents)} chapters -> {len(chunks)} chunks")
 
     ids = _chunk_ids(chunks)
+
+    # Rebuild from scratch so stale chunks from an older version of the
+    # knowledge base (or an older chunking strategy) never linger in the
+    # index.
+    existing_ids = store.get()["ids"]
+    if existing_ids:
+        store.delete(ids=existing_ids)
+    store.add_documents(_to_langchain_documents(chunks), ids=ids)
 
     chunk_ids_by_path: dict[str, list[str]] = defaultdict(list)
     for chunk, chunk_id in zip(chunks, ids):
@@ -109,36 +114,6 @@ def _full_rebuild(
         rel: {**current_stats[rel], "chunk_ids": chunk_ids}
         for rel, chunk_ids in chunk_ids_by_path.items()
     }
-
-    existing = store.get(include=["metadatas"])
-    existing_ids = existing["ids"]
-    metadatas = existing["metadatas"]
-    if metadatas is None or len(metadatas) != len(existing_ids):
-        raise RuntimeError("Cannot rebuild: existing vector metadata is unavailable.")
-    known_curated_ids = set(ids)
-    for entry in manifest.get("files", {}).values():
-        known_curated_ids.update(entry["chunk_ids"])
-    uploaded_ids = set()
-    curated_ids = []
-    for chunk_id, metadata in zip(existing_ids, metadatas):
-        if metadata and metadata.get("ingested") is True:
-            uploaded_ids.add(chunk_id)
-        elif not metadata or "source" in metadata or chunk_id not in known_curated_ids:
-            raise RuntimeError("Cannot rebuild: unrecognized vector records require investigation.")
-        else:
-            curated_ids.append(chunk_id)
-    if uploaded_ids & known_curated_ids:
-        raise RuntimeError("Cannot rebuild: uploaded and curated vector IDs overlap.")
-    if uploaded_ids and manifest.get("ingest_signature") != INGEST_SIGNATURE:
-        raise RuntimeError(
-            "Cannot rebuild: uploaded vectors have an unknown or changed embedding/index signature. "
-            "Use a separate index and migrate the uploads before changing the signature."
-        )
-
-    save_manifest(MANIFEST_PATH, {**manifest, "rebuild_in_progress": True})
-    if curated_ids:
-        store.delete(ids=curated_ids)
-    store.add_documents(_to_langchain_documents(chunks), ids=ids)
     save_manifest(
         MANIFEST_PATH,
         {"version": 1, "ingest_signature": INGEST_SIGNATURE, "files": manifest_files},
@@ -210,9 +185,7 @@ def main(force_rebuild: bool = False) -> None:
     manifest = load_manifest(MANIFEST_PATH)
     manifest_files = manifest.get("files", {})
 
-    if manifest.get("rebuild_in_progress"):
-        reason = "previous rebuild was interrupted"
-    elif force_rebuild:
+    if force_rebuild:
         reason = "--rebuild flag"
     elif not manifest_files:
         reason = "no manifest found"
@@ -223,7 +196,7 @@ def main(force_rebuild: bool = False) -> None:
 
     if reason is not None:
         print(f"Full rebuild ({reason}).")
-        _full_rebuild(store, load_knowledge_base_documents(), current_stats, manifest)
+        _full_rebuild(store, load_knowledge_base_documents(), current_stats)
         return
 
     _incremental_update(store, manifest_files, current_stats)
@@ -232,7 +205,7 @@ def main(force_rebuild: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "--rebuild", action="store_true", help="Force a curated-index rebuild while preserving uploads."
+        "--rebuild", action="store_true", help="Force a full rebuild, ignoring the existing manifest."
     )
     args = parser.parse_args()
     main(force_rebuild=args.rebuild)

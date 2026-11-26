@@ -1,4 +1,4 @@
-"""JWT authentication for routing_lab7's FastAPI backend (app/api/main.py).
+"""JWT authentication for routing_lab6's FastAPI backend (app/api/main.py).
 
 Verifies Keycloak-issued access tokens
 (instructions/learnings/routing-lab-prod-plan.md section 2.1) against the
@@ -24,7 +24,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-KEYCLOAK_ISSUER = os.environ.get("KEYCLOAK_ISSUER", "http://localhost:8081/realms/routing-lab6")
+KEYCLOAK_ISSUER = os.environ.get("KEYCLOAK_ISSUER", "http://localhost:8082/realms/routing-lab6")
 KEYCLOAK_CLIENT_ID = os.environ.get("KEYCLOAK_CLIENT_ID", "routing-lab6-frontend")
 
 _bearer_scheme = HTTPBearer(auto_error=True)

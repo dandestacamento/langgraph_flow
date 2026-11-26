@@ -14,9 +14,9 @@ five evaluation questions in
 instructions/Langgraph_routing/1_architecture.md ("Routing" and
 "Retrieval" are tracked as separate questions).
 
-`retrieve()` also supports optional "hybrid" retrieval (vector + BM25),
-MMR vector retrieval, and cross-encoder reranking - see
-instructions/learnings/routing-lab2-learnings.md section 4 (P1). All are
+`retrieve()` also supports an optional "hybrid" retrieval mode (vector +
+BM25 keyword search) and optional cross-encoder reranking - see
+instructions/learnings/routing-lab2-learnings.md section 4 (P1). Both are
 opt-in (off by default via `app.config.RETRIEVAL_MODE`/`RERANK_ENABLED`):
 Level 4's baseline is already 100% Retrieval Recall@K on plain similarity
 search, so there's no benchmarked evidence yet that either improves
@@ -41,8 +41,6 @@ from langchain_core.documents import Document
 from app.config import (
     CHROMA_COLLECTION_NAME,
     CHROMA_PERSIST_DIR,
-    MMR_FETCH_K,
-    MMR_LAMBDA,
     RERANK_ENABLED,
     RERANK_FETCH_K,
     RETRIEVAL_MODE,
@@ -56,7 +54,9 @@ from app.ingestion.registry import DocumentRegistry
 
 _registry_provider: Callable[[], DocumentRegistry] | None = None
 index_publication_lock = threading.RLock()
-_SECTION_REFERENCE = re.compile(r"\b[A-Z][A-Z0-9_-]+[ \t]+\d+(?:\.\d+)+\b")
+_SECTION_REFERENCE = re.compile(
+    r"\b(?:[A-Z][A-Z0-9_-]+[ \t]+\d+(?:\.\d+)+|[A-Z]{3,})\b"
+)
 
 
 def configure_document_registry(provider: Callable[[], DocumentRegistry]) -> None:
@@ -132,23 +132,8 @@ def _similarity_candidates(query: str, topic: str, subtopic: str | None, top_k: 
     where = _build_where(topic, subtopic, active_versions)
     results = get_vector_store().similarity_search_with_score(query, k=top_k, filter=where)
     return [
-        {**document.metadata, "text": document.page_content, "score": score, "score_type": "vector_distance"}
+        {**document.metadata, "text": document.page_content, "score": score}
         for document, score in results
-    ]
-
-
-def _mmr_candidates(
-    query: str, topic: str, subtopic: str | None, top_k: int,
-    active_versions: tuple[tuple[str, int], ...] | None, candidate_pool_size: int,
-) -> list[dict]:
-    documents = get_vector_store().max_marginal_relevance_search(
-        query, k=top_k, fetch_k=candidate_pool_size, lambda_mult=MMR_LAMBDA,
-        filter=_build_where(topic, subtopic, active_versions),
-    )
-    return [
-        {**document.metadata, "text": document.page_content, "score": round(1.0 / (rank + 1), 4),
-         "score_type": "mmr_rank"}
-        for rank, document in enumerate(documents)
     ]
 
 
@@ -174,8 +159,7 @@ def _hybrid_candidates(
     # pseudo-score keeps the same dict shape every other mode returns
     # (useful for logging/the dashboard) without claiming false precision.
     return [
-        {**document.metadata, "text": document.page_content, "score": round(1.0 / (rank + 1), 4),
-         "score_type": "hybrid_rank"}
+        {**document.metadata, "text": document.page_content, "score": round(1.0 / (rank + 1), 4)}
         for rank, document in enumerate(documents)
     ]
 
@@ -192,22 +176,19 @@ def retrieve(
     """Retrieve the top_k most similar chunks for `query`, filtered to the
     given topic (and subtopic, if provided). Returns a list of dicts with
     `text`, `chapter_id`, `document_id`, `topic`, `subtopic`, `chunk_index`,
-    `score`, and `score_type`, ordered by relevance (lower Chroma distance
-    or higher rank-based/cross-encoder score, depending on mode - see below).
-    MMR results are selected for diversity and returned in Chroma's vector
-    candidate order; their rank indicator is not an MMR similarity score.
+    and `score`, ordered by relevance (lower Chroma L2 distance or higher
+    rank-based/cross-encoder score, depending on mode - see below).
 
     `retrieval_mode`: "similarity" (default - Chroma vector search only)
-    "hybrid" (vector + BM25 keyword search), or "mmr" (diversified vector
-    candidates).
+    or "hybrid" (vector + BM25 keyword search, see `_hybrid_candidates`).
     `use_reranking`: if True, fetches a larger candidate pool
     (`max(top_k, RERANK_FETCH_K)`) and re-scores it with a cross-encoder
     (`app.rag.reranking.rerank`) before narrowing back down to `top_k`.
 
-    `candidate_pool_size`: for hybrid or MMR retrieval, fetch at least this
-    many candidates before selecting the results.
+    `candidate_pool_size`: for hybrid retrieval, fetch at least this many
+    results from each retriever before fusion and limiting to `top_k`.
 
-    The retrieval and reranking parameters default to `app.config`'s `RETRIEVAL_MODE`/
+    Both parameters default to `app.config`'s `RETRIEVAL_MODE`/
     `RERANK_ENABLED` (both opt-in, off by default) - override them
     explicitly for experiments (see `scripts/compare_retrieval_modes.py`)
     rather than changing the config defaults without benchmarked
@@ -219,15 +200,14 @@ def retrieve(
         raise ValueError("candidate_pool_size must be positive")
 
     fetch_k = max(top_k, RERANK_FETCH_K) if use_reranking else top_k
-    pool_size = max(fetch_k, candidate_pool_size or fetch_k)
+    hybrid_pool_size = max(fetch_k, candidate_pool_size or fetch_k)
     with index_publication_lock:
         active_versions = _active_versions()
-        if retrieval_mode == "hybrid":
-            candidates = _hybrid_candidates(query, topic, subtopic, fetch_k, active_versions, pool_size)
-        elif retrieval_mode == "mmr":
-            candidates = _mmr_candidates(query, topic, subtopic, fetch_k, active_versions, max(MMR_FETCH_K, pool_size))
-        else:
-            candidates = _similarity_candidates(query, topic, subtopic, fetch_k, active_versions)
+        candidates = (
+            _hybrid_candidates(query, topic, subtopic, fetch_k, active_versions, hybrid_pool_size)
+            if retrieval_mode == "hybrid"
+            else _similarity_candidates(query, topic, subtopic, fetch_k, active_versions)
+        )
 
     if use_reranking:
         return rerank(query, candidates, top_k)
@@ -241,7 +221,7 @@ def _has_uploaded_content(topic: str, subtopic: str | None) -> bool:
 
 
 def find_reference_topics(question: str, topics: list[str]) -> list[tuple[str, str]]:
-    """Find section references that occur in exactly one visible topic."""
+    """Find section references or uppercase terms unique to one visible topic."""
     references = list(dict.fromkeys(_SECTION_REFERENCE.findall(question)))
     if not references or len(references) > 3:
         return []
@@ -250,14 +230,16 @@ def find_reference_topics(question: str, topics: list[str]) -> list[tuple[str, s
         store = get_vector_store()
         matches = []
         for reference in references:
-            found = [
-                topic for topic in topics
-                if store.get(
+            reference_pattern = re.compile(rf"(?<!\w){re.escape(reference)}(?!\w)")
+            found = []
+            for topic in topics:
+                documents = store.get(
                     where=_build_where(topic, None, active_versions),
                     where_document={"$contains": reference},
-                    include=[], limit=1,
-                )["ids"]
-            ]
+                    include=["documents"],
+                )["documents"]
+                if any(reference_pattern.search(text) for text in documents):
+                    found.append(topic)
             if len(found) == 1:
                 matches.append((reference, found[0]))
         return matches

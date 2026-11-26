@@ -35,23 +35,6 @@ describe("PassagePreview", () => {
     expect(screen.getByRole("dialog", { name: /chapter_03_faults/ })).toBeInTheDocument();
   });
 
-  it("shows a CSV row in the source preview", () => {
-    render(<PassagePreview passage={{ ...PASSAGE, source: "devices.csv", page: null, row: 3 }} onClose={() => {}} />);
-    expect(screen.getByText("CSV row")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
-  });
-
-  it.each([
-    ["vector_distance", "Vector distance (lower is closer)"],
-    ["hybrid_rank", "Hybrid rank indicator (higher is earlier)"],
-    ["mmr_rank", "MMR result rank indicator (higher is earlier)"],
-    ["reranker", "Reranker score (higher is better)"],
-    [undefined, "Score (type unavailable)"],
-  ] as const)("explains %s scores", (score_type, label) => {
-    render(<PassagePreview passage={{ ...PASSAGE, score_type }} onClose={() => {}} />);
-    expect(screen.getByText(label)).toBeInTheDocument();
-  });
-
   it("closes via the button, the backdrop, and Escape", () => {
     const onClose = vi.fn();
     render(<PassagePreview passage={PASSAGE} onClose={onClose} />);

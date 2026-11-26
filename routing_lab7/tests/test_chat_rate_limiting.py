@@ -10,7 +10,7 @@ app/rag/embeddings.py actually honors the current request's virtual key
 (app/llm_gateway.py).
 
 Skipped unless LITELLM_BASE_URL points at a reachable LiteLLM instance
-(`docker compose up -d litellm` from routing_lab7/, which also needs
+(`docker compose up -d litellm` from routing_lab6/, which also needs
 postgres - see infra/litellm/README.md) - deliberately requires real
 infrastructure, like tests/test_chat_persistence.py.
 """

@@ -8,7 +8,7 @@ section 2.1. Run from `routing_lab7/`:
 docker compose up -d
 ```
 
-Then open http://localhost:8081 (admin console: `admin` / `admin`) or just use it directly - the
+Then open http://localhost:8082 (admin console: `admin` / `admin`) or just use it directly - the
 `routing-lab6` realm, its one public frontend client (`routing-lab6-frontend`), and two demo users
 are imported automatically from [`realm-export.json`](./realm-export.json) on startup.
 

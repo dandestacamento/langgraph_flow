@@ -1,4 +1,4 @@
-"""Attachment storage & extraction for routing_lab7's chat API
+"""Attachment storage & extraction for routing_lab6's chat API
 (instructions/learnings/chat-ui-plan4.md Phase A).
 
 Attachments are extracted ONCE at upload time (a vision call for

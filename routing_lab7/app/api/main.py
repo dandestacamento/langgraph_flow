@@ -85,7 +85,7 @@ from app.cache import enable_llm_cache  # noqa: E402
 from app.chat.condense import generate_conversation_title  # noqa: E402
 from app.chat.graph import build_chat_graph  # noqa: E402
 from app.chat.routing_summary import build_routing_summary  # noqa: E402
-from app.ingestion.graph import is_csv_document, run_ingestion  # noqa: E402
+from app.ingestion.graph import run_ingestion  # noqa: E402
 from app.ingestion.registry import DocumentRegistry  # noqa: E402
 from app.ingestion.storage import LocalDocumentStorage  # noqa: E402
 from app.ingestion.taxonomy import taxonomy_store  # noqa: E402
@@ -464,7 +464,7 @@ def _cleanup_previous_chunks(existing: dict) -> dict:
 
 def _start_document_replacement(
     existing: dict, content: bytes, media_type: str, background_tasks: BackgroundTasks, user: str,
-    *, indexed_only: bool = False,
+    *, indexed_only: bool = False, manual_topic: str = "", manual_subtopic: str = "",
 ) -> KnowledgeDocument:
     if not existing["chunk_ids"]:
         raise HTTPException(status_code=409, detail="The existing document is not indexed; resolve it before replacing it.")
@@ -510,7 +510,9 @@ def _start_document_replacement(
         "is_replacement": True,
     }
     _scope_llm_calls_to(user)
-    background_tasks.add_task(run_ingestion, _document_registry, replacement, content)
+    background_tasks.add_task(
+        run_ingestion, _document_registry, replacement, content, manual_topic, manual_subtopic,
+    )
     return _knowledge_document(_document_registry.get(existing["document_id"]) or existing)
 
 
@@ -543,8 +545,7 @@ async def upload_knowledge_document(
 
     content_hash = hashlib.sha256(content).hexdigest()
     filename = file.filename or "document"
-    documents = _document_registry.list_documents()
-    matches = [r for r in documents if r["filename"] == filename]
+    matches = [r for r in _document_registry.list_documents() if r["filename"] == filename]
     if len(matches) > 1:
         raise HTTPException(status_code=409, detail="Multiple documents have this filename; automatic replacement is ambiguous.")
     if matches:
@@ -554,11 +555,7 @@ async def upload_knowledge_document(
             return _knowledge_document(existing, duplicate=True)
         return _start_document_replacement(existing, content, media_type, background_tasks, user)
 
-    existing = next(
-        (r for r in documents if r["content_hash"] == content_hash
-         and is_csv_document(r["filename"], r["media_type"]) == is_csv_document(filename, media_type)),
-        None,
-    )
+    existing = _document_registry.find_by_hash(content_hash)
     if existing is not None:
         return _knowledge_document(existing, duplicate=True)
 
@@ -666,11 +663,10 @@ def override_classification(
     background_tasks: BackgroundTasks,
     user: str = Depends(get_current_user),
 ) -> KnowledgeDocument:
-    """Manually (re)classifies a document (plan5 Phase B's override):
-    validates the chosen taxonomy, removes any chunks indexed under the
-    old classification, and re-runs the ingestion workflow from the
-    stored original with the human-supplied topic/subtopic - which also
-    un-parks `needs_review` documents."""
+    """Reclassify a document using a human-supplied topic and subtopic.
+
+    An indexed version stays available until its replacement is published.
+    """
     record = _document_registry.get(document_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Unknown document.")
@@ -699,6 +695,24 @@ def override_classification(
         )
         return _knowledge_document(_document_registry.get(document_id) or record)
 
+    if record["status"] == "indexed" and record["chunk_ids"]:
+        try:
+            content = _document_storage.read_original(
+                record["document_id"], record["version"], record["filename"]
+            )
+        except OSError as exc:
+            raise HTTPException(status_code=409, detail="The indexed document's stored original is unavailable.") from exc
+        if hashlib.sha256(content).hexdigest() != record["content_hash"]:
+            raise HTTPException(status_code=409, detail="The stored original does not match the indexed document.")
+        original_version = record["version"]
+        record = _cleanup_previous_chunks(record)
+        if record["version"] != original_version:
+            raise HTTPException(status_code=409, detail="The indexed document changed; retry reclassification.")
+        return _start_document_replacement(
+            record, content, record["media_type"], background_tasks, user,
+            indexed_only=True, manual_topic=request.topic, manual_subtopic=request.subtopic,
+        )
+
     # Surgical removal of the previous classification's chunks (if any)
     # before reindexing under the corrected one.
     if record["chunk_ids"]:
@@ -726,7 +740,7 @@ def override_classification(
     return _knowledge_document(_document_registry.get(document_id) or record)
 
 
-_client_error_logger = logging.getLogger("routing_lab7.client_errors")
+_client_error_logger = logging.getLogger("routing_lab6.client_errors")
 
 
 @app.post("/client-error", status_code=204)

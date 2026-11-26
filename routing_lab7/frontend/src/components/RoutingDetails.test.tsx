@@ -60,8 +60,7 @@ describe("RoutingDetails", () => {
           chapters: { appliances: "chapter_03_faults" },
           passages: {
             appliances: [
-              { chapter_id: "chapter_03_faults", document_id: "d1", source: "manual.pdf", page: 4, version: 2, subtopic: "washing_machines", score: 0.79, score_type: "vector_distance", text: "E21: drainage problem." },
-              { chapter_id: "chapter_03_faults", document_id: "d2", source: "devices.csv", row: 3, version: 1, subtopic: "washing_machines", score: 0.7, score_type: "hybrid_rank", text: "Model: D2" },
+              { chapter_id: "chapter_03_faults", document_id: "d1", source: "manual.pdf", page: 4, version: 2, subtopic: "washing_machines", score: 0.79, text: "E21: drainage problem." },
             ],
           },
         }}
@@ -72,9 +71,6 @@ describe("RoutingDetails", () => {
     expect(screen.getByText(/E21: drainage problem/)).toBeInTheDocument();
     expect(screen.getByText(/retrieved passages \(not verified citations\)/)).toBeInTheDocument();
     expect(screen.getByText(/manual.pdf.*page 4.*v2/)).toBeInTheDocument();
-    expect(screen.getByText(/devices.csv.*row 3.*v1/)).toBeInTheDocument();
-    expect(screen.getByText(/Vector distance \(lower is closer\): 0.79/)).toBeInTheDocument();
-    expect(screen.getByText(/Hybrid rank indicator \(higher is earlier\): 0.70/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /manual.pdf/ })).not.toHaveTextContent("chapter_03_faults");
   });
 

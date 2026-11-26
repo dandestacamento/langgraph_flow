@@ -2,13 +2,13 @@ import Keycloak from "keycloak-js";
 
 /**
  * OIDC login against the Keycloak realm set up in
- * routing_lab7/infra/keycloak (see its README) - per
+ * routing_lab6/infra/keycloak (see its README) - per
  * instructions/learnings/chat-ui-plan1.md section 2.3/Phase D. A single
  * module-level instance, matching keycloak-js's own recommended usage
  * pattern (one instance per page load, not one per component).
  */
 const keycloak = new Keycloak({
-  url: import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8081",
+  url: import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8082",
   realm: import.meta.env.VITE_KEYCLOAK_REALM ?? "routing-lab6",
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? "routing-lab6-frontend",
 });

@@ -56,8 +56,7 @@ function formatSize(bytes: number): string {
   return `${bytes} B`;
 }
 
-/** Manual topic/subtopic correction form, shown for needs_review (and
- * failed) documents. Options come from the backend taxonomy. */
+/** Manual topic/subtopic correction form. Options come from the backend taxonomy. */
 function OverrideForm({
   document,
   taxonomy,
@@ -119,9 +118,11 @@ function OverrideForm({
   return (
     <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
       <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-        Review the suggested classification or choose your own:
+        {document.status === "indexed"
+          ? "Choose a corrected classification:"
+          : "Review the suggested classification or choose your own:"}
       </p>
-      {suggestion.topic && suggestion.subtopic && (
+      {document.status !== "indexed" && suggestion.topic && suggestion.subtopic && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span>Suggested: <strong>{suggestion.topic} / {suggestion.subtopic}</strong></span>
           <button type="button" disabled={submitting} onClick={() => void submit(suggestion.topic!, suggestion.subtopic!)}
@@ -271,7 +272,8 @@ function DocumentDetail({
           {document.error}
         </p>
       )}
-      {(document.status === "needs_review" || document.status === "failed") && (
+      {(document.status === "needs_review" || document.status === "failed" ||
+        (document.status === "indexed" && !document.pending)) && (
         <OverrideForm document={document} taxonomy={taxonomy} onOverridden={onUpdated} onTaxonomyChanged={onTaxonomyChanged} />
       )}
       {document.events.length > 0 && (

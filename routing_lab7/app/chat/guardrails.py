@@ -9,7 +9,7 @@ the same pattern this project already uses for other optional heavy-ML
 features (reranking - see `app/rag/reranking.py` and `app/config.py`'s
 `RERANK_ENABLED`). `scan_input()`'s model is a real, ~184M-parameter
 DeBERTa classifier (`protectai/deberta-v3-base-prompt-injection-v2`,
-MIT), not something every dev/test run of `routing_lab7` should be
+MIT), not something every dev/test run of `routing_lab6` should be
 forced to download - confirmed empirically to correctly distinguish a
 normal question from both a classic "ignore previous instructions"
 injection and a DAN-style jailbreak attempt, each with >99.99%

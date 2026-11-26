@@ -65,7 +65,7 @@ def rerank(query: str, passages: list[dict], top_k: int) -> list[dict]:
     scores = _get_cross_encoder().score([(query, passage["text"]) for passage in passages])
     scored = sorted(
         (
-            {**passage, "score": round(float(score), 4), "score_type": "reranker"}
+            {**passage, "score": round(float(score), 4)}
             for passage, score in zip(passages, scores)
         ),
         key=lambda passage: passage["score"],

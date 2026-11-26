@@ -210,7 +210,7 @@ def classify_topic(state: RoutingState) -> dict:
     llm = build_topic_llm()
     references = find_reference_topics(state["question"], list(taxonomy_store().get()))
     reference_hint = (
-        "\nThe following section identifiers occur in exactly one indexed topic each: "
+        "\nThe following section identifiers or uppercase terms occur in exactly one indexed topic each: "
         f"{json.dumps(references)}. Use them as routing evidence, while still considering "
         "the whole question and any other topics it explicitly asks about."
         if references else ""

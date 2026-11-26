@@ -1,29 +1,5 @@
 # LangGraph Routing Accuracy Lab
 
-## Lab 7 copy setup
-
-Lab 7 starts as a copy of Lab 6 and uses the same service ports and
-Keycloak realm. Install the frontend dependencies from `frontend/` with
-`npm ci`, and build the local knowledge-base index from this directory
-with `..\.venv\Scripts\python.exe scripts\build_index.py`. Indexing and
-uncached model requests use the configured OpenAI service and may incur
-charges.
-
-Do not start a second Compose stack while Lab 6 is using ports 8081,
-5433, or 4000. The running Lab 6 Keycloak can authenticate Lab 7, but
-its PostgreSQL database and LiteLLM service are shared services, not
-isolated Lab 7 data. In particular, do not set `CHAT_DB_URL` to the Lab 6
-database unless sharing its conversations and document registry is
-intentional; without it, those records are in memory and do not survive
-a restart. A separate persistent database is required for isolation.
-
-The API uses port 8000 and the frontend uses port 5173. Stop any existing
-process using those ports before starting Lab 7, or start the Lab 7
-frontend with `npm run dev -- --port 5174 --strictPort` if only port 5173
-is occupied. The Vite proxy still expects the Lab 7 API on port 8000.
-Copied `data/` and `.llm_cache.db` may contain Lab 6's local data and
-cached responses; they are not a fresh application state.
-
 ## Lab6 additions
 
 Knowledge Base Manager proposes new topic/subtopic identifiers when a document
@@ -47,36 +23,9 @@ for the isolated lab6 database, setup and opt-in `--llm-judge` batch evaluation.
 The judge is approximate, makes extra model calls, and does not change the
 deterministic pass/fail score.
 
-For an experimental alternative, set `ROUTING_LAB_UPLOAD_CHUNKING=semantic`
-before starting the backend. Text and PDF uploads then group adjacent
-sentences using their embedding similarity (fixed threshold 0.7), while
-keeping chunks at most 1,200 characters and respecting PDF page boundaries.
-Oversized sentences are split with overlap; sentence detection is heuristic
-and may split abbreviations. CSV uploads retain row-based chunking. The
-default is `paragraph`; invalid settings fail startup. Semantic chunking sends
-additional sentence text to the configured embedding service and can increase
-cost and latency. Embedding failures fail ingestion rather than switching
-strategies. It has not been shown to improve answer quality for this corpus.
-Existing uploads are unchanged until explicitly re-indexed; curated knowledge
-base builds are unaffected.
-
-Knowledge-base `.csv` uploads are parsed as comma-separated UTF-8 (optional
-BOM), with one header row and one logical record per indexed passage.
-Each passage carries its CSV row number (header is row 1, including when a
-quoted field spans physical lines), filename and version. Large records can
-produce multiple passages with the same row number. Empty or duplicate headers,
-blank rows, malformed CSV and inconsistent column counts fail ingestion
-instead of publishing partial data. Existing CSV uploads need reindexing to
-gain row-level metadata. CSV content is classified and embedded using the
-same configured services as other knowledge uploads.
-
 Answers list uploaded-document filenames, document IDs, versions, and available
 PDF page numbers from retrieved passages. These are retrieval references, not
 verified citations: some retrieved passages may not support the answer.
-Passage scores identify their type: vector distances are lower-is-closer,
-hybrid and MMR result rank indicators are higher-is-earlier, and reranker
-scores are higher-is-better. These scales are not comparable or calibrated
-confidence values. Older saved conversations may show an unknown score type.
 Document-level classification labels do not identify the actual section of
 each uploaded excerpt. If an initial answer declines, the agent retries once
 with topic-wide hybrid retrieval (up to 40 candidates per retriever, returning
@@ -90,19 +39,10 @@ unverified. This check is approximate, adds model calls and latency, and does
 not make the listed retrieval references verified citations. If a topic
 declines, multi-topic synthesis preserves the individual responses; multi-hop
 questions do not use a declined first hop as input to a second hop.
-For explicit section identifiers such as `MANAGE 4.3`, the topic router also
-receives a hint when the identifier occurs in exactly one visible topic. Shared
-or absent identifiers do not produce a hint.
-
-For an experimental diversity-aware vector search, set
-`ROUTING_LAB_RETRIEVAL_MODE=mmr` before starting the backend. MMR selects
-passages from at least 20 vector candidates using a fixed relevance/diversity
-weight of 0.5. Chroma returns selected passages in vector-candidate order;
-the displayed rank indicator is not an MMR score. Existing topic, subtopic,
-and active-version filters still apply, and uploaded content still receives
-the hybrid supplement. The default remains `similarity`. MMR may omit relevant
-passages, and its answer quality on this corpus has not been established.
-Use `scripts/compare_retrieval_modes.py` to compare retrieval coverage.
+For explicit section identifiers such as `MANAGE 4.3` and uppercase terms
+such as `MAP`, the topic router also receives a hint when the exact term occurs
+in exactly one visible topic. Shared or absent terms do not produce a hint;
+the model still considers the whole question.
 
 Uploading changed bytes under an indexed document's existing filename starts a
 new version and classifies it again. The previous version remains searchable
@@ -113,7 +53,9 @@ identical bytes is still treated as a duplicate. If old-chunk cleanup fails,
 re-upload the published file to retry it. To reprocess an unchanged document,
 expand it and select **Re-index stored file**. This reclassifies the saved
 original and keeps the current version searchable until its replacement is
-ready. Existing uploads must be re-indexed to use the updated chunking.
+ready. An indexed document can also be manually reclassified from its expanded
+details; its current version remains searchable until the corrected version is
+published. Existing uploads must be re-indexed to use the updated chunking.
 
 Replacement publication is coordinated within one backend process; do not
 run multiple backend workers against the same index. After a backend restart,
@@ -915,17 +857,7 @@ re-chunked and re-embedded (verified: a single edited chapter triggers
 exactly that chapter's chunks being replaced; a rerun with no content
 changes is a true no-op). Use `--rebuild` to force a full rebuild (e.g.
 after changing the chunking strategy or embedding model - this also
-happens automatically via `INGEST_SIGNATURE`). Full rebuilds preserve
-uploaded vectors when the manifest signature matches; if uploaded vectors
-exist and the signature is missing or changed, the rebuild stops before
-deleting anything. Migrate uploads to a separate index before changing the
-signature. The signature check does not independently verify which model
-created each upload. Unrecognized vector records also stop a rebuild rather
-than being deleted. Run index builds with the backend stopped: the rebuild
-is not transactional or coordinated across processes, and a failure can
-leave the curated index incomplete. Rerun the build after a failure; an
-interrupted rebuild is detected and retried. Restart the backend after a
-successful build.
+happens automatically via `INGEST_SIGNATURE`).
 
 **Other fixes from this self-review** (`instructions/learnings/routing-project-learnings.md`
 section 11):
@@ -1133,17 +1065,9 @@ re-billing the API. Set `ROUTING_LAB_CACHE_ENABLED=0` to force fresh calls
 (e.g. after changing a prompt, since the cache key is just the literal
 question text).
 
-Embedding responses and cached vectors are checked for the expected batch
-count, non-empty finite numeric values, and consistent dimensions within a
-batch. Invalid results fail explicitly and are not newly cached. If an
-existing cached vector is invalid, investigate the cache or restart with
-`ROUTING_LAB_CACHE_ENABLED=0`; disabling it affects both embedding and LLM
-caching and may incur API charges. These checks do not verify semantic
-quality, compatibility between separate batches, or repair an existing index.
-
 ## Chat application
 
-`routing_lab7` wraps the stateless routing pipeline above in a
+`routing_lab6` wraps the stateless routing pipeline above in a
 multi-turn chat application, following the "wrap, don't rewrite"
 architecture in
 [`routing-lab6-chat-app-plan.md`](../instructions/learnings/routing-lab6-chat-app-plan.md):
@@ -1208,8 +1132,24 @@ turns (`app/chat/condense.py`), then invokes the existing graph.
   `scan_output` to verify a blocked input skips the routing pipeline and
   a blocked output is replaced before being returned/persisted.
 
+For an existing lab 7 PostgreSQL volume initialized with the copied lab 6
+names, changing Compose's environment does not rename its existing role or
+database. Stop the lab 7 API and LiteLLM first, then migrate the volume from
+`routing_lab7\` (the chat database must have no active connections):
+
 ```powershell
-# Terminal 0 (first run, and any time Keycloak/Postgres/LiteLLM need to
+docker compose stop litellm
+docker compose up -d postgres
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U routing_lab6 -d postgres -c "CREATE ROLE routing_lab7_migration_admin WITH SUPERUSER LOGIN;"
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U routing_lab7_migration_admin -d postgres -c "ALTER ROLE routing_lab6 RENAME TO routing_lab7;" -c "ALTER ROLE routing_lab7 PASSWORD 'routing-lab7-dev-password';" -c "ALTER DATABASE routing_lab6_chat RENAME TO routing_lab7_chat;"
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U routing_lab7 -d postgres -c "DROP ROLE routing_lab7_migration_admin;"
+```
+
+Run each command only if the previous one succeeds. The existing volume name
+is retained to preserve data; new volumes initialize with the lab 7 names.
+
+```powershell
+# Terminal 0 (from routing_lab7\, first run, and any time Keycloak/Postgres/LiteLLM need to
 # be running - see infra/keycloak/README.md and infra/litellm/README.md):
 # Keycloak is required since /chat and /chat/stream now require a login
 # (chat-ui-plan1.md section 4's Phase D); Postgres and LiteLLM are both
@@ -1223,8 +1163,8 @@ docker compose up -d
 # ROUTING_LAB_GUARDRAILS_ENABLED=1 for prompt-injection/secrets-leakage
 # scanning (section 2.4) - omit any of these to use the simpler
 # fallback (InMemorySaver / calling OpenAI directly / no scanning).
-$env:CHAT_DB_URL = "postgresql://routing_lab7:routing-lab6-dev-password@localhost:5433/routing_lab7_chat"
-$env:LITELLM_BASE_URL = "http://localhost:4000"
+$env:CHAT_DB_URL = "postgresql://routing_lab7:routing-lab7-dev-password@localhost:5434/routing_lab7_chat"
+$env:LITELLM_BASE_URL = "http://localhost:4001"
 $env:LITELLM_MASTER_KEY = "sk-routing-lab6-dev-master-key"
 $env:ROUTING_LAB_GUARDRAILS_ENABLED = "1"
 ..\.venv\Scripts\python.exe -m uvicorn app.api.main:app --reload --port 8000
@@ -1259,6 +1199,35 @@ docker run -d -p 8080:80 -e BACKEND_HOST=host.docker.internal -e BACKEND_PORT=80
 ```
 
 ## Batch Routing Test Runner
+
+### NIST chat regression
+
+The existing batch runner below tests individual questions through the routing
+graph, without chat history. To test the 15 NIST questions through the real
+chat API in one new conversation (including login, history, condensation,
+guardrails and the configured backend), start the lab 7 Compose services and
+chat API, then run from `routing_lab7\`:
+
+```powershell
+..\.venv\Scripts\python.exe scripts\run_chat_batch_tests.py
+```
+
+Enter the local Keycloak demo password when prompted. Use `--username` for a
+different local user, or `--ids NIST-05 NIST-07` for a subset. The runner
+creates a persistent conversation visible in the chat sidebar, uses the
+running backend's cache and gateway configuration, and can incur model costs.
+It uses the non-streaming `/chat` API rather than automating the browser;
+token usage and cost are not reported by that endpoint. The runner connects
+only to local services and refreshes its login token as needed.
+
+Read `outputs\nist_chat_regression\chat_report.md` for expected and actual
+answers, routes and retrieved passages. The same directory contains
+`chat_results.csv`, `chat_details.json`, and `manual_review.csv` (manual notes
+are preserved across reruns). Automatic answer checks are approximate
+substring matches, not a semantic verdict or proof of citation support.
+Failed requests stop the run and leave the partial report intact; failed
+checks or requests produce a nonzero exit code. Generated reports are
+replaced on rerun; use `--output-dir` to retain separate runs.
 
 ### Quick reference
 

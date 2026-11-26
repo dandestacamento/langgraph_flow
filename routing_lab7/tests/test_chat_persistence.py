@@ -9,7 +9,7 @@ do once, for real, via a running uvicorn process - see
 instructions/learnings/routing-lab-prod-plan.md section 2.2's write-up).
 
 Skipped unless CHAT_DB_URL points at a reachable Postgres instance
-(`docker compose up -d postgres` from routing_lab7/) - these two tests
+(`docker compose up -d postgres` from routing_lab6/) - these two tests
 deliberately require real infrastructure, unlike the rest of this
 project's fast, infra-free test suite, which is why they're kept in
 their own file rather than folded into test_chat_api.py.

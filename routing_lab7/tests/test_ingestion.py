@@ -17,21 +17,16 @@ import jwt as pyjwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
-from langchain_core.embeddings import Embeddings
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 import app.api.auth as auth_module
-import app.api.main as api_module
 import app.ingestion.graph as ingestion_graph
-from app.agents._shared import _source_labels
 from app.api.attachments import MAX_EXTRACTED_CHARS, extract_document_text
 from app.api.main import app
-from app.chat.routing_summary import build_routing_summary
 from app.ingestion.classify import DocumentClassification, classification_problem
 from app.ingestion.graph import chunk_text
 from app.ingestion.registry import DocumentRegistry
-from app.ingestion.storage import LocalDocumentStorage
 from app.rag.retrieval import get_vector_store
 
 client = TestClient(app)
@@ -108,158 +103,6 @@ def test_chunk_text_keeps_sentence_together_at_a_line_boundary() -> None:
     assert max(map(len, chunks)) <= 1200
 
 
-class _SemanticTestEmbeddings(Embeddings):
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [[0.0, 1.0] if "Paris" in text else [1.0, 0.0] for text in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return self.embed_documents([text])[0]
-
-
-def test_semantic_chunking_groups_similar_sentences_and_splits_topic_changes():
-    text = "Wash dishes first. Dry the dishes. Paris is in France. Paris has museums."
-    assert ingestion_graph.semantic_chunk_text(text, _SemanticTestEmbeddings()) == [
-        "Wash dishes first. Dry the dishes.",
-        "Paris is in France. Paris has museums.",
-    ]
-
-
-def test_semantic_chunking_bounds_long_sentences_and_batches():
-    class CountingEmbeddings(_SemanticTestEmbeddings):
-        batches: list[int]
-
-        def __init__(self):
-            self.batches = []
-
-        def embed_documents(self, texts):
-            self.batches.append(len(texts))
-            return super().embed_documents(texts)
-
-    embeddings = CountingEmbeddings()
-    text = " ".join(f"Sentence {i}." for i in range(130)) + " " + "x" * 2501
-    chunks = ingestion_graph.semantic_chunk_text(text, embeddings)
-    assert embeddings.batches == [128, 5]
-    assert all(len(chunk) <= 1200 for chunk in chunks)
-    assert all(f"Sentence {i}." in " ".join(chunks) for i in range(130))
-    assert sum(chunk.count("x") for chunk in chunks) >= 2501
-
-
-def test_semantic_chunking_rejects_zero_and_inconsistent_embeddings():
-    class InvalidEmbeddings(_SemanticTestEmbeddings):
-        def embed_documents(self, texts):
-            return [[0.0, 0.0] for _ in texts]
-
-    with pytest.raises(ValueError, match="non-zero"):
-        ingestion_graph.semantic_chunk_text("One. Two.", InvalidEmbeddings())
-
-    class InconsistentEmbeddings(_SemanticTestEmbeddings):
-        def embed_documents(self, texts):
-            return [[1.0] if "128" in text else [1.0, 0.0] for text in texts]
-
-    text = " ".join(f"Sentence {i}." for i in range(129))
-    with pytest.raises(ValueError, match="dimension"):
-        ingestion_graph.semantic_chunk_text(text, InconsistentEmbeddings())
-
-
-def test_csv_upload_indexes_rows_and_surfaces_provenance(monkeypatch, tmp_path):
-    class Store:
-        def __init__(self):
-            self.documents = []
-
-        def add_documents(self, documents, ids):
-            self.documents = documents
-
-        def similarity_search(self, query, k, filter):
-            return self.documents[:k]
-
-    store = Store()
-    registry = DocumentRegistry()
-    monkeypatch.setattr(api_module, "_document_registry", registry)
-    monkeypatch.setattr(api_module, "_document_storage", LocalDocumentStorage(tmp_path))
-    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
-    monkeypatch.setattr(
-        ingestion_graph, "classify_document",
-        lambda filename, text: DocumentClassification(
-            topic="appliances", subtopic="dishwashers", chapters=["manual"], confidence=0.95
-        ),
-    )
-    content = b'\xef\xbb\xbfmodel,description\r\nD1,"quiet, efficient"\r\nD2,"line one\nline two"\r\n'
-    response = client.post(
-        "/knowledge/documents", files={"file": ("devices.csv", content, "text/csv")},
-        headers=_auth_headers(),
-    )
-    assert response.status_code == 200
-    detail = registry.get(response.json()["document_id"])
-    assert detail["status"] == "indexed", detail["error"]
-    assert [(doc.metadata["row"], doc.page_content) for doc in store.documents] == [
-        (2, "model: D1\ndescription: quiet, efficient"),
-        (3, "model: D2\ndescription: line one\nline two"),
-    ]
-    passage = {**store.documents[1].metadata, "text": store.documents[1].page_content}
-    summary = build_routing_summary({"retrieved_passages": {"appliances": [passage]}})
-    assert summary["passages"]["appliances"][0]["row"] == 3
-    assert "row 3" in _source_labels([passage])[0]
-
-    # Identical bytes under a non-CSV name must not reuse differently parsed content.
-    other = client.post(
-        "/knowledge/documents", files={"file": ("devices.txt", content, "text/plain")},
-        headers=_auth_headers(),
-    )
-    assert other.status_code == 200
-    assert other.json()["document_id"] != response.json()["document_id"]
-    assert registry.get(other.json()["document_id"])["status"] == "indexed"
-    assert all("row" not in doc.metadata for doc in store.documents)
-
-
-def test_large_csv_row_keeps_row_metadata_across_chunks(monkeypatch):
-    class Store:
-        def add_documents(self, documents, ids):
-            self.documents = documents
-
-        def similarity_search(self, query, k, filter):
-            return self.documents[:k]
-
-    store = Store()
-    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
-    content = ("model,description\nD1," + "x" * 2500 + "\n").encode()
-    registry = DocumentRegistry()
-    record = registry.create(
-        filename="devices.CSV", media_type="text/plain", size_bytes=len(content),
-        content_hash="large", uploaded_by="u1",
-    )
-    ingestion_graph.run_ingestion(
-        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
-    )
-    detail = registry.get(record["document_id"])
-    assert detail["status"] == "indexed", detail["error"]
-    assert len(store.documents) > 1
-    assert all(doc.metadata["row"] == 2 and len(doc.page_content) <= 1200 for doc in store.documents)
-    assert sum(doc.page_content.count("x") for doc in store.documents) >= 2500
-
-
-@pytest.mark.parametrize(
-    "content",
-    [b"name,name\nx,y\n", b"name,\nx,y\n", b"name,value\nx\n",
-     b'name,value\nx,"unterminated', b"name,value\n", b"name,value\n\nx,y\n"],
-)
-def test_invalid_csv_fails_before_indexing(content, monkeypatch):
-    monkeypatch.setattr(
-        ingestion_graph, "get_vector_store",
-        lambda: pytest.fail("invalid CSV must not reach indexing"),
-    )
-    registry = DocumentRegistry()
-    record = registry.create(
-        filename="invalid.csv", media_type="text/plain", size_bytes=len(content),
-        content_hash="invalid", uploaded_by="u1",
-    )
-    ingestion_graph.run_ingestion(
-        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
-    )
-    detail = registry.get(record["document_id"])
-    assert detail["status"] == "failed"
-    assert "extract:" in detail["error"]
-
-
 def _text_pdf(*pages: str) -> bytes:
     writer = PdfWriter()
     for text in pages:
@@ -278,87 +121,6 @@ def _text_pdf(*pages: str) -> bytes:
     output = io.BytesIO()
     writer.write(output)
     return output.getvalue()
-
-
-def test_semantic_upload_preserves_pdf_page_provenance(monkeypatch):
-    class Store:
-        def add_documents(self, documents, ids):
-            self.documents = documents
-
-        def similarity_search(self, query, k, filter):
-            return self.documents[:k]
-
-    store = Store()
-    monkeypatch.setattr(ingestion_graph, "UPLOAD_CHUNKING_STRATEGY", "semantic")
-    monkeypatch.setattr(ingestion_graph, "get_embeddings_client", _SemanticTestEmbeddings)
-    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
-    content = _text_pdf("Wash dishes. Dry dishes. Paris is in France.", "Paris has museums.")
-    registry = DocumentRegistry()
-    record = registry.create(
-        filename="manual.pdf", media_type="application/pdf", size_bytes=len(content),
-        content_hash="semantic-pdf", uploaded_by="u1",
-    )
-    ingestion_graph.run_ingestion(
-        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
-    )
-    detail = registry.get(record["document_id"])
-    assert detail["status"] == "indexed", detail["error"]
-    assert [(doc.metadata["page"], doc.page_content) for doc in store.documents] == [
-        (1, "Wash dishes. Dry dishes."),
-        (1, "Paris is in France."),
-        (2, "Paris has museums."),
-    ]
-    assert any(event["node"] == "chunk" and "semantic" in event["detail"] for event in detail["events"])
-
-
-def test_semantic_strategy_leaves_csv_row_chunking_unchanged(monkeypatch):
-    class Store:
-        def add_documents(self, documents, ids):
-            self.documents = documents
-
-        def similarity_search(self, query, k, filter):
-            return self.documents[:k]
-
-    store = Store()
-    monkeypatch.setattr(ingestion_graph, "UPLOAD_CHUNKING_STRATEGY", "semantic")
-    monkeypatch.setattr(ingestion_graph, "get_embeddings_client", lambda: pytest.fail("CSV is not semantic"))
-    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: store)
-    content = b"name,description\nD1,Wash dishes. Paris is in France.\n"
-    registry = DocumentRegistry()
-    record = registry.create(
-        filename="devices.csv", media_type="text/plain", size_bytes=len(content),
-        content_hash="semantic-csv", uploaded_by="u1",
-    )
-    ingestion_graph.run_ingestion(
-        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
-    )
-    detail = registry.get(record["document_id"])
-    assert detail["status"] == "indexed", detail["error"]
-    assert [(doc.metadata["row"], doc.page_content) for doc in store.documents] == [
-        (2, "name: D1\ndescription: Wash dishes. Paris is in France."),
-    ]
-
-
-def test_semantic_embedding_failure_fails_before_indexing(monkeypatch):
-    class FailingEmbeddings(_SemanticTestEmbeddings):
-        def embed_documents(self, texts):
-            raise RuntimeError("embedding service unavailable")
-
-    monkeypatch.setattr(ingestion_graph, "UPLOAD_CHUNKING_STRATEGY", "semantic")
-    monkeypatch.setattr(ingestion_graph, "get_embeddings_client", FailingEmbeddings)
-    monkeypatch.setattr(ingestion_graph, "get_vector_store", lambda: pytest.fail("must not index"))
-    content = b"First sentence. Second sentence."
-    registry = DocumentRegistry()
-    record = registry.create(
-        filename="manual.txt", media_type="text/plain", size_bytes=len(content),
-        content_hash="semantic-failure", uploaded_by="u1",
-    )
-    ingestion_graph.run_ingestion(
-        registry, record, content, manual_topic="appliances", manual_subtopic="dishwashers"
-    )
-    detail = registry.get(record["document_id"])
-    assert detail["status"] == "failed"
-    assert "chunk: embedding service unavailable" in detail["error"]
 
 
 @pytest.mark.parametrize("media_type", ["text/plain", "application/pdf"])
@@ -971,6 +733,31 @@ def test_section_reference_hints_require_a_unique_visible_topic(replacement_envi
     assert retrieval.find_reference_topics(question, ["appliances", "finance"]) == []
 
 
+def test_uppercase_term_hints_match_whole_words_only_and_require_unique_topic(replacement_environment):
+    import app.rag.retrieval as retrieval
+
+    _, store = replacement_environment
+    store.add_texts(
+        ["The MAP function provides context.", "The roadmap includes MAPPING."],
+        metadatas=[
+            {"topic": "appliances", "subtopic": "dishwashers"},
+            {"topic": "finance", "subtopic": "budgeting"},
+        ],
+        ids=["term", "substring"],
+    )
+    question = "The outcomes of MAP form the basis for which two functions?"
+    assert retrieval.find_reference_topics(question, ["appliances", "finance"]) == [
+        ("MAP", "appliances"),
+    ]
+    assert retrieval.find_reference_topics("How do I use map?", ["appliances", "finance"]) == []
+    store.add_texts(
+        ["MAP is also used here."],
+        metadatas=[{"topic": "finance", "subtopic": "budgeting"}],
+        ids=["shared"],
+    )
+    assert retrieval.find_reference_topics(question, ["appliances", "finance"]) == []
+
+
 def test_topic_router_includes_unique_indexed_section_hint(monkeypatch):
     from types import SimpleNamespace
     import app.routers.topic_router as topic_router
@@ -1025,6 +812,56 @@ def test_force_reindex_same_content_keeps_old_version_until_published(replacemen
     assert store.get(ids=old["chunk_ids"])["ids"] == []
     assert retrieval.retrieve("dishwasher", "appliances", "dishwashers")[0]["version"] == 2
     assert _upload_test_version(content).json()["duplicate"] is True
+
+
+def test_manual_reclassification_preserves_index_until_replacement_is_published(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    old = registry.get(document_id)
+    observed = []
+    add_documents = store.add_documents
+
+    def observe_during_index(documents, **kwargs):
+        result = add_documents(documents, **kwargs)
+        if documents[0].metadata.get("replacement_pending"):
+            observed.extend(retrieval.retrieve("dishwasher", "appliances", "dishwashers"))
+        return result
+
+    monkeypatch.setattr(store, "add_documents", observe_during_index)
+    response = client.post(
+        f"/knowledge/documents/{document_id}/classification",
+        json={"topic": "finance", "subtopic": "budgeting"},
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    assert response.json()["pending"]["version"] == 2
+    assert observed[0]["version"] == 1
+    updated = registry.get(document_id)
+    assert updated["status"] == "indexed", updated["error"]
+    assert (updated["topic"], updated["subtopic"], updated["version"]) == ("finance", "budgeting", 2)
+    assert store.get(ids=old["chunk_ids"])["ids"] == []
+    assert retrieval.retrieve("dishwasher", "finance", "budgeting")[0]["version"] == 2
+
+
+def test_manual_reclassification_failure_keeps_published_chunks(replacement_environment, monkeypatch):
+    import app.rag.retrieval as retrieval
+
+    registry, store = replacement_environment
+    document_id = _upload_test_version(b"Original dishwasher instructions.").json()["document_id"]
+    old_ids = registry.get(document_id)["chunk_ids"]
+    monkeypatch.setattr(store, "similarity_search", lambda *args, **kwargs: [])
+    response = client.post(
+        f"/knowledge/documents/{document_id}/classification",
+        json={"topic": "finance", "subtopic": "budgeting"},
+        headers=_auth_headers(),
+    )
+    assert response.status_code == 200
+    failed = registry.get(document_id)
+    assert failed["status"] == "failed"
+    assert failed["chunk_ids"] == old_ids
+    assert retrieval.retrieve("dishwasher", "appliances", "dishwashers")[0]["version"] == 1
 
 
 def test_force_reindex_rejects_pending_and_missing_original(replacement_environment, monkeypatch):

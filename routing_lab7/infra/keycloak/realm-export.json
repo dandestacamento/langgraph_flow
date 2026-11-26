@@ -6,7 +6,7 @@
   "clients": [
     {
       "clientId": "routing-lab6-frontend",
-      "name": "routing_lab7 chat frontend",
+      "name": "routing_lab6 chat frontend",
       "enabled": true,
       "publicClient": true,
       "protocol": "openid-connect",

@@ -1,5 +1,5 @@
 /**
- * Typed client for routing_lab7's custom FastAPI backend
+ * Typed client for routing_lab6's custom FastAPI backend
  * (app/api/main.py) - NOT the official LangGraph Server protocol (see
  * instructions/learnings/routing-lab-prod-plan.md section 0/2.10 for why
  * this project uses its own minimal API instead of that packaged
@@ -22,10 +22,8 @@ export interface RetrievedPassage {
   source?: string | null;
   version?: number | null;
   page?: number | null;
-  row?: number | null;
   subtopic: string | null;
   score: number | null;
-  score_type?: "vector_distance" | "hybrid_rank" | "mmr_rank" | "reranker" | null;
   text: string | null;
 }
 
