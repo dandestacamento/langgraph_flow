@@ -79,7 +79,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs"
 MANUAL_REVIEW_FIELDS = ["test_id", "level", "question", "answer_verdict", "route_verdict", "comments"]
 RESULTS_FIELDS = [
     "test_id", "level", "question", "routing_correct", "answer_correct",
-    "overall_correct", "latency_ms", "total_tokens", "cost_usd", "error",
+    "answer_scoring_issue", "overall_correct", "latency_ms", "total_tokens", "cost_usd", "error",
 ]
 
 
@@ -199,33 +199,50 @@ def score_case(case: dict, output: dict) -> dict:
     routing_dims = [v for k, v in scores.items() if k.endswith("_correct")]
     scores["routing_correct"] = all(routing_dims) if routing_dims else None
 
+    answer_scoring_issue = None
     if case.get("score_answer", True):
         is_answerable = case.get("is_answerable")
         if is_answerable is None:
             is_answerable = True
-        final_answer = output.get("final_answer", "")
-        retrieved_texts = [
-            p["text"]
-            for topic_passages in (output.get("retrieved_passages") or {}).values()
-            for p in topic_passages
-        ]
-        answer_result = AnswerResult(
-            question_id=case["test_id"],
-            actual_answer=final_answer,
-            expected_facts=case.get("expected_facts") or [],
-            retrieved_texts=retrieved_texts,
-            is_answerable=is_answerable,
-        )
-        scores["answer_correct"] = answer_result.is_correct
-        scores["answer_correctness"] = round(answer_result.correctness, 4)
-        scores["groundedness"] = round(answer_result.groundedness_score, 4)
+        expected_facts = case.get("expected_facts")
+        if is_answerable and (
+            not isinstance(expected_facts, list)
+            or not expected_facts
+            or any(not isinstance(fact, str) or not fact.strip() for fact in expected_facts)
+        ):
+            answer_scoring_issue = "Answerable case requires non-empty expected_facts strings."
+            scores["answer_correct"] = None
+            scores["answer_correctness"] = None
+            scores["groundedness"] = None
+        else:
+            final_answer = output.get("final_answer", "")
+            retrieved_texts = [
+                p["text"]
+                for topic_passages in (output.get("retrieved_passages") or {}).values()
+                for p in topic_passages
+            ]
+            answer_result = AnswerResult(
+                question_id=case["test_id"],
+                actual_answer=final_answer,
+                expected_facts=expected_facts or [],
+                retrieved_texts=retrieved_texts,
+                is_answerable=is_answerable,
+            )
+            scores["answer_correct"] = answer_result.is_correct
+            scores["answer_correctness"] = round(answer_result.correctness, 4)
+            scores["groundedness"] = round(answer_result.groundedness_score, 4)
     else:
         scores["answer_correct"] = None
         scores["answer_correctness"] = None
         scores["groundedness"] = None
 
     overall_dims = [d for d in (scores["routing_correct"], scores["answer_correct"]) if d is not None]
-    scores["overall_correct"] = all(overall_dims) if overall_dims else None
+    scores["answer_scoring_issue"] = answer_scoring_issue
+    scores["overall_correct"] = (
+        False if False in overall_dims
+        else None if answer_scoring_issue or not overall_dims
+        else True
+    )
     return scores
 
 
@@ -355,6 +372,7 @@ def write_results_csv(path: Path, details: list[dict]) -> None:
                     "question": d["question"],
                     "routing_correct": d["scores"].get("routing_correct"),
                     "answer_correct": d["scores"].get("answer_correct"),
+                    "answer_scoring_issue": d["scores"].get("answer_scoring_issue") or "",
                     "overall_correct": d["scores"].get("overall_correct"),
                     "latency_ms": d["latency_ms"],
                     "total_tokens": d["total_tokens"],
@@ -422,6 +440,7 @@ def render_markdown_report(details: list[dict], dataset_path: Path, output_dir: 
     answer_dims = [d["scores"]["answer_correct"] for d in details if d["scores"].get("answer_correct") is not None]
     overall_dims = [d["scores"]["overall_correct"] for d in details if d["scores"].get("overall_correct") is not None]
     errors = [d for d in details if d["error"]]
+    unscored_answers = [d for d in details if d["scores"].get("answer_scoring_issue")]
     total_tokens = sum(d["total_tokens"] for d in details)
     total_cost = sum(d["cost_usd"] for d in details)
     total_latency_s = sum(d["latency_ms"] for d in details) / 1000
@@ -440,7 +459,9 @@ def render_markdown_report(details: list[dict], dataset_path: Path, output_dir: 
     if answer_dims:
         lines.append(f"- **{sum(answer_dims)}/{len(answer_dims)}** correct answers")
     if overall_dims:
-        lines.append(f"- **{sum(overall_dims)}/{len(overall_dims)}** fully correct (routing AND answer)")
+        lines.append(f"- **{sum(overall_dims)}/{len(overall_dims)}** correct on all scored dimensions")
+    if unscored_answers:
+        lines.append(f"- **{len(unscored_answers)}** unscored answer(s) due to incomplete expected facts")
     if errors:
         lines.append(f"- **{len(errors)}** execution error(s)")
     lines.append(f"- Totals: {total_tokens} tokens, ${total_cost:.5f}, {total_latency_s:.2f}s combined latency")
@@ -561,6 +582,8 @@ def main() -> None:
                 f"    routing={scores.get('routing_correct')} answer={scores.get('answer_correct')} "
                 f"overall={scores.get('overall_correct')}"
             )
+            if scores.get("answer_scoring_issue"):
+                print(f"    Answer unscored: {scores['answer_scoring_issue']}")
         details.append(build_detail(case, run_result, scores))
 
     write_results_csv(output_dir / "batch_results.csv", details)
@@ -575,6 +598,8 @@ def main() -> None:
         f"\nWrote reports to {output_dir}\\ "
         "(batch_results.csv, batch_details.json, batch_report.md, manual_review.csv, routing_graph.mmd)"
     )
+    if any(d["scores"].get("answer_scoring_issue") for d in details):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

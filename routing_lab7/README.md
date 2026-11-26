@@ -1266,7 +1266,11 @@ tracking your own manual verdict alongside the automated one.
   that question's routing score - e.g. `["topic", "subtopic"]` for a
   Level 2 question). Add, remove, or edit rows freely; `test_id` just
   needs to stay unique and stable across runs so `manual_review.csv`
-  comments survive.
+  comments survive. An answerable case with answer scoring enabled needs
+  at least one nonblank `expected_facts` string. Otherwise its answer is
+  reported as unscored with an explanation and cannot pass overall based
+  on routing alone; the batch runner writes its reports and exits nonzero.
+  Unanswerable cases can omit facts.
 - **Check an uploaded document:** set `expected_source` to its original
   filename and include `source` in `graded`; the expected topic's retrieved
   passages must include that source. Use `--dataset` and `--output-dir` to
@@ -1281,7 +1285,8 @@ tracking your own manual verdict alongside the automated one.
     decisions, the final answer, and the automated routing/answer scores.
   - `outputs/batch_results.csv` - one row per test for a quick spreadsheet
     scan (routing_correct / answer_correct / overall_correct / latency /
-    tokens / cost / error).
+    tokens / cost / error), including an `answer_scoring_issue` reason when
+    expected answer facts are missing or invalid.
   - `outputs/batch_details.json` - the full routing chain, execution
     trace, and MLflow trace id (when tracing is active) for every test.
   - `outputs/routing_graph.mmd` - Mermaid source for the compiled graph.
@@ -1295,6 +1300,11 @@ tracking your own manual verdict alongside the automated one.
   answer with correct routing (bad retrieval/generation) is a different
   failure from a correct answer that only "worked" because of a wrong
   route, consistent with `app/evaluation/{routing,answer}_metrics.py`.
+  The overall summary counts all enabled, scored dimensions; cases with
+  `score_answer: false` do not establish answer correctness. Automated
+  fact checks are substring matches, not proof of factual accuracy. The
+  standalone routing batch runner does not yet fail its exit code for
+  ordinary wrong answers or execution errors; inspect the reports.
 
 ## Next step
 

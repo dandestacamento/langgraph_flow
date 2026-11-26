@@ -1,3 +1,6 @@
+import csv
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -5,7 +8,106 @@ import pytest
 import app.evaluation.llm_judge as judge_module
 import scripts.run_batch_tests as batch_module
 from app.evaluation.llm_judge import SupportJudgment, judge_answer
-from scripts.run_batch_tests import build_detail, evaluate_support, render_markdown_report, score_case
+from scripts.run_batch_tests import (
+    DATASET_PATH, build_detail, evaluate_support, load_questions, render_markdown_report, score_case,
+)
+
+
+@pytest.mark.parametrize("facts", [None, [], [""], ["  "], ["eco", ""]])
+def test_answerable_case_without_valid_facts_is_incomplete(facts):
+    case = {
+        "test_id": "S000", "level": 1, "question": "What is the cycle?",
+        "expected_topics": ["appliances"], "expected_facts": facts, "graded": ["topic"],
+    }
+    output = {"selected_topics": ["appliances"], "final_answer": "Invented answer."}
+
+    scores = score_case(case, output)
+
+    assert scores["routing_correct"] is True
+    assert scores["answer_correct"] is None
+    assert scores["overall_correct"] is None
+    assert scores["answer_scoring_issue"]
+
+
+def test_incomplete_answer_still_records_incorrect_routing():
+    case = {
+        "test_id": "S000", "question": "What is the cycle?",
+        "expected_topics": ["appliances"], "expected_facts": [], "graded": ["topic"],
+    }
+    scores = score_case(case, {"selected_topics": ["python"], "final_answer": "Invented answer."})
+    assert scores["routing_correct"] is False
+    assert scores["answer_correct"] is None
+    assert scores["overall_correct"] is False
+
+
+def test_unanswerable_case_without_facts_still_scores_decline():
+    case = {
+        "test_id": "S000", "question": "Unknown?", "is_answerable": False,
+        "expected_facts": [], "graded": [],
+    }
+    output = {"final_answer": "Insufficient information in the knowledge base to answer this question."}
+    scores = score_case(case, output)
+    assert scores["answer_correct"] is True
+    assert scores["overall_correct"] is True
+
+
+def test_report_surfaces_unscored_answer():
+    case = {
+        "test_id": "S000", "level": 1, "question": "What is the cycle?",
+        "expected_topics": ["appliances"], "expected_facts": [], "graded": ["topic"],
+    }
+    output = {"selected_topics": ["appliances"], "final_answer": "Invented answer."}
+    run_result = {
+        "output": output, "error": None, "trace_id": None, "latency_ms": 1,
+        "total_tokens": 0, "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0,
+    }
+    detail = build_detail(case, run_result, score_case(case, output))
+    report = render_markdown_report([detail], Path("questions.json"), Path("results"))
+    assert "**1** unscored answer(s)" in report
+    assert "expected_facts" in report
+    assert "**1/1** correct on all scored dimensions" not in report
+
+
+def test_batch_exits_nonzero_for_unscored_answer(monkeypatch, tmp_path):
+    case = {
+        "test_id": "S000", "level": 1, "question": "What is the cycle?",
+        "expected_topics": ["appliances"], "expected_facts": [], "graded": ["topic"],
+    }
+    dataset = tmp_path / "questions.json"
+    dataset.write_text(json.dumps([case]), encoding="utf-8")
+    output_dir = tmp_path / "reports"
+    monkeypatch.setattr(sys, "argv", ["run_batch_tests.py", "--dataset", str(dataset), "--output-dir", str(output_dir)])
+    monkeypatch.setattr(batch_module, "enable_llm_cache", lambda: False)
+    monkeypatch.setattr(batch_module, "enable_mlflow_tracing_if_available", lambda: False)
+    monkeypatch.setattr(batch_module, "build_graph", lambda: None)
+    monkeypatch.setattr(batch_module, "render_graph_diagram", lambda _graph: (None, "graph"))
+    monkeypatch.setattr(batch_module, "run_case", lambda _graph, _case: {
+        "output": {"selected_topics": ["appliances"], "final_answer": "Invented answer."},
+        "error": None, "trace_id": None, "latency_ms": 1, "total_tokens": 0,
+        "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0,
+    })
+
+    with pytest.raises(SystemExit) as exc:
+        batch_module.main()
+    assert exc.value.code == 1
+    with (output_dir / "batch_results.csv").open(encoding="utf-8", newline="") as file:
+        assert "expected_facts" in next(csv.DictReader(file))["answer_scoring_issue"]
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("A decorator wraps a function. functools.wraps preserves metadata.", True),
+        ("A decorator wraps a function.", False),
+    ],
+)
+def test_batch_question_answer_regression(answer, expected):
+    case = load_questions(DATASET_PATH, ["T001"])[0]
+    output = {"selected_topics": ["python"], "final_answer": answer}
+    scores = score_case(case, output)
+    assert scores["routing_correct"] is True
+    assert scores["answer_correct"] is expected
+    assert scores["overall_correct"] is expected
 
 
 @pytest.mark.parametrize(
