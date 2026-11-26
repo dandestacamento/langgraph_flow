@@ -5,22 +5,19 @@ For a single selected topic (Levels 1-6) this is a free pass-through -
 there's nothing to synthesize, so no extra LLM call is made. Starting at
 Level 7 (multi-topic parallel routing), a genuinely multi-topic question
 has more than one topic agent's response to merge into a single coherent
-answer; this uses one extra LLM call (only when len(topics) > 1, so
-single-topic questions are unaffected in cost or behavior) to combine the
-already-grounded, already-cited per-topic answers without re-retrieving
-or re-verifying evidence - each topic agent's answer is itself already
-grounded in its own retrieved passages (Level 4), so synthesis only needs
-to merge and organize, not re-ground.
+answer. The merged answer is checked against the retrieved evidence; if
+the check fails, the individual topic responses are returned instead.
 """
 
 from __future__ import annotations
 
+import json
 import time
 
 from langchain_openai import ChatOpenAI
 
 from app import llm_gateway
-from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER
+from app.agents._shared import INSUFFICIENT_INFO_MARKER, UNVERIFIED_ANSWER_MARKER, _answer_is_supported
 from app.config import AGENT_MODEL
 from app.state import RoutingState
 
@@ -33,6 +30,8 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "original question. Preserve every fact and every cited source from every topic's answer - "
     "do not drop or alter any of them, including document names, page details, and 'tool:<name>' entries. Do "
     "not add any new information beyond what the topic answers already say. "
+    "Preserve conditions and uncertainty; do not turn conditional eligibility or coverage "
+    "into a likely or confirmed outcome. "
     "If a topic reports insufficient information or an unverified answer, preserve that limitation; "
     "do not fill its gaps or imply that part was answered. "
     "Each topic's answer below is introduced by a '--- TOPIC: <name> ---' header - this header is "
@@ -50,6 +49,7 @@ def _format_topic_answers(responses: dict[str, str], topics: list[str]) -> str:
 def synthesize(state: RoutingState) -> dict:
     responses = state["agent_responses"]
     topics = state["selected_topics"]
+    verification_fallback = False
 
     if len(topics) <= 1:
         final_answer = responses.get(topics[0], "") if topics else ""
@@ -75,6 +75,20 @@ def synthesize(state: RoutingState) -> dict:
             ]
         )
         final_answer = response.content.strip()
+        evidence = [
+            passage
+            for topic in topics
+            for passage in state.get("retrieved_passages", {}).get(topic, [])
+        ]
+        evidence.extend(
+            {"text": json.dumps({"topic": topic, "tool_result": tool_result})}
+            for topic in topics
+            if (tool_result := state.get("tool_results", {}).get(topic))
+            and tool_result.get("error") is None
+        )
+        if not _answer_is_supported(state["question"], final_answer, evidence, None):
+            final_answer = _format_topic_answers(responses, topics)
+            verification_fallback = True
         duration_ms = (time.perf_counter() - start) * 1000
 
     return {
@@ -83,7 +97,7 @@ def synthesize(state: RoutingState) -> dict:
             {
                 "node": "synthesis_agent",
                 "action": "synthesize",
-                "output": {"topics_merged": topics},
+                "output": {"topics_merged": topics, "verification_fallback": verification_fallback},
                 "duration_ms": round(duration_ms, 1),
             }
         ],

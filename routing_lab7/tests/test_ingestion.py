@@ -640,6 +640,30 @@ def test_uploaded_sources_include_deduplicated_pages_and_preserve_other_sources(
     assert "ingested_manual" not in answer
 
 
+@pytest.mark.parametrize("separator", ["\n", "\n\n"])
+def test_tool_answer_has_one_authoritative_sources_line(monkeypatch, separator):
+    from types import SimpleNamespace
+    import app.agents._shared as agent
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return SimpleNamespace(content=f"The price is $1499 AUD.{separator}Sources: tool:sql_query")
+
+    monkeypatch.setattr(agent, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(agent.llm_gateway, "llm_kwargs", lambda: {})
+    monkeypatch.setattr(agent, "taxonomy_store", lambda: SimpleNamespace(get=lambda: {"appliances": ["washing_machines"]}))
+    answer, insufficient = agent._generate_answer(
+        "appliances", "What is the price?",
+        [{"chapter_id": "models", "text": "Model information."}],
+        {"tool_name": "sql_query", "tool_input": "SELECT price", "output": "1499", "error": None},
+    )
+    assert not insufficient
+    assert answer == "The price is $1499 AUD.\n\nSources: models, tool:sql_query"
+
+
 def test_insufficient_answer_does_not_list_uploaded_sources(monkeypatch):
     from types import SimpleNamespace
     import app.agents._shared as agent

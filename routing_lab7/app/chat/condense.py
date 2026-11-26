@@ -33,9 +33,12 @@ from app.config import AGENT_MODEL
 
 _CONDENSE_SYSTEM_PROMPT = """You are rewriting a user's latest chat message into a fully \
 self-contained question, using the conversation history below for context. The rewritten \
-question must be understandable completely on its own, with no reference to "it", "that", "the \
-first one", "instead", etc. - resolve every such reference to the specific entity/topic/model the \
-conversation history actually established.
+question should be understandable on its own when the conversation establishes enough context. \
+Resolve references like "it", "that", or "the first one" only when their meaning is clear from \
+the conversation or attachments. If a reference or the meaning of the question remains unclear, \
+preserve the ambiguity instead of guessing; the downstream router can ask for clarification. \
+Never change what the user is asking, such as interpreting "covered" as a topic previously \
+discussed rather than retaining the original meaning.
 
 For an ambiguous reference such as "it" or "its", prefer the most recently discussed \
 compatible subject, especially when the latest user turn explicitly introduced or switched to \
@@ -67,8 +70,8 @@ class CondensedQuestion(BaseModel):
     """Structured output for the condensing call."""
 
     self_contained_question: str = Field(
-        description="The user's latest message, rewritten as a fully self-contained question "
-        "that doesn't require the conversation history to understand."
+        description="The user's latest message with clear references resolved, preserving any "
+        "ambiguity that cannot be resolved from the conversation or attachments."
     )
     is_conversation_meta: bool = Field(
         description="True only when the latest message asks about the conversation itself "
@@ -116,12 +119,9 @@ def condense_question(
     `conversation_history` so far and any attached files' extracted
     content, and classify whether it's a conversation-meta question
     (answered from history) or an attachment-direct question (answered
-    from the attachment - plan4 §1.4). The LLM itself decides (per the
-    system prompt) whether `latest_message` already is self-contained,
-    in which case it's returned unchanged - there's no separate
-    heuristic/classifier deciding that ahead of time, and both extra
-    classifications ride on this same always-on call rather than adding
-    a second one."""
+    from the attachment - plan4 §1.4). For a knowledge question with no
+    history or attachments, preserve the original message rather than
+    introducing unsupported context."""
     llm = ChatOpenAI(model=AGENT_MODEL, temperature=0, **llm_gateway.llm_kwargs()).with_structured_output(
         CondensedQuestion
     )
@@ -133,8 +133,11 @@ def condense_question(
     result: CondensedQuestion = llm.invoke(
         [("system", _CONDENSE_SYSTEM_PROMPT), ("human", human_message)]
     )
+    question = result.self_contained_question.strip()
+    if not conversation_history and not attachments and not result.is_conversation_meta:
+        question = latest_message.strip()
     return CondensedQuestion(
-        self_contained_question=result.self_contained_question.strip(),
+        self_contained_question=question,
         is_conversation_meta=result.is_conversation_meta,
         is_attachment_direct=result.is_attachment_direct,
     )

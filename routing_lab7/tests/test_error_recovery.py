@@ -187,6 +187,126 @@ def test_level_10_overall_answer_accuracy(compiled_graph):
 
 # --- Direct mechanism tests (bypass the full graph; see module docstring) ---
 
+def test_curated_unsupported_conditional_answer_is_retried(monkeypatch):
+    passage = {
+        "chapter_id": "faults",
+        "text": "Coverage depends on the root cause and purchase date.",
+    }
+    answers = iter([
+        ("The repair is typically covered.", False),
+        ("Coverage depends on the cause and purchase date.", False),
+    ])
+    checks = iter([False, True])
+    monkeypatch.setattr(shared_agent, "_generate_answer", lambda *args: next(answers))
+    monkeypatch.setattr(shared_agent, "_answer_is_supported", lambda *args: next(checks))
+    monkeypatch.setattr(shared_agent, "retrieve", lambda *args, **kwargs: [passage])
+    result = run_topic_agent("appliances", {
+        "question": "Is the repair covered?", "retrieved_passages": {"appliances": [passage]},
+    })
+    assert result["agent_responses"]["appliances"] == "Coverage depends on the cause and purchase date."
+    assert result["recovery_attempts"]["appliances"]["reason"] == "answer_not_verified"
+    assert result["recovery_attempts"]["appliances"]["succeeded"] is True
+
+
+def test_unverified_curated_retry_is_withheld(monkeypatch):
+    passage = {"chapter_id": "faults", "text": "Coverage depends on the cause and purchase date."}
+    monkeypatch.setattr(shared_agent, "_generate_answer", lambda *args: ("It is typically covered.", False))
+    monkeypatch.setattr(shared_agent, "_answer_is_supported", lambda *args: False)
+    monkeypatch.setattr(shared_agent, "retrieve", lambda *args, **kwargs: [passage])
+    result = run_topic_agent("appliances", {
+        "question": "Is the repair covered?", "retrieved_passages": {"appliances": [passage]},
+    })
+    assert result["agent_responses"]["appliances"] == shared_agent.UNVERIFIED_ANSWER_MARKER
+    assert result["recovery_attempts"]["appliances"]["succeeded"] is False
+
+
+def test_tool_only_answer_is_checked_against_tool_result(monkeypatch):
+    tool = {"tool_name": "sql_query", "tool_input": "SELECT price", "output": "1499", "error": None}
+    checks = []
+    monkeypatch.setattr(shared_agent, "_generate_answer", lambda *args: ("The price is 1499.", False))
+    monkeypatch.setattr(
+        shared_agent, "_answer_is_supported",
+        lambda question, answer, passages, tool_result: checks.append((passages, tool_result)) or True,
+    )
+    result = run_topic_agent("appliances", {
+        "question": "What is the price?", "retrieved_passages": {}, "tool_results": {"appliances": tool},
+    })
+    assert checks == [([], tool)]
+    assert result["agent_responses"]["appliances"] == "The price is 1499."
+    assert result["recovery_attempts"]["appliances"]["attempted"] is False
+
+
+def test_unsupported_synthesis_falls_back_to_checked_topic_answers(monkeypatch):
+    from types import SimpleNamespace
+    import app.agents.synthesis_agent as synthesis
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return SimpleNamespace(content="The repair is covered and refunds are available.")
+
+    evidence_seen = []
+    monkeypatch.setattr(synthesis, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(synthesis.llm_gateway, "llm_kwargs", lambda: {})
+    monkeypatch.setattr(
+        synthesis, "_answer_is_supported",
+        lambda question, answer, passages, tool: evidence_seen.extend(passages) or False,
+        raising=False,
+    )
+    result = synthesis.synthesize({
+        "question": "Is the repair covered and what is the refund policy?",
+        "selected_topics": ["appliances", "customer_support"],
+        "agent_responses": {
+            "appliances": "Coverage depends on the cause and purchase date.",
+            "customer_support": "Unopened items can be refunded within 30 days.",
+        },
+        "retrieved_passages": {
+            "appliances": [{"text": "Coverage depends on the cause and purchase date."}],
+            "customer_support": [{"text": "Unopened items can be refunded within 30 days."}],
+        },
+        "tool_results": {"appliances": {"tool_name": "calculator", "output": "2", "error": None}},
+    })
+    assert "Coverage depends on the cause" in result["final_answer"]
+    assert "Unopened items" in result["final_answer"]
+    assert "The repair is covered" not in result["final_answer"]
+    assert any("calculator" in p["text"] for p in evidence_seen)
+    assert result["execution_log"][0]["output"]["verification_fallback"] is True
+
+
+def test_supported_synthesis_is_returned(monkeypatch):
+    from types import SimpleNamespace
+    import app.agents.synthesis_agent as synthesis
+
+    merged = "Coverage depends on the cause. Unopened items can be refunded within 30 days."
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return SimpleNamespace(content=merged)
+
+    monkeypatch.setattr(synthesis, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(synthesis.llm_gateway, "llm_kwargs", lambda: {})
+    monkeypatch.setattr(synthesis, "_answer_is_supported", lambda *args: True)
+    result = synthesis.synthesize({
+        "question": "Is the repair covered and what is the refund policy?",
+        "selected_topics": ["appliances", "customer_support"],
+        "agent_responses": {
+            "appliances": "Coverage depends on the cause.",
+            "customer_support": "Unopened items can be refunded within 30 days.",
+        },
+        "retrieved_passages": {
+            "appliances": [{"text": "Coverage depends on the cause."}],
+            "customer_support": [{"text": "Unopened items can be refunded within 30 days."}],
+        },
+    })
+    assert result["final_answer"] == merged
+    assert result["execution_log"][0]["output"]["verification_fallback"] is False
+
+
 def test_recovery_exposes_passages_actually_used_for_answer(monkeypatch):
     original = {"chapter_id": "old", "text": "wrong"}
     recovered = {"chapter_id": "new", "text": "correct", "source": "manual.pdf", "page": 8, "version": 1}
@@ -317,6 +437,7 @@ def test_recovery_uses_broader_hybrid_search_after_decline(monkeypatch):
         return [{"chapter_id": "answer", "text": "found"}]
 
     monkeypatch.setattr(shared_agent, "retrieve", retrieve)
+    monkeypatch.setattr(shared_agent, "_answer_is_supported", lambda *args: True)
     state = {"question": "q", "retrieved_passages": {"appliances": []}}
     result = run_topic_agent("appliances", state)
     assert result["recovery_attempts"]["appliances"]["succeeded"] is True

@@ -32,6 +32,72 @@ assert CHAT_CONVERSATIONS, "No conversations found in datasets/chat_ground_truth
 MIN_CONDENSING_ACCURACY = 0.9
 
 
+def test_condense_does_not_invent_context_for_first_knowledge_question(monkeypatch):
+    import app.chat.condense as condensing
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def with_structured_output(self, model):
+            return self
+
+        def invoke(self, messages):
+            return condensing.CondensedQuestion(
+                self_contained_question="Are Azure Blob Storage tiers covered in our conversation?",
+                is_conversation_meta=False,
+            )
+
+    monkeypatch.setattr(condensing, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(condensing.llm_gateway, "llm_kwargs", lambda: {})
+    assert condensing.condense_question([], "Is it covered?").self_contained_question == "Is it covered?"
+
+
+def test_condense_keeps_followup_resolution_with_history(monkeypatch):
+    import app.chat.condense as condensing
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def with_structured_output(self, model):
+            return self
+
+        def invoke(self, messages):
+            return condensing.CondensedQuestion(
+                self_contained_question="What is the WM-500's standard warranty term?",
+                is_conversation_meta=False,
+            )
+
+    monkeypatch.setattr(condensing, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(condensing.llm_gateway, "llm_kwargs", lambda: {})
+    history = [{"user_message": "What is E21 on the WM-500?", "final_answer": "A drainage fault."}]
+    assert "WM-500" in condensing.condense_question(history, "What is its warranty?").self_contained_question
+
+
+def test_condense_can_use_attachment_context_on_first_turn(monkeypatch):
+    import app.chat.condense as condensing
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            pass
+
+        def with_structured_output(self, model):
+            return self
+
+        def invoke(self, messages):
+            return condensing.CondensedQuestion(
+                self_contained_question="What does washing machine error E21 mean?",
+                is_conversation_meta=False,
+            )
+
+    monkeypatch.setattr(condensing, "ChatOpenAI", FakeLLM)
+    monkeypatch.setattr(condensing.llm_gateway, "llm_kwargs", lambda: {})
+    attachments = [{"filename": "panel.png", "media_type": "image/png", "extracted_text": "E21"}]
+    result = condensing.condense_question([], "What does this error mean?", attachments)
+    assert "E21" in result.self_contained_question
+
+
 def _turn_id(conversation_id: str, turn: dict) -> str:
     return f"{conversation_id}-T{turn['turn']}"
 

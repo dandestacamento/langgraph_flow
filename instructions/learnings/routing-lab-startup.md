@@ -115,12 +115,14 @@ text are not interpreted. Previously uploaded documents may need to be
 re-indexed to get the new chunks and page metadata; see the
 [lab7 README](../../routing_lab7/README.md).
 
-For manual regression, ask the questions in
+For step-by-step manual regression, use the
+[lab7 manual Q&A guide](../../routing_lab7/docs/manual_regression_q_and_a_20261126.md).
+The underlying question sets are
 [batch_test_questions.json](../../routing_lab7/datasets/batch_test_questions.json),
 [nist_questions.json](../../routing_lab7/datasets/nist_questions.json), or
-[dishwasher_manual_file2_questions.json](../../routing_lab7/datasets/dishwasher_manual_file2_questions.json)
-in the chat UI. Compare each response with `expected_answer`, and inspect
-**Routing details** and the source passages. NIST and dishwasher manual
+[dishwasher_manual_file2_questions.json](../../routing_lab7/datasets/dishwasher_manual_file2_questions.json).
+Ask the questions in the chat UI, compare each response with the guide's
+expectation, and inspect **Routing details** and the source passages. NIST and dishwasher manual
 questions require the corresponding document to be indexed. Record your verdict
 and comments in your own notes or the appropriate `manual_review.csv` under
 `routing_lab7\outputs`. Retrieved sources do not guarantee that an answer is
